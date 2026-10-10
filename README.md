@@ -23,17 +23,32 @@ Sistem yalnızca en kısa rotayı bulmaz. Dağıtım sürecini birden fazla değ
 
 ## Mimari
 
-Web tabanlı, üç katmanlı bir yazılım mimarisi:
+Web tabanlı, servis ayrımlı bir mimari. Ayrıntılar: [Sistem Mimarisi](docs/architecture.md)
 
-| Katman | Sorumluluk |
-|---|---|
-| **Backend** | Kullanıcı, kurye/araç, teslimat noktası, rota ve analiz verilerinin yönetimi; optimizasyon algoritması |
-| **Frontend** | Rota takibi, teslimat yönetimi, analiz ve raporlama arayüzü |
-| **Veritabanı** | Dağıtım geçmişi, araç/teslimat kayıtları, performans metrikleri |
+| Bileşen | Teknoloji | Sorumluluk |
+|---|---|---|
+| **Backend** | Java 21 + Spring Boot 3.4+ | Domain yönetimi, veri sahipliği, matris cache'i, analizler |
+| **Optimizer** | Python 3.12 + FastAPI | Rota optimizasyon algoritması (durumsuz, DB erişimi yok) |
+| **Frontend** | React 19 + Vite + TypeScript + MapLibre | Yönetim arayüzü, harita görselleştirme, raporlar |
+| **Veritabanı** | PostgreSQL + PostGIS | Coğrafi veri, dağıtım geçmişi, performans metrikleri |
+| **Mesafe verisi** | OpenRouteService API | Mesafe/süre matrisi (`DistanceMatrixProvider` arkasında; OSRM'e geçiş açık) |
 
-### Teknoloji Yığını
+### Çözülen Problem
 
-> TBD — backend, frontend ve veritabanı teknolojileri henüz seçilmedi.
+**MDVRPTW** — Multi-Depot Vehicle Routing Problem with Time Windows. Çok depo, araç
+kapasitesi ve teslimat zaman penceresi sert kısıt; teslimat önceliği, yakıt ve sürücü
+maliyeti amaç fonksiyonunda **birlikte** değerlendirilir.
+
+Optimizasyon algoritması hazır bir çözücü değil, projeye özgü olarak geliştirilir:
+Solomon I1 insertion ile başlangıç çözümü, ardından zaman olurluluğunu koruyan yerel
+arama hamleleri (relocate, exchange, Or-opt, 2-opt\*) üzerinde simulated annealing.
+
+Sistem üç katman hâlinde inşa edilir ve her katman çalışan bir sistemdir:
+**CVRP → VRPTW → MDVRPTW**.
+
+Çözüm kalitesi iki şekilde ölçülür: her koşuda hesaplanan naive baseline rotaya karşı
+tasarruf yüzdesi, ve literatürdeki standart test kümelerine (Solomon, Cordeau) karşı
+en iyi bilinen çözümden sapma (gap %).
 
 ## Gelişim Planı
 
