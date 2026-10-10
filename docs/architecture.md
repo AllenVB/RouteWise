@@ -315,7 +315,73 @@ Hız karşılaştırması ancak implementasyonlar benzer özenle, aynı dilde, a
 üzerinde yazıldığında adildir; her algoritma N kez koşturulur, medyan raporlanır. Asıl
 ilginç sonuç tek başına hız değil **kalite–süre dengesidir**.
 
-## 11. Akışlar
+## 11. Analiz ve Raporlama
+
+Projenin **ana amacı** burada ölçülür: dağıtımda ne kadar tasarruf sağlandığı.
+
+### Veri akışı — durumsuzluk korunur
+
+```
+Spring Boot          SQL ile koşu geçmişini agrege eder (haftalık / aylık / yıllık)
+      │ veri seti (JSON)
+      ▼
+Python analytics     pandas ile istatistik · scipy ile anlamlılık · matplotlib ile figür
+      │ sayılar + figürler
+      ▼
+Spring Boot → React  ekranda gösterir, dışa aktarır
+```
+
+Python veriyi **istekle alır**, sonucu döner. DB sürücüsü gerekmez; §6'daki durumsuzluk
+kuralı korunur.
+
+### Python kütüphaneleri
+
+| Kütüphane | İş |
+|---|---|
+| `numpy` | Mesafe matrisi işlemleri, sayısal hesap |
+| `pandas` | Agregasyon, zaman serisi resample, tablo üretimi |
+| `scipy` | **İstatistiksel anlamlılık testleri** |
+| `matplotlib` | Yayın kalitesinde statik figür — tez raporuna doğrudan gömülür (SVG/PDF) |
+| `plotly` | İnteraktif grafik (HTML) |
+| `openpyxl` | Excel dışa aktarma |
+
+### İstatistiksel anlamlılık
+
+"RouteWise greedy'den %13 daha iyi" iddiası tek başına zayıftır: *"Bu fark şans eseri
+olamaz mı?"* sorusuna cevap vermez.
+
+Aynı senaryo kümesi tüm algoritmalarla koşturulur ve **eşleştirilmiş Wilcoxon işaretli
+sıra testi** (dağılım varsayımı gerektirmez) veya paired t-test uygulanır. Çıktı:
+
+> RouteWise, greedy'ye göre anlamlı derecede daha iyi (p < 0.001, n = 50 senaryo).
+
+Maliyeti birkaç satır kod, kazancı iddianın savunulabilirliğidir. Baştan analiz
+modülüne konur.
+
+### Grafik üretimi — iki yerde, iki amaçla
+
+| Nerede | Teknoloji | Amaç |
+|---|---|---|
+| Ekran | React + Recharts | İnteraktif: hover, filtre, canlı güncelleme |
+| Rapor | Python + matplotlib | Yayın kalitesi, vektörel (SVG/PDF) — baskıda bozulmaz |
+
+İkisi aynı veriyi farklı tüketiciler için sunar; ekran görüntüsü alıp teze koymak
+gerekmez.
+
+### Dışa aktarma
+
+| Format | İçerik |
+|---|---|
+| **PDF** | Figürlerle birlikte sunuma/teze hazır tasarruf raporu |
+| **Excel** | Ham sayılar — danışmanın kendi analizini yapabileceği tablo |
+
+### Raporlanan metrikler
+
+Toplam mesafe (km) · yakıt tüketimi (L) · yakıt maliyeti (TL) · sürücü maliyeti (TL) ·
+toplam maliyet (TL) · kullanılan araç sayısı · ortalama teslimat süresi · naive
+baseline'a göre tasarruf (%) — haftalık, aylık ve yıllık kırılımda.
+
+## 12. Akışlar
 
 ### Optimizasyon akışı
 
@@ -342,21 +408,77 @@ Normal optimizasyondan **ayrı** tetiklenir — her değişiklikte tüm algoritm
 gereksiz pahalıdır. Kullanıcı bir kargo listesi seçer, koşuyu başlatır; sonuçlar koşu
 kaydı olarak saklanır.
 
-## 12. Dağıtım
+## 13. Dağıtım (Docker)
 
-**Docker Compose** ile yerel çalıştırma. Servisler:
+**Tüm servisler Docker'da** — geliştirme de teslim de aynı Compose üzerinden çalışır.
+Danışman/jüri tek komutla sistemi ayağa kaldırabilmelidir.
 
-| Servis | İçerik |
+### Servisler
+
+| Servis | İmaj / kaynak | Port |
+|---|---|---|
+| `db` | `pgrouting/pgrouting:17-3.6-3.8` (PostgreSQL 17 + PostGIS 3.6 + pgRouting 3.8) | 5432 |
+| `backend` | `./backend` — Java 21, Spring Boot | 8080 |
+| `python` | `./python` — Python 3.12, FastAPI (optimizer + analytics) | 8000 |
+| `frontend` | `./frontend` — Node 22, Vite (dev) / nginx (prod) | 5173 / 80 |
+| `dataprep` | `./infra/dataprep` — Debian + `osmium-tool` + `osm2pgrouting`, tek seferlik | — |
+
+`postgis/postgis` **kullanılmıyor**: pgRouting içermiyor. Alternatif olarak
+`nickblah/pgrouting` yama sürümüne kadar sabitlenebilir etiketler sunar.
+
+### Volume'ler
+
+| Volume | İçerik | Neden pahalı |
+|---|---|---|
+| `pgdata` | Veritabanı | Yol grafı import'u dakikalar sürer |
+| `osmdata` | `turkey-latest.osm.pbf` + kırpılmış Bandırma | 619 MB indirme |
+| `graphdata` | Optimizer'ın okuduğu graf dosyası (salt okunur bağlanır) | Export adımı tekrar gerekir |
+| `gradle-cache` | Gradle bağımlılıkları | Her build'de yeniden indirme olmasın |
+
+Bu volume'ler kaybedilirse veri hazırlığı baştan yapılır. **`docker compose down -v`
+çalıştırılmamalıdır** — `down` (volume'süz) yeterlidir.
+
+### Başlatma sırası
+
+| Servis | Bağımlılık | Healthcheck |
+|---|---|---|
+| `db` | — | `pg_isready` |
+| `backend` | `db` healthy | Actuator `/health` |
+| `python` | — | `/health` — graf dosyası yoksa **fail fast**, sessiz başlamaz |
+| `frontend` | `backend` (gevşek) | HTTP 200 |
+
+### Veri hazırlığı — tek seferlik, dört adım
+
+```
+docker compose run --rm dataprep download   # turkey-latest.osm.pbf  (619 MB)
+docker compose run --rm dataprep clip       # osmium extract --polygon bandirma.poly
+docker compose run --rm dataprep load       # osm2pgrouting → db
+docker compose run --rm dataprep export     # graf dosyası → graphdata
+```
+
+Adımlar ayrıdır: biri başarısız olursa baştan başlanmaz. Normal `docker compose up`
+akışının parçası **değildir** — günlük başlatma saniyeler sürmelidir.
+
+`osm2pgrouting` topolojiyi kendisi kurar; ayrıca `pgr_createTopology` çalıştırmak
+gerekmez. Aracın bilinen kısıtı veriyi tamamen belleğe yüklemesidir — Bandırma
+ölçeğinde önemsizdir.
+
+### Windows'a özgü ayarlar
+
+Tüm servisler container'da koştuğu için bunlar baştan yapılandırılır:
+
+| Sorun | Ayar |
 |---|---|
-| `db` | PostgreSQL + PostGIS + pgRouting |
-| `backend` | Spring Boot |
-| `optimizer` | Python FastAPI |
-| `frontend` | Vite dev / nginx (prod build) |
+| Vite hot reload tetiklenmez (bind-mount dosya olayları iletilmez) | `server.watch.usePolling: true`, `server.host: '0.0.0.0'` |
+| Spring Boot her değişiklikte imaj derlerse iterasyon ölür | `bootRun` + devtools, kaynak bind-mount, `.gradle` named volume'de |
+| Optimizer her restart'ta grafı yeniden yükler | Graf **kompakt ikili formatta** saklanır, JSON değil |
 
-Tek seferlik veri hazırlığı (OSM indirme → `osmium extract` → `osm2pgrouting`) ayrı bir
-kurulum betiği olarak repoda belgelenir; normal `docker compose up` akışının parçası değildir.
+### Yapılandırma
 
-## 13. Test Stratejisi
+Sırlar ve ortam ayarları `.env` dosyasında; `.env.example` repoda versiyonlanır,
+`.env` **`.gitignore`'da**.
+
+## 14. Test Stratejisi
 
 | Katman | Yaklaşım |
 |---|---|
@@ -373,7 +495,7 @@ kurulum betiği olarak repoda belgelenir; normal `docker compose up` akışını
 En kritik iki test sınıfı: **olurluluk** (sert kısıt ihlali sessizce geçerse algoritma
 geçersiz rota döndürür ve kimse fark etmez) ve **yetkilendirme** (rol sızıntısı).
 
-## 14. Açık Kararlar
+## 15. Açık Kararlar
 
 - [ ] Bandırma OSM idari sınır ilişki kimliği (kurulumda OSM'den teyit edilecek)
 - [ ] Ters geocoding kaynağı: Nominatim (self-hosted mu, public API mi?)

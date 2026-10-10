@@ -1,0 +1,2286 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>RouteWise — Detaylı Sistem Analizi</title>
+<style>
+  :root{
+    --ink:#1b2430; --muted:#64748b; --rule:#cbd5e1; --surface:#f1f5f9;
+    --primary:#1f5fa8; --frontend:#c87d1f; --backend:#2d7a6b; --python:#6f4a9e;
+    --data:#3f6f9f; --neg:#b3382c; --pos:#2d7a4b;
+  }
+  @page{ size:A4 landscape; margin:0; }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ font-family:"Segoe UI",system-ui,-apple-system,sans-serif; color:var(--ink);
+        background:#fff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page{ width:297mm; height:210mm; padding:11mm 13mm 8mm; display:flex; flex-direction:column;
+         overflow:hidden; page-break-after:always; break-after:page; position:relative; }
+  .page:last-child{ page-break-after:auto; break-after:auto; }
+  .phead{ display:flex; align-items:baseline; gap:9px; border-bottom:1.5px solid var(--ink);
+          padding-bottom:4px; margin-bottom:7px; flex:0 0 auto; }
+  .pnum{ font-size:10pt; font-weight:700; color:var(--primary); }
+  .ptitle{ font-size:15pt; font-weight:650; letter-spacing:-.01em; }
+  .psub{ font-size:9pt; color:var(--muted); margin-left:auto; }
+  .body{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+  .body > svg{ width:100%; height:100%; display:block; }
+  .foot{ flex:0 0 auto; padding-top:4px; margin-top:3px; border-top:1px solid var(--rule);
+         font-size:7.5pt; color:var(--muted); display:flex; justify-content:space-between; }
+  svg text{ font-family:"Segoe UI",system-ui,sans-serif; }
+
+  .cols{ display:grid; gap:7mm; flex:1 1 auto; min-height:0; }
+  .c2{ grid-template-columns:1fr 1fr; } .c3{ grid-template-columns:1fr 1fr 1fr; }
+  .c21{ grid-template-columns:1.35fr 1fr; }
+
+  .tbl{ width:100%; border-collapse:collapse; font-size:7.8pt; }
+  .tbl caption{ text-align:left; font-size:9.5pt; font-weight:700; padding:0 0 3px;
+                color:var(--primary); }
+  .tbl th{ background:var(--primary); color:#fff; text-align:left; padding:3px 5px; font-weight:600;
+           font-size:7.6pt; }
+  .tbl td{ padding:2.6px 5px; border-bottom:1px solid #e8edf3; vertical-align:top; }
+  .tbl tr:nth-child(even) td{ background:#f8fafc; }
+  .tbl.g th{ background:var(--backend); } .tbl.p th{ background:var(--python); }
+  .tbl.o th{ background:var(--frontend); } .tbl.d th{ background:var(--data); }
+  .pk{ color:var(--neg); font-weight:700; } .fk{ color:var(--primary); font-weight:600; }
+  .ty{ color:var(--muted); font-size:7.2pt; }
+  .note{ font-size:8pt; color:var(--muted); margin-top:4px; line-height:1.45; }
+  .warn{ background:#fdf2f1; border:1.4px solid var(--neg); border-radius:6px; padding:6px 9px;
+         font-size:8.2pt; color:#7a3b33; line-height:1.45; }
+  .warn b{ color:#8e2c22; }
+  .ok{ background:#f0f7f3; border:1.4px solid var(--pos); border-radius:6px; padding:6px 9px;
+       font-size:8.2pt; color:#3a6b51; line-height:1.45; }
+  .ok b{ color:#215d3b; }
+  .info{ background:#fafcfe; border:1.2px solid var(--rule); border-radius:6px; padding:6px 9px;
+         font-size:8.2pt; color:#475569; line-height:1.45; }
+  h3.sec{ font-size:10pt; font-weight:700; margin:0 0 4px; color:var(--ink); }
+  h3.sec.sp{ margin-top:7px; }
+  ul.lst{ font-size:8.3pt; line-height:1.55; padding-left:14px; color:#475569; }
+  ul.lst b{ color:var(--ink); }
+
+  /* cover */
+  .cover{ justify-content:center; }
+  .cwrap{ display:grid; grid-template-columns:1.1fr 1fr; gap:14mm; align-items:center; }
+  .brand{ font-size:42pt; font-weight:700; letter-spacing:-.03em; line-height:1; color:var(--primary); }
+  .bsub{ font-size:12pt; font-weight:600; margin-top:5px; }
+  .btr{ font-size:9.5pt; color:var(--muted); margin-top:9px; line-height:1.5; max-width:48ch; }
+  .rule{ height:3px; width:58px; background:var(--primary); margin:12px 0; }
+  .meta{ font-size:8.8pt; color:var(--muted); line-height:1.75; margin-top:12px; }
+  .meta b{ color:var(--ink); font-weight:600; }
+  .toc{ font-size:8.6pt; line-height:1.85; color:#475569; }
+  .toc b{ color:var(--primary); display:inline-block; width:22px; }
+  .toc .grp{ font-weight:700; color:var(--ink); display:block; margin-top:7px; font-size:9pt; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker>
+  <marker id="arP" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#1f5fa8"/></marker>
+  <marker id="arD" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#3f6f9f"/></marker>
+  <marker id="arV" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#6f4a9e"/></marker>
+  <marker id="arN" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#b3382c"/></marker>
+  <marker id="arG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#2d7a4b"/></marker>
+</defs></svg>
+
+
+<!-- ═══ 1 KAPAK ═══ -->
+<section class="page cover">
+  <div class="cwrap">
+    <div>
+      <div class="brand">RouteWise</div>
+      <div class="bsub">Detaylı Sistem Analizi ve Akış Şeması</div>
+      <div class="rule"></div>
+      <div class="btr">
+        Lojistik Dağıtım Süreçlerinde Dinamik Rota ve Araç Optimizasyonu
+        Sağlayan Akıllı Yazılım Sistemi
+      </div>
+      <div class="meta">
+        <b>Kapsam:</b> Bandırma içi kargo dağıtımı — tek dağıtım merkezi<br>
+        <b>Problem sınıfı:</b> CVRP + maksimum rota süresi + dinamik yeniden rotalama<br>
+        <b>Yığın:</b> Spring Boot · React · PostgreSQL/PostGIS · Python<br>
+        <b>Repo:</b> github.com/AllenVB/RouteWise<br>
+        <b>Sürüm:</b> Taslak v1 · 10.10.2026 — <i>revizyon için</i>
+      </div>
+      <div class="warn" style="margin-top:12px">
+        <b>Bu doküman revizyon içindir.</b> Veri modeli ve bazı iş kuralları bu çalışmada
+        ilk kez tasarlanmıştır; <b>varsayım</b> olarak işaretlenen noktalar danışman
+        görüşüne açıktır ve değiştirilebilir.
+      </div>
+    </div>
+
+    <div class="toc">
+      <span class="grp">Tanım ve Yapı</span>
+      <b>02</b> Problem tanımı, kapsam ve kısıtlar<br>
+      <b>03</b> Teknoloji yığını — kullanılan her şey<br>
+      <b>04</b> Sistem mimarisi ve bileşenler<br>
+      <b>05</b> Docker dağıtım mimarisi<br>
+      <span class="grp">Veri Modeli</span>
+      <b>06</b> ER diyagramı — genel görünüm<br>
+      <b>07</b> Tablo detayları I — kullanıcı, rol, adres<br>
+      <b>08</b> Tablo detayları II — kargo, rota, optimizasyon<br>
+      <b>09</b> İlişki kardinaliteleri ve bütünlük kuralları<br>
+      <span class="grp">Süreçler</span>
+      <b>10</b> Roller, yetkiler ve durum makineleri<br>
+      <b>11</b> Veri hattı — OSM'den yol grafına<br>
+      <b>12</b> Optimizasyon akışı<br>
+      <b>13</b> Dinamik yeniden rotalama senaryoları<br>
+      <span class="grp">Algoritma</span>
+      <b>14</b> RouteWise algoritması<br>
+      <b>15</b> Amaç fonksiyonu — maliyet modeli<br>
+      <b>16</b> Algoritma karşılaştırması — iki seviye<br>
+      <span class="grp">Çıktı</span>
+      <b>17</b> Analiz, Excel raporları ve tasarruf yüzdesi<br>
+      <b>18</b> Geliştirme yol haritası<br>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══ 2 PROBLEM ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">02</span><span class="ptitle">Problem Tanımı, Kapsam ve Kısıtlar</span>
+    <span class="psub">Ne çözülüyor, ne çözülmüyor</span></div>
+  <div class="body">
+    <div class="cols c2">
+      <div>
+        <h3 class="sec">Çözülen problem</h3>
+        <div class="info">
+          <b style="color:#1b2430">CVRP + maksimum rota süresi</b> — Capacitated Vehicle Routing
+          Problem, tek depo, çalışma günü süre sınırı ile; üstüne dağıtım sırasında
+          <b style="color:#1b2430">dinamik yeniden rotalama</b>.
+          <br><br>Bandırma'daki tek kargo şubesinden çıkan araçlar, kapasiteleri kadar paketi
+          gün içinde teslim edip şubeye döner. Sistem bu dağıtımı yalnızca mesafe değil,
+          <b style="color:#1b2430">yakıt, süre, sürücü maliyeti ve teslimat önceliğini birlikte</b>
+          değerlendirerek planlar.
+        </div>
+
+        <h3 class="sec sp">Kısıtlar ve değişkenler</h3>
+        <table class="tbl">
+          <tr><th>Boyut</th><th>Tip</th><th>Modelleme</th></tr>
+          <tr><td>Araç kapasitesi</td><td style="color:#b3382c;font-weight:700">SERT</td><td>Σ paket ağırlığı ≤ kapasite · aşılamaz</td></tr>
+          <tr><td>Çalışma günü süresi</td><td style="color:#b3382c;font-weight:700">SERT</td><td>toplam rota süresi ≤ gün sınırı</td></tr>
+          <tr><td>Teslimat önceliği</td><td style="color:#c87d1f;font-weight:700">YUMUŞAK</td><td>amaç fonksiyonunda ceza katsayısı</td></tr>
+          <tr><td>Toplam mesafe</td><td>amaç</td><td>yol grafı + Dijkstra</td></tr>
+          <tr><td>Yakıt tüketimi</td><td>amaç</td><td>araç bazlı L/100km × km</td></tr>
+          <tr><td>Sürücü maliyeti</td><td>amaç</td><td>süre × saatlik ücret</td></tr>
+          <tr><td>Dağıtım merkezi</td><td>yapısal</td><td><b>tek</b> depo</td></tr>
+        </table>
+
+        <div class="warn" style="margin-top:7px">
+          <b>Kapsam dışı:</b> müşteri bazlı zaman penceresi (VRPTW). "Tüm teslimatlar gün
+          içinde bitsin" rota başına <b>tek bir süre üst sınırıdır</b>; "bu paket 09:00–12:00
+          arası teslim edilmeli" değildir. İkincisi her teslimat için ayrı olurluluk kontrolü,
+          varış saati yayılımı ve bekleme süresi hesabı gerektirir ve problem sınıfını değiştirir.
+        </div>
+      </div>
+
+      <div>
+        <h3 class="sec">Projenin özgün yanı</h3>
+        <div class="ok">
+          Sistem <b>yalnızca en kısa rotayı</b> bulmaz. Maliyet, rota hesaplandıktan sonra
+          eklenen bir rapor alanı değil, <b>amaç fonksiyonunun parçasıdır</b> — algoritmanın
+          kararlarını doğrudan bu değerler yönlendirir. (bkz. sayfa 15)
+        </div>
+
+        <h3 class="sec sp">Başarı kriterleri — proje önerisinden</h3>
+        <ul class="lst">
+          <li>Teslimat noktalarına göre <b>otomatik ve optimize</b> rota oluşturulabilmesi</li>
+          <li>Teslimat bilgisi değiştiğinde rotanın <b>yeniden oluşturulabilmesi</b></li>
+          <li>Araç kapasitesi ve önceliklerin planlamaya dahil edilebilmesi</li>
+          <li>Toplam mesafe ve <b>tahmini yakıt tüketiminin</b> hesaplanabilmesi</li>
+          <li>Optimize rota ile <b>standart rota farkının ölçülebilmesi</b></li>
+          <li>Dağıtım verilerinin saklanabilmesi</li>
+          <li>Haftalık / aylık / yıllık <b>tasarruf analizlerinin raporlanabilmesi</b></li>
+          <li>Farklı araç ve dağıtım senaryolarında çalıştırılabilmesi</li>
+          <li>Geleneksel planlamaya kıyasla <b>ölçülebilir verimlilik artışı</b></li>
+        </ul>
+
+        <h3 class="sec sp">Kapsam daraltma kararı</h3>
+        <div class="info">
+          Çalışmanın erken aşamasında <b>çok depo + zaman penceresi (MDVRPTW)</b>
+          düşünülmüştü. Sistem tarifi netleştikçe kapsam <b>tek depo + gün sınırına</b>
+          daraltıldı. Bu daraltmanın üç somut getirisi oldu:
+          <br>• Klasik, iyi dokümante edilmiş algoritmalar (savings, 2-opt) kullanılabilir hale geldi
+          <br>• Bandırma ölçeğinde <b>kendi yol grafımızı</b> kurmak ucuzladı → harici rota API'si gerekmiyor
+          <br>• <code>osm2pgrouting</code>'in bellek kısıtı önemsizleşti
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>RouteWise · Detaylı Sistem Analizi</span><span>02 / 18</span></div>
+</section>
+
+
+<!-- ═══ 3 TEKNOLOJİ YIĞINI ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">03</span><span class="ptitle">Teknoloji Yığını</span>
+    <span class="psub">Kullanılan her bileşen</span></div>
+  <div class="body">
+    <div class="cols c3">
+      <div>
+        <table class="tbl g">
+          <caption>Backend</caption>
+          <tr><th>Bileşen</th><th>Sürüm / Not</th></tr>
+          <tr><td>Java</td><td>21 (LTS)</td></tr>
+          <tr><td>Spring Boot</td><td>3.4+</td></tr>
+          <tr><td>Spring Web</td><td>REST API</td></tr>
+          <tr><td>Spring Security</td><td>JWT kimlik doğrulama</td></tr>
+          <tr><td>Spring Data JPA</td><td>ORM</td></tr>
+          <tr><td>Hibernate Spatial</td><td>PostGIS tipleri</td></tr>
+          <tr><td>Liquibase</td><td>Şema migration + seed</td></tr>
+          <tr><td>Spring Mail</td><td>E-posta bildirimi</td></tr>
+          <tr><td>Gradle</td><td>Derleme</td></tr>
+        </table>
+
+        <table class="tbl d" style="margin-top:7px">
+          <caption>Veritabanı</caption>
+          <tr><th>Bileşen</th><th>Sürüm / Not</th></tr>
+          <tr><td>PostgreSQL</td><td>17</td></tr>
+          <tr><td>PostGIS</td><td>3.6 — coğrafi tipler/sorgular</td></tr>
+          <tr><td>pgRouting</td><td>3.8 — yol grafı, referans Dijkstra</td></tr>
+        </table>
+
+        <table class="tbl d" style="margin-top:7px">
+          <caption>Veri hazırlığı</caption>
+          <tr><th>Araç</th><th>İş</th></tr>
+          <tr><td>OpenStreetMap</td><td>Ham yol verisi (ODbL)</td></tr>
+          <tr><td>Geofabrik</td><td><code>turkey-latest.osm.pbf</code> ~619 MB</td></tr>
+          <tr><td>osmium-tool</td><td>Bandırma poligonuyla kırpma</td></tr>
+          <tr><td>osm2pgrouting</td><td>Grafı PostGIS'e yükleme</td></tr>
+        </table>
+      </div>
+
+      <div>
+        <table class="tbl p">
+          <caption>Python servisi</caption>
+          <tr><th>Bileşen</th><th>Sürüm / Not</th></tr>
+          <tr><td>Python</td><td>3.12</td></tr>
+          <tr><td>FastAPI</td><td>REST servis</td></tr>
+          <tr><td>uvicorn</td><td>ASGI sunucu</td></tr>
+          <tr><td>pydantic</td><td>İstek/yanıt doğrulama</td></tr>
+          <tr><td>numpy</td><td>Matris işlemleri</td></tr>
+          <tr><td>pandas</td><td>Agregasyon, zaman serisi</td></tr>
+          <tr><td>scipy</td><td><b>Anlamlılık testleri</b></td></tr>
+          <tr><td>matplotlib</td><td>Yayın kalitesi figür (SVG/PDF)</td></tr>
+          <tr><td>plotly</td><td>İnteraktif grafik</td></tr>
+          <tr><td>openpyxl</td><td>Excel dışa aktarma</td></tr>
+          <tr><td>pytest</td><td>Test</td></tr>
+        </table>
+
+        <table class="tbl o" style="margin-top:7px">
+          <caption>Frontend</caption>
+          <tr><th>Bileşen</th><th>Sürüm / Not</th></tr>
+          <tr><td>React</td><td>19</td></tr>
+          <tr><td>TypeScript</td><td>strict mod</td></tr>
+          <tr><td>Vite</td><td>Derleme / dev sunucu</td></tr>
+          <tr><td>MapLibre GL</td><td>Harita, rota çizimi</td></tr>
+          <tr><td>TanStack Query</td><td>Sunucu durumu</td></tr>
+          <tr><td>react-hook-form + zod</td><td>Form + doğrulama</td></tr>
+          <tr><td>Recharts</td><td>İnteraktif grafik</td></tr>
+        </table>
+      </div>
+
+      <div>
+        <table class="tbl">
+          <caption>Altyapı</caption>
+          <tr><th>Bileşen</th><th>Not</th></tr>
+          <tr><td>Docker</td><td>Tüm servisler container'da</td></tr>
+          <tr><td>Docker Compose</td><td>Orkestrasyon</td></tr>
+          <tr><td>nginx</td><td>Frontend prod sunumu</td></tr>
+          <tr><td>Testcontainers</td><td>Gerçek DB ile entegrasyon testi</td></tr>
+        </table>
+
+        <h3 class="sec sp">Algoritmalar — kendi implementasyonumuz</h3>
+        <table class="tbl" style="margin-top:0">
+          <tr><th>Algoritma</th><th>Rolü</th></tr>
+          <tr><td>Clarke-Wright savings</td><td>Başlangıç çözümü</td></tr>
+          <tr><td>2-opt</td><td>Rota içi yerel arama</td></tr>
+          <tr><td>relocate / exchange / Or-opt</td><td>Rotalar arası yerel arama</td></tr>
+          <tr><td>Simulated annealing</td><td>Metasezgisel</td></tr>
+          <tr><td>Dijkstra</td><td>Matris + referans optimum</td></tr>
+          <tr><td>A*</td><td>Karşılaştırma</td></tr>
+          <tr><td>BFS / DFS</td><td>Karşılaştırma</td></tr>
+          <tr><td>Nearest Neighbor</td><td>Karşılaştırma taban çizgisi</td></tr>
+        </table>
+
+        <div class="ok" style="margin-top:7px">
+          <b>Hazır çözücü kullanılmıyor.</b> OR-Tools veya benzeri bir VRP kütüphanesi
+          yerine algoritma projeye özgü geliştirilir; özgünlük iddiasının kodda karşılığı budur.
+        </div>
+        <div class="warn" style="margin-top:6px">
+          <b>Harici rota API'si yok.</b> Google Maps / OpenRouteService kullanılmaz —
+          mesafe ve süre matrisi kendi yol grafımızdan hesaplanır. Kota, API anahtarı ve
+          internet bağımlılığı yoktur.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>RouteWise · Teknoloji Yığını</span><span>03 / 18</span></div>
+</section>
+
+<!-- ═══ 4 SİSTEM MİMARİSİ ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">04</span><span class="ptitle">Sistem Mimarisi ve Bileşenler</span>
+    <span class="psub">Dört servis · tek veri sahibi · durumsuz hesaplama</span></div>
+  <div class="body">
+  <svg viewBox="0 0 1070 600" preserveAspectRatio="xMidYMid meet">
+    <!-- FRONTEND -->
+    <rect x="12" y="130" width="196" height="200" rx="10" fill="#fdf6ec" stroke="#c87d1f" stroke-width="2.2"/>
+    <rect x="12" y="130" width="196" height="26" rx="10" fill="#c87d1f"/><rect x="12" y="145" width="196" height="11" fill="#c87d1f"/>
+    <text x="110" y="148" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">FRONTEND</text>
+    <text x="26" y="176" font-size="10.5" font-weight="600" fill="#8a5411">React 19 · TypeScript</text>
+    <text x="26" y="192" font-size="10.5" font-weight="600" fill="#8a5411">Vite · MapLibre GL</text>
+    <g font-size="9.8" fill="#5f4620">
+      <text x="26" y="214">• Kargo listesi yönetimi</text><text x="26" y="232">• Haritadan konum seçimi</text>
+      <text x="26" y="250">• Rota görselleştirme</text><text x="26" y="268">• Karşılaştırma tabloları</text>
+      <text x="26" y="286">• Recharts ile interaktif grafik</text><text x="26" y="304">• Rol bazlı ekranlar</text>
+    </g>
+    <text x="110" y="322" font-size="9" fill="#8a5411" text-anchor="middle">:5173 (dev) / :80 (prod)</text>
+
+    <!-- BACKEND -->
+    <rect x="270" y="86" width="230" height="288" rx="10" fill="#eef7f4" stroke="#2d7a6b" stroke-width="2.6"/>
+    <rect x="270" y="86" width="230" height="26" rx="10" fill="#2d7a6b"/><rect x="270" y="101" width="230" height="11" fill="#2d7a6b"/>
+    <text x="385" y="104" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">BACKEND · API</text>
+    <text x="284" y="132" font-size="10.5" font-weight="600" fill="#1d5a4e">Spring Boot 3.4+ · Java 21</text>
+    <g font-size="9.8" fill="#2b4a43">
+      <text x="284" y="154">• Tüm veri sahipliği</text><text x="284" y="172">• JWT kimlik doğrulama / yetki</text>
+      <text x="284" y="190">• Domain: kargo, araç, rota, adres</text><text x="284" y="208">• Adres doğrulama akışı</text>
+      <text x="284" y="226">• Mesafe/süre matrisi + cache</text><text x="284" y="244">• Dijkstra ile matris üretimi</text>
+      <text x="284" y="262">• ETA hesabı</text><text x="284" y="280">• Bildirim (uygulama + e-posta)</text>
+      <text x="284" y="298">• Koşu geçmişi SQL agregasyonu</text><text x="284" y="316">• PDF / Excel dışa aktarma</text>
+    </g>
+    <rect x="284" y="328" width="202" height="20" rx="4" fill="#dcebe6"/>
+    <text x="385" y="342" font-size="9.2" font-weight="700" fill="#1d5a4e" text-anchor="middle">tek yazma yetkisi · tek doğruluk kaynağı</text>
+    <text x="385" y="366" font-size="9" fill="#1d5a4e" text-anchor="middle">:8080</text>
+
+    <!-- PYTHON -->
+    <rect x="562" y="86" width="238" height="288" rx="10" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="2.6"/>
+    <rect x="562" y="86" width="238" height="26" rx="10" fill="#6f4a9e"/><rect x="562" y="101" width="238" height="11" fill="#6f4a9e"/>
+    <text x="681" y="104" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">PYTHON SERVİSİ</text>
+    <text x="576" y="132" font-size="10.5" font-weight="600" fill="#53367a">Python 3.12 · FastAPI</text>
+
+    <rect x="576" y="142" width="210" height="96" rx="6" fill="#fff" stroke="#b79ad1" stroke-width="1.4"/>
+    <text x="586" y="158" font-size="10" font-weight="700" fill="#53367a">modül: optimizer/</text>
+    <g font-size="9.4" fill="#453459">
+      <text x="586" y="176">• RouteWise algoritması</text><text x="586" y="192">• savings → 2-opt → SA</text>
+      <text x="586" y="208">• Dijkstra · A* · BFS · DFS</text><text x="586" y="224">• greedy · DFS-exhaustive</text>
+    </g>
+
+    <rect x="576" y="246" width="210" height="80" rx="6" fill="#fff" stroke="#b79ad1" stroke-width="1.4"/>
+    <text x="586" y="262" font-size="10" font-weight="700" fill="#53367a">modül: analytics/</text>
+    <g font-size="9.4" fill="#453459">
+      <text x="586" y="280">• pandas agregasyon</text><text x="586" y="296">• scipy anlamlılık testi</text>
+      <text x="586" y="312">• matplotlib figür üretimi</text>
+    </g>
+    <rect x="576" y="334" width="210" height="16" rx="4" fill="#ece2f5"/>
+    <text x="681" y="346" font-size="8.6" font-weight="700" fill="#53367a" text-anchor="middle">İŞ VERİSİ AÇISINDAN DURUMSUZ · DB YOK</text>
+    <text x="681" y="366" font-size="9" fill="#53367a" text-anchor="middle">:8000</text>
+
+    <!-- DB -->
+    <rect x="270" y="418" width="230" height="166" rx="10" fill="#eef4fa" stroke="#3f6f9f" stroke-width="2.4"/>
+    <rect x="270" y="418" width="230" height="26" rx="10" fill="#3f6f9f"/><rect x="270" y="433" width="230" height="11" fill="#3f6f9f"/>
+    <text x="385" y="436" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">VERİTABANI</text>
+    <text x="284" y="464" font-size="10.2" font-weight="600" fill="#2c4e70">PostgreSQL 17 + PostGIS 3.6</text>
+    <text x="284" y="480" font-size="10.2" font-weight="600" fill="#2c4e70">+ pgRouting 3.8</text>
+    <g font-size="9.6" fill="#2c4e70">
+      <text x="284" y="502">• İş verisi (bkz. sayfa 6–9)</text><text x="284" y="520">• Koşu metrikleri</text>
+      <text x="284" y="538">• Bandırma yol grafı</text><text x="284" y="556">• Mesafe/süre matrisi cache</text>
+    </g>
+    <text x="385" y="576" font-size="9" fill="#2c4e70" text-anchor="middle">:5432</text>
+
+    <!-- OSM -->
+    <rect x="12" y="450" width="196" height="100" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="6 4"/>
+    <text x="110" y="476" font-size="11.5" font-weight="700" fill="#475569" text-anchor="middle">Bandırma OSM verisi</text>
+    <text x="110" y="496" font-size="9.6" fill="#64748b" text-anchor="middle">Geofabrik → osmium extract</text>
+    <text x="110" y="516" font-size="9.6" fill="#64748b" text-anchor="middle">→ osm2pgrouting</text>
+    <text x="110" y="538" font-size="9.4" font-weight="600" fill="#475569" text-anchor="middle">tek seferlik · sayfa 11</text>
+
+    <!-- arrows -->
+    <g stroke-width="2.2" fill="none">
+      <path d="M208 196 H266" stroke="#64748b" marker-end="url(#ar)"/>
+      <path d="M266 248 H212" stroke="#64748b" marker-end="url(#ar)"/>
+      <path d="M500 168 H558" stroke="#1f5fa8" marker-end="url(#arP)"/>
+      <path d="M558 220 H504" stroke="#1f5fa8" marker-end="url(#arP)"/>
+      <path d="M385 374 V414" stroke="#3f6f9f" marker-start="url(#arD)" marker-end="url(#arD)"/>
+      <path d="M208 500 H266" stroke="#94a3b8" marker-end="url(#ar)" stroke-dasharray="6 4"/>
+      <path d="M524 500 H681 V378" stroke="#6f4a9e" marker-end="url(#arV)" stroke-dasharray="7 5"/>
+    </g>
+    <g font-size="9.4" fill="#475569">
+      <text x="237" y="189" text-anchor="middle">REST</text><text x="237" y="266" text-anchor="middle">JSON</text>
+      <text x="529" y="161" fill="#1f5fa8" font-weight="600" text-anchor="middle">matris + kısıtlar</text>
+      <text x="529" y="239" fill="#1f5fa8" font-weight="600" text-anchor="middle">rota + metrik + figür</text>
+      <text x="396" y="400" fill="#3f6f9f">JPA · Liquibase</text>
+    </g>
+    <g font-size="8.8" fill="#6f4a9e" font-weight="600">
+      <text x="600" y="492">yol grafı — açılışta bir kez,</text><text x="600" y="506">dosyadan (ikili format)</text>
+    </g>
+
+    <!-- design rule -->
+    <rect x="830" y="418" width="232" height="166" rx="9" fill="#fff" stroke="#6f4a9e" stroke-width="1.8"/>
+    <text x="846" y="442" font-size="11" font-weight="700" fill="#53367a">Kritik tasarım kuralı</text>
+    <g font-size="9.4" fill="#475569">
+      <text x="846" y="464">Python servisi veritabanına</text><text x="846" y="480">erişmez. Teslimat, araç ve rota</text>
+      <text x="846" y="496">verisi her zaman istekle gelir.</text>
+      <text x="846" y="518" font-weight="600" fill="#1b2430">Tek istisna: yol grafı.</text>
+      <text x="846" y="534">Değişmeyen referans veridir,</text><text x="846" y="550">açılışta dosyadan yüklenir.</text>
+      <text x="846" y="572" font-style="italic">Hibritin maliyetini düşüren şey budur.</text>
+    </g>
+
+    <!-- endpoints -->
+    <rect x="830" y="86" width="232" height="288" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="846" y="110" font-size="11" font-weight="700" fill="#1b2430">Python servisi endpoint'leri</text>
+    <g font-size="9.2" fill="#475569">
+      <text x="846" y="134" font-weight="700" fill="#53367a">POST /optimize</text>
+      <text x="846" y="149">RouteWise + naive baseline</text>
+      <text x="846" y="173" font-weight="700" fill="#53367a">POST /compare/tour</text>
+      <text x="846" y="188">Seviye 2 — tüm tur algoritmaları</text>
+      <text x="846" y="212" font-weight="700" fill="#53367a">POST /compare/path</text>
+      <text x="846" y="227">Seviye 1 — yol bulma algoritmaları</text>
+      <text x="846" y="251" font-weight="700" fill="#53367a">POST /analytics/report</text>
+      <text x="846" y="266">tasarruf istatistiği + anlamlılık</text>
+      <text x="846" y="290" font-weight="700" fill="#53367a">POST /analytics/figure</text>
+      <text x="846" y="305">matplotlib figür (SVG/PNG)</text>
+      <text x="846" y="329" font-weight="700" fill="#53367a">GET /health</text>
+      <text x="846" y="344">graf yüklü mü — yoksa fail fast</text>
+    </g>
+  </svg>
+  </div>
+  <div class="foot"><span>RouteWise · Sistem Mimarisi</span><span>04 / 18</span></div>
+</section>
+
+
+<!-- ═══ 5 DOCKER ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">05</span><span class="ptitle">Docker Dağıtım Mimarisi</span>
+    <span class="psub">Tüm servisler container'da · tek komutla ayağa kalkar</span></div>
+  <div class="body">
+  <svg viewBox="0 0 1070 600" preserveAspectRatio="xMidYMid meet">
+    <!-- compose boundary -->
+    <rect x="8" y="8" width="700" height="430" rx="12" fill="#f8fbfd" stroke="#1f5fa8" stroke-width="2" stroke-dasharray="8 5"/>
+    <text x="24" y="30" font-size="11.5" font-weight="700" fill="#1f5fa8">docker compose — routewise ağı</text>
+
+    <!-- services -->
+    <g>
+      <rect x="28" y="48" width="200" height="86" rx="8" fill="#fdf6ec" stroke="#c87d1f" stroke-width="2"/>
+      <text x="42" y="70" font-size="11.5" font-weight="700" fill="#8a5411">frontend</text>
+      <text x="42" y="88" font-size="9.4" fill="#5f4620">./frontend · Node 22</text>
+      <text x="42" y="104" font-size="9.4" fill="#5f4620">Vite (dev) / nginx (prod)</text>
+      <text x="42" y="122" font-size="9.4" font-weight="600" fill="#8a5411">:5173 → :80</text>
+
+      <rect x="254" y="48" width="200" height="86" rx="8" fill="#eef7f4" stroke="#2d7a6b" stroke-width="2"/>
+      <text x="268" y="70" font-size="11.5" font-weight="700" fill="#1d5a4e">backend</text>
+      <text x="268" y="88" font-size="9.4" fill="#2b4a43">./backend · Java 21</text>
+      <text x="268" y="104" font-size="9.4" fill="#2b4a43">Spring Boot · Gradle</text>
+      <text x="268" y="122" font-size="9.4" font-weight="600" fill="#1d5a4e">:8080</text>
+
+      <rect x="480" y="48" width="200" height="86" rx="8" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="2"/>
+      <text x="494" y="70" font-size="11.5" font-weight="700" fill="#53367a">python</text>
+      <text x="494" y="88" font-size="9.4" fill="#453459">./python · Python 3.12</text>
+      <text x="494" y="104" font-size="9.4" fill="#453459">FastAPI · uvicorn</text>
+      <text x="494" y="122" font-size="9.4" font-weight="600" fill="#53367a">:8000</text>
+
+      <rect x="254" y="186" width="200" height="86" rx="8" fill="#eef4fa" stroke="#3f6f9f" stroke-width="2.2"/>
+      <text x="268" y="208" font-size="11.5" font-weight="700" fill="#2c4e70">db</text>
+      <text x="268" y="226" font-size="9.2" fill="#2c4e70">pgrouting/pgrouting</text>
+      <text x="268" y="242" font-size="9.2" font-weight="600" fill="#2c4e70">:17-3.6-3.8</text>
+      <text x="268" y="260" font-size="9.4" font-weight="600" fill="#2c4e70">:5432</text>
+
+      <rect x="28" y="186" width="200" height="86" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 4"/>
+      <text x="42" y="208" font-size="11.5" font-weight="700" fill="#475569">dataprep</text>
+      <text x="42" y="226" font-size="9.2" fill="#64748b">./infra/dataprep</text>
+      <text x="42" y="242" font-size="9.2" fill="#64748b">osmium-tool + osm2pgrouting</text>
+      <text x="42" y="260" font-size="9.2" font-weight="700" fill="#475569">tek seferlik · run --rm</text>
+    </g>
+
+    <!-- links -->
+    <g stroke-width="2.2" fill="none">
+      <path d="M228 91 H250" stroke="#64748b" marker-end="url(#ar)"/>
+      <path d="M454 91 H476" stroke="#64748b" marker-end="url(#ar)"/>
+      <path d="M354 134 V182" stroke="#3f6f9f" marker-end="url(#arD)"/>
+      <path d="M228 229 H250" stroke="#94a3b8" marker-end="url(#ar)" stroke-dasharray="6 4"/>
+    </g>
+
+    <!-- volumes -->
+    <text x="24" y="302" font-size="11.5" font-weight="700" fill="#1f5fa8">Volume'ler — kalıcı veri</text>
+    <g>
+      <rect x="28" y="314" width="152" height="60" rx="7" fill="#fff" stroke="#3f6f9f" stroke-width="1.6"/>
+      <text x="40" y="334" font-size="10" font-weight="700" fill="#2c4e70">pgdata</text>
+      <text x="40" y="350" font-size="8.8" fill="#64748b">veritabanı</text>
+      <text x="40" y="364" font-size="8.6" fill="#b3382c" font-weight="600">import dakikalar sürer</text>
+
+      <rect x="196" y="314" width="152" height="60" rx="7" fill="#fff" stroke="#3f6f9f" stroke-width="1.6"/>
+      <text x="208" y="334" font-size="10" font-weight="700" fill="#2c4e70">osmdata</text>
+      <text x="208" y="350" font-size="8.8" fill="#64748b">OSM dosyaları</text>
+      <text x="208" y="364" font-size="8.6" fill="#b3382c" font-weight="600">619 MB indirme</text>
+
+      <rect x="364" y="314" width="152" height="60" rx="7" fill="#fff" stroke="#6f4a9e" stroke-width="1.6"/>
+      <text x="376" y="334" font-size="10" font-weight="700" fill="#53367a">graphdata</text>
+      <text x="376" y="350" font-size="8.8" fill="#64748b">graf dosyası (ikili)</text>
+      <text x="376" y="364" font-size="8.6" font-weight="600" fill="#53367a">python'a salt okunur</text>
+
+      <rect x="532" y="314" width="148" height="60" rx="7" fill="#fff" stroke="#2d7a6b" stroke-width="1.6"/>
+      <text x="544" y="334" font-size="10" font-weight="700" fill="#1d5a4e">gradle-cache</text>
+      <text x="544" y="350" font-size="8.8" fill="#64748b">bağımlılıklar</text>
+      <text x="544" y="364" font-size="8.6" fill="#64748b">build hızlandırma</text>
+    </g>
+
+    <rect x="28" y="388" width="652" height="38" rx="7" fill="#fdf2f1" stroke="#b3382c" stroke-width="1.6"/>
+    <text x="42" y="406" font-size="9.6" font-weight="700" fill="#8e2c22">docker compose down -v ÇALIŞTIRILMAMALIDIR</text>
+    <text x="42" y="420" font-size="9" fill="#7a3b33">Volume'ler silinirse 619 MB indirme ve dakikalarca süren graf import'u baştan yapılır. Volume'süz `down` yeterlidir.</text>
+
+    <!-- startup -->
+    <rect x="726" y="8" width="336" height="206" rx="10" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="742" y="32" font-size="11.5" font-weight="700" fill="#1b2430">Başlatma sırası ve healthcheck</text>
+    <g font-size="9.4">
+      <text x="742" y="58" font-weight="700" fill="#2c4e70">db</text>
+      <text x="820" y="58" fill="#475569">— · pg_isready</text>
+      <text x="742" y="82" font-weight="700" fill="#1d5a4e">backend</text>
+      <text x="820" y="82" fill="#475569">db healthy · /actuator/health</text>
+      <text x="742" y="106" font-weight="700" fill="#53367a">python</text>
+      <text x="820" y="106" fill="#475569">— · /health</text>
+      <text x="820" y="121" fill="#b3382c" font-weight="600">graf yoksa FAIL FAST</text>
+      <text x="742" y="145" font-weight="700" fill="#8a5411">frontend</text>
+      <text x="820" y="145" fill="#475569">backend (gevşek) · HTTP 200</text>
+    </g>
+    <rect x="742" y="160" width="304" height="40" rx="6" fill="#f0f7f3"/>
+    <text x="754" y="177" font-size="8.8" fill="#3a6b51">Python servisi graf dosyasını bulamazsa sessizce</text>
+    <text x="754" y="190" font-size="8.8" fill="#3a6b51">başlamaz — hatayı erken ve açıkça verir.</text>
+
+    <!-- dataprep steps -->
+    <rect x="726" y="228" width="336" height="150" rx="10" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.6"/>
+    <text x="742" y="252" font-size="11.5" font-weight="700" fill="#475569">Veri hazırlığı — tek seferlik, 4 adım</text>
+    <g font-size="9" fill="#334155" font-family="Consolas,monospace">
+      <text x="742" y="276">compose run --rm dataprep download</text>
+      <text x="742" y="298">compose run --rm dataprep clip</text>
+      <text x="742" y="320">compose run --rm dataprep load</text>
+      <text x="742" y="342">compose run --rm dataprep export</text>
+    </g>
+    <text x="742" y="364" font-size="8.8" fill="#64748b">Adımlar ayrıdır: biri patlarsa baştan başlanmaz.</text>
+
+    <!-- windows -->
+    <rect x="726" y="392" width="336" height="196" rx="10" fill="#fdf6ec" stroke="#c87d1f" stroke-width="1.8"/>
+    <text x="742" y="416" font-size="11.5" font-weight="700" fill="#8a5411">Windows'a özgü zorunlu ayarlar</text>
+    <g font-size="9.2" fill="#5f4620">
+      <text x="742" y="440" font-weight="700" fill="#8a5411">Vite hot reload tetiklenmez</text>
+      <text x="742" y="455">bind-mount dosya olayları iletilmez →</text>
+      <text x="742" y="470" font-family="Consolas,monospace" font-size="8.6">watch.usePolling: true · host: '0.0.0.0'</text>
+
+      <text x="742" y="496" font-weight="700" fill="#8a5411">Spring Boot her değişimde imaj derlerse</text>
+      <text x="742" y="511">iterasyon ölür → bootRun + devtools,</text>
+      <text x="742" y="526">kaynak bind-mount, .gradle named volume</text>
+
+      <text x="742" y="552" font-weight="700" fill="#8a5411">Her restart'ta graf yeniden yüklenir</text>
+      <text x="742" y="567">→ kompakt ikili format, JSON değil</text>
+    </g>
+
+    <!-- config -->
+    <rect x="8" y="448" width="700" height="140" rx="10" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="24" y="472" font-size="11.5" font-weight="700" fill="#1b2430">Yapılandırma ve ortam</text>
+    <g font-size="9.4" fill="#475569">
+      <text x="24" y="496">• Sırlar ve ortam ayarları <tspan font-family="Consolas,monospace" font-weight="600">.env</tspan> dosyasında; <tspan font-family="Consolas,monospace" font-weight="600">.env.example</tspan> repoda versiyonlanır, <tspan font-family="Consolas,monospace" font-weight="600">.env</tspan> .gitignore'da</text>
+      <text x="24" y="518">• Servisler birbirine <tspan font-weight="600">servis adıyla</tspan> erişir (db, backend, python) — IP veya localhost değil</text>
+      <text x="24" y="540">• <tspan font-weight="600">postgis/postgis kullanılmıyor</tspan>: pgRouting içermiyor. Alternatif: nickblah/pgrouting (yama sürümüne kadar sabitlenebilir etiket)</text>
+      <text x="24" y="562">• Geliştirme ve teslim <tspan font-weight="600">aynı compose</tspan> üzerinden — danışman/jüri tek komutla sistemi ayağa kaldırabilmeli</text>
+    </g>
+  </svg>
+  </div>
+  <div class="foot"><span>RouteWise · Docker Dağıtım Mimarisi</span><span>05 / 18</span></div>
+</section>
+
+<!-- ═══ 6 ER GENEL ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">06</span><span class="ptitle">ER Diyagramı — Genel Görünüm</span>
+    <span class="psub">15 tablo · alan detayları sayfa 7–8</span></div>
+  <div class="body">
+  <svg viewBox="0 0 1070 600" preserveAspectRatio="xMidYMid meet">
+    <!-- domain bands -->
+    <rect x="12" y="34" width="190" height="432" rx="9" fill="#fdf6ec" opacity=".45"/>
+    <rect x="212" y="34" width="190" height="432" rx="9" fill="#eef7f4" opacity=".5"/>
+    <rect x="412" y="34" width="200" height="432" rx="9" fill="#f5f0fa" opacity=".45"/>
+    <rect x="622" y="34" width="186" height="500" rx="9" fill="#eef4fa" opacity=".5"/>
+    <g font-size="9.4" font-weight="700">
+      <text x="22" y="50" fill="#8a5411">KULLANICI &amp; ADRES</text>
+      <text x="222" y="50" fill="#1d5a4e">OPERASYON</text>
+      <text x="422" y="50" fill="#53367a">PLANLAMA &amp; OPTİMİZASYON</text>
+      <text x="632" y="50" fill="#2c4e70">DESTEK &amp; GRAF</text>
+    </g>
+
+    <!-- ── users ── -->
+    <g><rect x="22" y="60" width="168" height="54" rx="6" fill="#fff" stroke="#c87d1f" stroke-width="2"/>
+      <rect x="22" y="60" width="168" height="17" rx="6" fill="#c87d1f"/><rect x="22" y="70" width="168" height="7" fill="#c87d1f"/>
+      <text x="30" y="73" font-size="9.6" font-weight="700" fill="#fff">users</text>
+      <text x="30" y="90" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="30" y="102" font-size="8.4" fill="#475569">email · role · password_hash</text>
+      <text x="30" y="112" font-size="7.8" fill="#64748b">role: COMPANY | COURIER | RECIPIENT</text></g>
+
+    <!-- couriers -->
+    <g><rect x="22" y="152" width="168" height="48" rx="6" fill="#fff" stroke="#c87d1f" stroke-width="1.6"/>
+      <rect x="22" y="152" width="168" height="17" rx="6" fill="#d9a05e"/><rect x="22" y="162" width="168" height="7" fill="#d9a05e"/>
+      <text x="30" y="165" font-size="9.6" font-weight="700" fill="#fff">couriers</text>
+      <text x="30" y="182" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="30" y="194" font-size="8.4" fill="#1f5fa8" font-weight="600">FK user_id <tspan fill="#475569" font-weight="400">· status</tspan></text></g>
+
+    <!-- recipients -->
+    <g><rect x="22" y="238" width="168" height="48" rx="6" fill="#fff" stroke="#c87d1f" stroke-width="1.6"/>
+      <rect x="22" y="238" width="168" height="17" rx="6" fill="#d9a05e"/><rect x="22" y="248" width="168" height="7" fill="#d9a05e"/>
+      <text x="30" y="251" font-size="9.6" font-weight="700" fill="#fff">recipients</text>
+      <text x="30" y="268" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="30" y="280" font-size="8.4" fill="#1f5fa8" font-weight="600">FK user_id <tspan fill="#475569" font-weight="400">· phone</tspan></text></g>
+
+    <!-- addresses -->
+    <g><rect x="22" y="330" width="168" height="76" rx="6" fill="#fff" stroke="#b3382c" stroke-width="2.2"/>
+      <rect x="22" y="330" width="168" height="17" rx="6" fill="#b3382c"/><rect x="22" y="340" width="168" height="7" fill="#b3382c"/>
+      <text x="30" y="343" font-size="9.6" font-weight="700" fill="#fff">addresses</text>
+      <text x="30" y="360" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="30" y="372" font-size="8.4" fill="#1f5fa8" font-weight="600">FK recipient_id</text>
+      <text x="30" y="384" font-size="8.4" fill="#475569">location <tspan font-size="7.4" fill="#64748b">GEOMETRY(POINT,4326)</tspan></text>
+      <text x="30" y="396" font-size="8.4" font-weight="700" fill="#8e2c22">verification_status</text></g>
+    <text x="106" y="420" font-size="7.6" fill="#8e2c22" text-anchor="middle" font-weight="600">durum makinesi — sayfa 10</text>
+
+    <!-- ── depots ── -->
+    <g><rect x="222" y="60" width="168" height="48" rx="6" fill="#fff" stroke="#2d7a6b" stroke-width="1.8"/>
+      <rect x="222" y="60" width="168" height="17" rx="6" fill="#2d7a6b"/><rect x="222" y="70" width="168" height="7" fill="#2d7a6b"/>
+      <text x="230" y="73" font-size="9.6" font-weight="700" fill="#fff">depots</text>
+      <text x="230" y="90" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="230" y="102" font-size="8.4" fill="#475569">location · opening/closing_time</text></g>
+
+    <!-- vehicles -->
+    <g><rect x="222" y="152" width="168" height="62" rx="6" fill="#fff" stroke="#2d7a6b" stroke-width="1.8"/>
+      <rect x="222" y="152" width="168" height="17" rx="6" fill="#4b9d8c"/><rect x="222" y="162" width="168" height="7" fill="#4b9d8c"/>
+      <text x="230" y="165" font-size="9.6" font-weight="700" fill="#fff">vehicles</text>
+      <text x="230" y="182" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="230" y="194" font-size="8.4" fill="#1f5fa8" font-weight="600">FK depot_id</text>
+      <text x="230" y="206" font-size="8.4" fill="#475569">capacity_kg · fuel_l_per_100km</text></g>
+
+    <!-- shipments -->
+    <g><rect x="222" y="296" width="168" height="90" rx="6" fill="#fff" stroke="#2d7a6b" stroke-width="2.4"/>
+      <rect x="222" y="296" width="168" height="17" rx="6" fill="#2d7a6b"/><rect x="222" y="306" width="168" height="7" fill="#2d7a6b"/>
+      <text x="230" y="309" font-size="9.6" font-weight="700" fill="#fff">shipments</text>
+      <text x="230" y="326" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="230" y="338" font-size="8.4" fill="#475569"><tspan font-weight="700">order_number</tspan> <tspan font-size="7.4">UNIQUE</tspan></text>
+      <text x="230" y="350" font-size="8.4" fill="#1f5fa8" font-weight="600">FK recipient_id · FK address_id</text>
+      <text x="230" y="362" font-size="8.4" fill="#475569">weight_kg · priority</text>
+      <text x="230" y="374" font-size="8.4" font-weight="700" fill="#1d5a4e">status</text></g>
+    <text x="306" y="400" font-size="7.6" fill="#1d5a4e" text-anchor="middle" font-weight="600">BND-2026-00417 · sistem üretir</text>
+
+    <!-- ── delivery_plans ── -->
+    <g><rect x="422" y="60" width="180" height="48" rx="6" fill="#fff" stroke="#6f4a9e" stroke-width="1.8"/>
+      <rect x="422" y="60" width="180" height="17" rx="6" fill="#6f4a9e"/><rect x="422" y="70" width="180" height="7" fill="#6f4a9e"/>
+      <text x="430" y="73" font-size="9.6" font-weight="700" fill="#fff">delivery_plans</text>
+      <text x="430" y="90" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="430" y="102" font-size="8.4" fill="#1f5fa8" font-weight="600">FK depot_id <tspan fill="#475569" font-weight="400">· plan_date</tspan></text></g>
+
+    <!-- optimization_runs -->
+    <g><rect x="422" y="146" width="180" height="88" rx="6" fill="#fff" stroke="#6f4a9e" stroke-width="2.4"/>
+      <rect x="422" y="146" width="180" height="17" rx="6" fill="#6f4a9e"/><rect x="422" y="156" width="180" height="7" fill="#6f4a9e"/>
+      <text x="430" y="159" font-size="9.6" font-weight="700" fill="#fff">optimization_runs</text>
+      <text x="430" y="176" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="430" y="188" font-size="8.4" fill="#1f5fa8" font-weight="600">FK plan_id</text>
+      <text x="430" y="200" font-size="8.4" fill="#475569">algorithm · is_applied</text>
+      <text x="430" y="212" font-size="8.4" fill="#475569">total_distance · fuel_l · cost_try</text>
+      <text x="430" y="224" font-size="8.4" fill="#475569">computation_time_ms</text></g>
+    <text x="512" y="248" font-size="7.6" fill="#53367a" text-anchor="middle" font-weight="600">karşılaştırma verisi burada · sayfa 16–17</text>
+
+    <!-- routes -->
+    <g><rect x="422" y="272" width="180" height="62" rx="6" fill="#fff" stroke="#6f4a9e" stroke-width="1.8"/>
+      <rect x="422" y="272" width="180" height="17" rx="6" fill="#8f6fb8"/><rect x="422" y="282" width="180" height="7" fill="#8f6fb8"/>
+      <text x="430" y="285" font-size="9.6" font-weight="700" fill="#fff">routes</text>
+      <text x="430" y="302" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="430" y="314" font-size="8.4" fill="#1f5fa8" font-weight="600">FK run_id · vehicle_id · courier_id</text>
+      <text x="430" y="326" font-size="8.4" fill="#475569">total_distance_m · total_duration_s</text></g>
+
+    <!-- route_stops -->
+    <g><rect x="422" y="372" width="180" height="76" rx="6" fill="#fff" stroke="#6f4a9e" stroke-width="1.8"/>
+      <rect x="422" y="372" width="180" height="17" rx="6" fill="#8f6fb8"/><rect x="422" y="382" width="180" height="7" fill="#8f6fb8"/>
+      <text x="430" y="385" font-size="9.6" font-weight="700" fill="#fff">route_stops</text>
+      <text x="430" y="402" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="430" y="414" font-size="8.4" fill="#1f5fa8" font-weight="600">FK route_id · FK shipment_id</text>
+      <text x="430" y="426" font-size="8.4" fill="#475569">sequence_no · eta</text>
+      <text x="430" y="438" font-size="8.4" fill="#475569">actual_arrival · status</text></g>
+
+    <!-- ── support ── -->
+    <g><rect x="632" y="60" width="166" height="58" rx="6" fill="#fff" stroke="#3f6f9f" stroke-width="1.6"/>
+      <rect x="632" y="60" width="166" height="17" rx="6" fill="#3f6f9f"/><rect x="632" y="70" width="166" height="7" fill="#3f6f9f"/>
+      <text x="640" y="73" font-size="9.6" font-weight="700" fill="#fff">notifications</text>
+      <text x="640" y="90" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="640" y="102" font-size="8.4" fill="#1f5fa8" font-weight="600">FK user_id · FK shipment_id</text>
+      <text x="640" y="113" font-size="8" fill="#475569">channel: IN_APP | EMAIL</text></g>
+
+    <g><rect x="632" y="140" width="166" height="52" rx="6" fill="#fff" stroke="#3f6f9f" stroke-width="1.6"/>
+      <rect x="632" y="140" width="166" height="17" rx="6" fill="#5c87b5"/><rect x="632" y="150" width="166" height="7" fill="#5c87b5"/>
+      <text x="640" y="153" font-size="9.6" font-weight="700" fill="#fff">cost_parameters</text>
+      <text x="640" y="170" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="640" y="182" font-size="8.4" fill="#475569">fuel_price · driver_cost_hour</text></g>
+
+    <g><rect x="632" y="214" width="166" height="58" rx="6" fill="#fff" stroke="#3f6f9f" stroke-width="1.6"/>
+      <rect x="632" y="214" width="166" height="17" rx="6" fill="#5c87b5"/><rect x="632" y="224" width="166" height="7" fill="#5c87b5"/>
+      <text x="640" y="227" font-size="9.6" font-weight="700" fill="#fff">distance_matrix_cache</text>
+      <text x="640" y="244" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="640" y="256" font-size="8.4" fill="#475569">node_set_hash · from · to</text>
+      <text x="640" y="267" font-size="8.4" fill="#475569">distance_m · duration_s</text></g>
+
+    <g><rect x="632" y="294" width="166" height="58" rx="6" fill="#fff" stroke="#3f6f9f" stroke-width="1.6"/>
+      <rect x="632" y="294" width="166" height="17" rx="6" fill="#5c87b5"/><rect x="632" y="304" width="166" height="7" fill="#5c87b5"/>
+      <text x="640" y="307" font-size="9.6" font-weight="700" fill="#fff">path_comparison_runs</text>
+      <text x="640" y="324" font-size="8.4" fill="#b3382c" font-weight="700">PK id</text>
+      <text x="640" y="336" font-size="8.4" fill="#475569">algorithm · from_node · to_node</text>
+      <text x="640" y="347" font-size="8.4" fill="#475569">path_length · nodes_visited</text></g>
+
+    <g><rect x="632" y="374" width="166" height="72" rx="6" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="5 3"/>
+      <text x="640" y="392" font-size="9.6" font-weight="700" fill="#475569">ways</text>
+      <text x="640" y="406" font-size="9.6" font-weight="700" fill="#475569">ways_vertices_pgr</text>
+      <text x="640" y="422" font-size="8" fill="#64748b">pgRouting / osm2pgrouting üretir</text>
+      <text x="640" y="434" font-size="8" fill="#64748b">yol grafı — uygulama yazmaz</text>
+      <text x="640" y="444" font-size="7.6" fill="#8e2c22" font-weight="600">salt okunur referans</text></g>
+
+    <!-- relations -->
+    <g stroke="#64748b" stroke-width="1.6" fill="none">
+      <path d="M106 114 V152"/><path d="M106 200 V238"/><path d="M106 286 V330"/>
+      <path d="M306 108 V152"/>
+      <path d="M190 282 H206 V341 H218"/>
+      <path d="M190 368 H206 V341"/>
+      <path d="M390 84 H406 V84 H418"/>
+      <path d="M512 108 V146"/><path d="M512 234 V272"/><path d="M512 334 V372"/>
+      <path d="M390 183 H402 V303 H418"/>
+      <path d="M190 176 H200 V303" stroke-dasharray="4 3"/>
+      <path d="M390 341 H404 V410 H418"/>
+      <path d="M190 87 H200 V40 H700 V60" stroke-dasharray="4 3"/>
+      <path d="M390 320 H600 V89 H628" stroke-dasharray="4 3"/>
+    </g>
+    <g font-size="8.6" font-weight="700" fill="#1b2430">
+      <text x="112" y="130">1</text><text x="112" y="148">0..1</text>
+      <text x="112" y="216">1</text><text x="112" y="234">0..1</text>
+      <text x="112" y="302">1</text><text x="112" y="326">N</text>
+      <text x="312" y="124">1</text><text x="312" y="148">N</text>
+      <text x="196" y="276">1</text><text x="208" y="336">N</text>
+      <text x="398" y="78">1</text><text x="410" y="78">N</text>
+      <text x="518" y="126">1</text><text x="518" y="143">N</text>
+      <text x="518" y="252">1</text><text x="518" y="269">N</text>
+      <text x="518" y="352">1</text><text x="518" y="369">N</text>
+      <text x="396" y="177">1</text><text x="410" y="298">N</text>
+      <text x="396" y="335">1</text><text x="410" y="405">N</text>
+    </g>
+
+    <!-- legend -->
+    <rect x="824" y="60" width="238" height="180" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="840" y="82" font-size="10.5" font-weight="700" fill="#1b2430">Gösterim</text>
+    <g font-size="8.8" fill="#475569">
+      <text x="840" y="104"><tspan fill="#b3382c" font-weight="700">PK</tspan> birincil anahtar</text>
+      <text x="840" y="122"><tspan fill="#1f5fa8" font-weight="700">FK</tspan> yabancı anahtar</text>
+      <text x="840" y="140"><tspan font-weight="700">1 — N</tspan> bire-çok ilişki</text>
+      <text x="840" y="158"><tspan font-weight="700">1 — 0..1</tspan> isteğe bağlı bire-bir</text>
+      <text x="840" y="180">Kesikli çizgi: zayıf / opsiyonel bağ</text>
+      <text x="840" y="200">Kalın çerçeve: iş kuralı yoğun tablo</text>
+      <text x="840" y="222" font-weight="600" fill="#1b2430">Tüm alanlar: sayfa 7–8</text>
+    </g>
+
+    <!-- assumption -->
+    <rect x="824" y="254" width="238" height="192" rx="9" fill="#fdf2f1" stroke="#b3382c" stroke-width="1.8"/>
+    <text x="840" y="276" font-size="10.5" font-weight="700" fill="#8e2c22">VARSAYIM — revize edilebilir</text>
+    <g font-size="8.6" fill="#7a3b33">
+      <text x="840" y="298">1. Alıcı <tspan font-weight="700">hesap sahibidir</tspan>; kargo bir</text>
+      <text x="840" y="311">alıcı kullanıcısına bağlanır. Hesapsız</text>
+      <text x="840" y="324">alıcı senaryosu modellenmedi.</text>
+      <text x="840" y="344">2. Kurye–araç ataması <tspan font-weight="700">rota üzerinden</tspan></text>
+      <text x="840" y="357">yapılır (günlük). Kalıcı araç sahipliği</text>
+      <text x="840" y="370">yok.</text>
+      <text x="840" y="390">3. Bir kargo farklı günlerde yeniden</text>
+      <text x="840" y="403">planlanabilir → <tspan font-weight="700">shipments 1:N</tspan></text>
+      <text x="840" y="416"><tspan font-weight="700">route_stops</tspan>.</text>
+      <text x="840" y="436">4. Depo tablosu tek kayıt tutar ama</text>
+      <text x="840" y="449">çoklu depoya açıktır.</text>
+    </g>
+
+    <!-- counts -->
+    <rect x="824" y="460" width="238" height="74" rx="9" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="1.6"/>
+    <text x="840" y="482" font-size="10" font-weight="700" fill="#215d3b">Özet</text>
+    <g font-size="8.8" fill="#3a6b51">
+      <text x="840" y="502">13 uygulama tablosu + 2 pgRouting tablosu</text>
+      <text x="840" y="518">Coğrafi alan: addresses.location, depots.location</text>
+    </g>
+  </svg>
+  </div>
+  <div class="foot"><span>RouteWise · ER Diyagramı</span><span>06 / 18</span></div>
+</section>
+
+<!-- ═══ 7 TABLO DETAY I ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">07</span><span class="ptitle">Tablo Detayları I — Kullanıcı, Adres, Operasyon</span>
+    <span class="psub">Alanlar, tipler, kısıtlar</span></div>
+  <div class="body">
+    <div class="cols c3">
+      <div>
+        <table class="tbl o">
+          <caption>users</caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td>email</td><td class="ty">VARCHAR(255)</td><td>UNIQUE, NOT NULL</td></tr>
+          <tr><td>password_hash</td><td class="ty">VARCHAR(255)</td><td>NOT NULL · BCrypt</td></tr>
+          <tr><td>full_name</td><td class="ty">VARCHAR(150)</td><td>NOT NULL</td></tr>
+          <tr><td>phone</td><td class="ty">VARCHAR(20)</td><td></td></tr>
+          <tr><td>role</td><td class="ty">VARCHAR(20)</td><td>NOT NULL</td></tr>
+          <tr><td>is_active</td><td class="ty">BOOLEAN</td><td>DEFAULT true</td></tr>
+          <tr><td>created_at</td><td class="ty">TIMESTAMPTZ</td><td>NOT NULL</td></tr>
+          <tr><td>updated_at</td><td class="ty">TIMESTAMPTZ</td><td></td></tr>
+        </table>
+        <div class="note"><b>role</b>: COMPANY · COURIER · RECIPIENT. Rol bazlı ek alanlar ayrı
+        profil tablolarında tutulur — tek tabloda null alan yığılmaz.</div>
+
+        <table class="tbl o" style="margin-top:6px">
+          <caption>couriers</caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td class="fk">user_id</td><td class="ty">BIGINT</td><td>FK→users · <b>UNIQUE</b></td></tr>
+          <tr><td>employee_code</td><td class="ty">VARCHAR(30)</td><td>UNIQUE</td></tr>
+          <tr><td>status</td><td class="ty">VARCHAR(20)</td><td>NOT NULL</td></tr>
+          <tr><td>created_at</td><td class="ty">TIMESTAMPTZ</td><td></td></tr>
+        </table>
+        <div class="note"><b>status</b>: AVAILABLE · ON_ROUTE · OFF_DUTY.
+        <code>user_id</code> UNIQUE olduğu için ilişki <b>1:1</b>'dir.</div>
+
+        <table class="tbl o" style="margin-top:6px">
+          <caption>recipients</caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td class="fk">user_id</td><td class="ty">BIGINT</td><td>FK→users · <b>UNIQUE</b></td></tr>
+          <tr><td class="fk">default_address_id</td><td class="ty">BIGINT</td><td>FK→addresses · NULL</td></tr>
+          <tr><td>created_at</td><td class="ty">TIMESTAMPTZ</td><td></td></tr>
+        </table>
+      </div>
+
+      <div>
+        <table class="tbl" style="--x:1">
+          <caption style="color:#b3382c">addresses &nbsp;<span style="font-size:7.5pt;font-weight:600">iş kuralı yoğun</span></caption>
+          <tr><th style="background:#b3382c">Alan</th><th style="background:#b3382c">Tip</th><th style="background:#b3382c">Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td class="fk">recipient_id</td><td class="ty">BIGINT</td><td>FK→recipients, NOT NULL</td></tr>
+          <tr><td>address_text</td><td class="ty">VARCHAR(500)</td><td>NOT NULL</td></tr>
+          <tr><td>district</td><td class="ty">VARCHAR(100)</td><td></td></tr>
+          <tr><td>neighbourhood</td><td class="ty">VARCHAR(100)</td><td></td></tr>
+          <tr><td><b>location</b></td><td class="ty">GEOMETRY<br>(POINT,4326)</td><td>NOT NULL · <b>GIST index</b></td></tr>
+          <tr><td>snapped_node_id</td><td class="ty">BIGINT</td><td>→ ways_vertices_pgr</td></tr>
+          <tr><td>snap_distance_m</td><td class="ty">NUMERIC(8,2)</td><td>yola uzaklık</td></tr>
+          <tr><td><b>verification_status</b></td><td class="ty">VARCHAR(20)</td><td>NOT NULL</td></tr>
+          <tr><td class="fk">verified_by</td><td class="ty">BIGINT</td><td>FK→users · NULL</td></tr>
+          <tr><td>verified_at</td><td class="ty">TIMESTAMPTZ</td><td>NULL</td></tr>
+          <tr><td>rejection_reason</td><td class="ty">VARCHAR(300)</td><td>NULL</td></tr>
+          <tr><td>change_count_today</td><td class="ty">SMALLINT</td><td>DEFAULT 0 · limit</td></tr>
+          <tr><td>created_at / updated_at</td><td class="ty">TIMESTAMPTZ</td><td></td></tr>
+        </table>
+        <div class="warn" style="margin-top:5px">
+          <b>verification_status</b>: DRAFT · PENDING · VERIFIED · REJECTED.<br>
+          <b>Yalnızca VERIFIED adresler optimizasyona girer.</b> Alıcı adresi
+          değiştirdiğinde durum otomatik PENDING'e düşer — aksi hâlde firma doğruladığını
+          sanırken başka adrese rota çizilir.
+        </div>
+        <div class="note"><b>snapped_node_id</b> çifte iş görür: hem yol grafına bağlanma
+        noktasıdır (rota hesabı için zorunlu), hem de yanlış işaretleme kontrolüdür —
+        <code>snap_distance_m</code> eşiği aşarsa nokta reddedilir.</div>
+      </div>
+
+      <div>
+        <table class="tbl g">
+          <caption>depots</caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td>name</td><td class="ty">VARCHAR(120)</td><td>NOT NULL</td></tr>
+          <tr><td>address_text</td><td class="ty">VARCHAR(500)</td><td></td></tr>
+          <tr><td><b>location</b></td><td class="ty">GEOMETRY<br>(POINT,4326)</td><td>NOT NULL · GIST</td></tr>
+          <tr><td>snapped_node_id</td><td class="ty">BIGINT</td><td>→ ways_vertices_pgr</td></tr>
+          <tr><td>opening_time</td><td class="ty">TIME</td><td>çıkış saati</td></tr>
+          <tr><td>closing_time</td><td class="ty">TIME</td><td>dönüş saati</td></tr>
+          <tr><td><b>max_route_duration_min</b></td><td class="ty">INTEGER</td><td>NOT NULL</td></tr>
+        </table>
+        <div class="ok" style="margin-top:5px">
+          <b>max_route_duration_min</b> projenin ikinci sert kısıtıdır — "tüm teslimatlar
+          gün içinde bitsin" kuralının veri karşılığı. Rota süresi bu değeri aşamaz.
+        </div>
+
+        <table class="tbl g" style="margin-top:6px">
+          <caption>vehicles</caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td class="fk">depot_id</td><td class="ty">BIGINT</td><td>FK→depots, NOT NULL</td></tr>
+          <tr><td>plate</td><td class="ty">VARCHAR(20)</td><td>UNIQUE, NOT NULL</td></tr>
+          <tr><td><b>capacity_kg</b></td><td class="ty">NUMERIC(8,2)</td><td>NOT NULL · sert kısıt</td></tr>
+          <tr><td>capacity_volume_m3</td><td class="ty">NUMERIC(8,2)</td><td></td></tr>
+          <tr><td><b>fuel_l_per_100km</b></td><td class="ty">NUMERIC(5,2)</td><td>NOT NULL · maliyet</td></tr>
+          <tr><td>fuel_type</td><td class="ty">VARCHAR(20)</td><td>DIESEL · GASOLINE</td></tr>
+          <tr><td>fixed_cost_per_day</td><td class="ty">NUMERIC(10,2)</td><td>opsiyonel bileşen</td></tr>
+          <tr><td>is_active</td><td class="ty">BOOLEAN</td><td>DEFAULT true</td></tr>
+        </table>
+        <div class="note"><b>Filo şimdilik sabittir</b> — Liquibase seed verisiyle yüklenir,
+        yönetim ekranı yazılmaz. Ancak koda gömülmez: tablo baştan vardır, böylece "farklı
+        araç senaryolarında çalıştırılabilmesi" kriteri sonradan karşılanabilir.</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>RouteWise · Tablo Detayları I</span><span>07 / 18</span></div>
+</section>
+
+<!-- ═══ 8 TABLO DETAY II ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">08</span><span class="ptitle">Tablo Detayları II — Kargo, Planlama, Optimizasyon</span>
+    <span class="psub">Karşılaştırma ve tasarruf verisinin kaynağı</span></div>
+  <div class="body">
+    <div class="cols c3">
+      <div>
+        <table class="tbl g">
+          <caption>shipments &nbsp;<span style="font-size:7.5pt;font-weight:600">kargo</span></caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td><b>order_number</b></td><td class="ty">VARCHAR(20)</td><td>UNIQUE, NOT NULL</td></tr>
+          <tr><td class="fk">recipient_id</td><td class="ty">BIGINT</td><td>FK→recipients</td></tr>
+          <tr><td class="fk">address_id</td><td class="ty">BIGINT</td><td>FK→addresses</td></tr>
+          <tr><td><b>weight_kg</b></td><td class="ty">NUMERIC(8,2)</td><td>NOT NULL · kapasite</td></tr>
+          <tr><td>volume_m3</td><td class="ty">NUMERIC(8,2)</td><td></td></tr>
+          <tr><td><b>priority</b></td><td class="ty">SMALLINT</td><td>DEFAULT 0 · ceza</td></tr>
+          <tr><td>service_time_min</td><td class="ty">INTEGER</td><td>teslim süresi</td></tr>
+          <tr><td><b>status</b></td><td class="ty">VARCHAR(20)</td><td>NOT NULL</td></tr>
+          <tr><td>postponed_to</td><td class="ty">DATE</td><td>NULL · erteleme</td></tr>
+          <tr><td>created_at / updated_at</td><td class="ty">TIMESTAMPTZ</td><td></td></tr>
+        </table>
+        <div class="note"><b>order_number</b> sistem tarafından üretilir
+        (<code>BND-2026-00417</code>) — elle giriş yoktur, yanlış yazma riski sıfırdır.<br>
+        <b>status</b>: BEKLEMEDE · PLANLANDI · YOLDA · TESLİM_EDİLDİ · ERTELENDİ.</div>
+
+        <table class="tbl p" style="margin-top:6px">
+          <caption>delivery_plans &nbsp;<span style="font-size:7.5pt;font-weight:600">günlük plan</span></caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td class="fk">depot_id</td><td class="ty">BIGINT</td><td>FK→depots</td></tr>
+          <tr><td>plan_date</td><td class="ty">DATE</td><td>NOT NULL</td></tr>
+          <tr><td>status</td><td class="ty">VARCHAR(20)</td><td>TASLAK·SEVK·TAMAM</td></tr>
+          <tr><td class="fk">created_by</td><td class="ty">BIGINT</td><td>FK→users</td></tr>
+          <tr><td>created_at</td><td class="ty">TIMESTAMPTZ</td><td></td></tr>
+          <tr><td colspan="3" style="background:#f5f0fa"><b>UNIQUE (depot_id, plan_date)</b> — gün başına tek plan</td></tr>
+        </table>
+      </div>
+
+      <div>
+        <table class="tbl p">
+          <caption>optimization_runs &nbsp;<span style="font-size:7.5pt;font-weight:600">her algoritma koşusu</span></caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td class="fk">plan_id</td><td class="ty">BIGINT</td><td>FK→delivery_plans</td></tr>
+          <tr><td><b>algorithm</b></td><td class="ty">VARCHAR(40)</td><td>NOT NULL</td></tr>
+          <tr><td>is_applied</td><td class="ty">BOOLEAN</td><td>uygulanan rota mı</td></tr>
+          <tr><td>is_baseline</td><td class="ty">BOOLEAN</td><td>naive referans mı</td></tr>
+          <tr><td>total_distance_m</td><td class="ty">NUMERIC(12,2)</td><td></td></tr>
+          <tr><td>total_duration_s</td><td class="ty">INTEGER</td><td></td></tr>
+          <tr><td>total_fuel_l</td><td class="ty">NUMERIC(10,3)</td><td></td></tr>
+          <tr><td><b>total_cost_try</b></td><td class="ty">NUMERIC(12,2)</td><td>tasarruf hesabı</td></tr>
+          <tr><td>vehicle_count</td><td class="ty">SMALLINT</td><td></td></tr>
+          <tr><td>computation_time_ms</td><td class="ty">INTEGER</td><td>hız karşılaştırması</td></tr>
+          <tr><td><b>random_seed</b></td><td class="ty">BIGINT</td><td>SA tekrarlanabilirlik</td></tr>
+          <tr><td>created_at</td><td class="ty">TIMESTAMPTZ</td><td></td></tr>
+        </table>
+        <div class="ok" style="margin-top:5px">
+          <b>Projenin ölçüm omurgası bu tablodur.</b> Her koşuda RouteWise <i>ve</i> naive
+          baseline kaydedilir; tasarruf yüzdesi ikisinin <code>total_cost_try</code>
+          farkından türetilir. Karşılaştırma koşusunda aynı <code>plan_id</code> altında
+          her algoritma için bir satır oluşur.
+        </div>
+        <div class="note"><b>algorithm</b>: NAIVE · GREEDY_NN · SAVINGS · ROUTEWISE ·
+        DFS_EXHAUSTIVE.<br><b>random_seed</b> olmadan SA aynı girdiye farklı sonuç verir ve
+        sonuçlar tekrar üretilemez — tez için zorunlu alan.</div>
+      </div>
+
+      <div>
+        <table class="tbl p">
+          <caption>routes &nbsp;<span style="font-size:7.5pt;font-weight:600">araç başına rota</span></caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td class="fk">run_id</td><td class="ty">BIGINT</td><td>FK→optimization_runs</td></tr>
+          <tr><td class="fk">vehicle_id</td><td class="ty">BIGINT</td><td>FK→vehicles</td></tr>
+          <tr><td class="fk">courier_id</td><td class="ty">BIGINT</td><td>FK→couriers · NULL</td></tr>
+          <tr><td>total_distance_m</td><td class="ty">NUMERIC(12,2)</td><td></td></tr>
+          <tr><td>total_duration_s</td><td class="ty">INTEGER</td><td>≤ max_route_duration</td></tr>
+          <tr><td>total_load_kg</td><td class="ty">NUMERIC(8,2)</td><td>≤ capacity_kg</td></tr>
+          <tr><td>status</td><td class="ty">VARCHAR(20)</td><td></td></tr>
+          <tr><td>started_at / completed_at</td><td class="ty">TIMESTAMPTZ</td><td>NULL</td></tr>
+        </table>
+
+        <table class="tbl p" style="margin-top:6px">
+          <caption>route_stops &nbsp;<span style="font-size:7.5pt;font-weight:600">duraklar</span></caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td class="fk">route_id</td><td class="ty">BIGINT</td><td>FK→routes</td></tr>
+          <tr><td class="fk">shipment_id</td><td class="ty">BIGINT</td><td>FK→shipments</td></tr>
+          <tr><td><b>sequence_no</b></td><td class="ty">INTEGER</td><td>NOT NULL · ziyaret sırası</td></tr>
+          <tr><td>distance_from_prev_m</td><td class="ty">NUMERIC(10,2)</td><td></td></tr>
+          <tr><td>duration_from_prev_s</td><td class="ty">INTEGER</td><td></td></tr>
+          <tr><td><b>eta</b></td><td class="ty">TIMESTAMPTZ</td><td>tahmini varış</td></tr>
+          <tr><td>actual_arrival</td><td class="ty">TIMESTAMPTZ</td><td>NULL</td></tr>
+          <tr><td>status</td><td class="ty">VARCHAR(20)</td><td></td></tr>
+          <tr><td colspan="3" style="background:#f5f0fa"><b>UNIQUE (route_id, sequence_no)</b></td></tr>
+        </table>
+        <div class="note"><b>eta</b> alanı alıcıya gönderilen bildirimin kaynağıdır
+        (sayfa 12). <code>actual_arrival</code> ile farkı, tahmin doğruluğunun ölçülmesini
+        sağlar — raporda ek bir metrik olarak kullanılabilir.</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>RouteWise · Tablo Detayları II</span><span>08 / 18</span></div>
+</section>
+
+<!-- ═══ 9 KARDİNALİTE ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">09</span><span class="ptitle">Destek Tabloları, Kardinaliteler ve Bütünlük Kuralları</span>
+    <span class="psub">İlişkilerin tam listesi</span></div>
+  <div class="body">
+    <div class="cols c3">
+      <div>
+        <table class="tbl d">
+          <caption>notifications</caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td class="fk">user_id</td><td class="ty">BIGINT</td><td>FK→users</td></tr>
+          <tr><td class="fk">shipment_id</td><td class="ty">BIGINT</td><td>FK→shipments · NULL</td></tr>
+          <tr><td>type</td><td class="ty">VARCHAR(30)</td><td>ETA·ERTELEME·DOĞRULAMA</td></tr>
+          <tr><td>channel</td><td class="ty">VARCHAR(20)</td><td>IN_APP · EMAIL</td></tr>
+          <tr><td>payload</td><td class="ty">JSONB</td><td>mesaj içeriği</td></tr>
+          <tr><td>sent_at</td><td class="ty">TIMESTAMPTZ</td><td></td></tr>
+          <tr><td>read_at</td><td class="ty">TIMESTAMPTZ</td><td>NULL</td></tr>
+        </table>
+        <div class="note">SMS kapsam dışıdır; <code>channel</code> alanı ileride
+        genişletilebilir şekilde tasarlanmıştır.</div>
+
+        <table class="tbl d" style="margin-top:6px">
+          <caption>cost_parameters</caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td>fuel_price_per_l</td><td class="ty">NUMERIC(8,2)</td><td>NOT NULL</td></tr>
+          <tr><td>driver_cost_per_hour</td><td class="ty">NUMERIC(8,2)</td><td>NOT NULL</td></tr>
+          <tr><td>priority_penalty</td><td class="ty">NUMERIC(8,2)</td><td>ceza katsayısı</td></tr>
+          <tr><td>effective_from</td><td class="ty">DATE</td><td>NOT NULL</td></tr>
+        </table>
+        <div class="ok" style="margin-top:5px">
+          Parametreler <b>tarihli</b> tutulur: yakıt fiyatı değiştiğinde geçmiş koşuların
+          maliyeti bozulmaz. Her optimizasyon çağrısında o günün parametreleri Python
+          servisine gönderilir — kod değişmeden sonuçlar değişir.
+        </div>
+      </div>
+
+      <div>
+        <table class="tbl d">
+          <caption>distance_matrix_cache</caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td><b>node_set_hash</b></td><td class="ty">CHAR(64)</td><td>SHA-256 · INDEX</td></tr>
+          <tr><td>from_node_id</td><td class="ty">BIGINT</td><td>NOT NULL</td></tr>
+          <tr><td>to_node_id</td><td class="ty">BIGINT</td><td>NOT NULL</td></tr>
+          <tr><td>distance_m</td><td class="ty">NUMERIC(10,2)</td><td>Dijkstra sonucu</td></tr>
+          <tr><td>duration_s</td><td class="ty">INTEGER</td><td>maxspeed'den</td></tr>
+          <tr><td>computed_at</td><td class="ty">TIMESTAMPTZ</td><td></td></tr>
+          <tr><td colspan="3" style="background:#eef4fa"><b>UNIQUE (node_set_hash, from_node_id, to_node_id)</b></td></tr>
+        </table>
+        <div class="warn" style="margin-top:5px">
+          <b>Bu cache olmadan sistem kullanılamaz.</b> Metasezgisel algoritma matrisi
+          koşu başına bir kez ister, ama algoritma ayarı sırasında yüzlerce koşu yapılır.
+          Aynı durak kümesi → aynı hash → tekrar hesap yok.
+        </div>
+
+        <table class="tbl d" style="margin-top:6px">
+          <caption>path_comparison_runs</caption>
+          <tr><th>Alan</th><th>Tip</th><th>Kısıt</th></tr>
+          <tr><td class="pk">id</td><td class="ty">BIGSERIAL</td><td>PK</td></tr>
+          <tr><td>algorithm</td><td class="ty">VARCHAR(20)</td><td>DIJKSTRA·ASTAR·BFS·DFS</td></tr>
+          <tr><td>from_node_id / to_node_id</td><td class="ty">BIGINT</td><td>NOT NULL</td></tr>
+          <tr><td>path_length_m</td><td class="ty">NUMERIC(10,2)</td><td></td></tr>
+          <tr><td>computation_time_ms</td><td class="ty">NUMERIC(10,3)</td><td></td></tr>
+          <tr><td>nodes_visited</td><td class="ty">INTEGER</td><td></td></tr>
+          <tr><td>deviation_pct</td><td class="ty">NUMERIC(6,2)</td><td>Dijkstra'ya göre</td></tr>
+          <tr><td>created_at</td><td class="ty">TIMESTAMPTZ</td><td></td></tr>
+        </table>
+        <div class="note">Seviye 1 (yol bulma) deneylerinin kaydı. Seviye 2 (tur sırası)
+        kayıtları <code>optimization_runs</code> tablosundadır. İki seviye ayrı tutulur
+        çünkü ölçülen metrikler farklıdır — bkz. sayfa 16.</div>
+      </div>
+
+      <div>
+        <table class="tbl">
+          <caption>Tüm ilişkiler ve kardinaliteler</caption>
+          <tr><th>İlişki</th><th>Kard.</th><th>Açıklama</th></tr>
+          <tr><td>users → couriers</td><td><b>1 : 0..1</b></td><td>profil</td></tr>
+          <tr><td>users → recipients</td><td><b>1 : 0..1</b></td><td>profil</td></tr>
+          <tr><td>users → notifications</td><td><b>1 : N</b></td><td></td></tr>
+          <tr><td>recipients → addresses</td><td><b>1 : N</b></td><td>çoklu adres</td></tr>
+          <tr><td>recipients → shipments</td><td><b>1 : N</b></td><td></td></tr>
+          <tr><td>addresses → shipments</td><td><b>1 : N</b></td><td>aynı adrese çok kargo</td></tr>
+          <tr><td>depots → vehicles</td><td><b>1 : N</b></td><td></td></tr>
+          <tr><td>depots → delivery_plans</td><td><b>1 : N</b></td><td>gün başına bir plan</td></tr>
+          <tr><td>delivery_plans → optimization_runs</td><td><b>1 : N</b></td><td>her algoritma bir koşu</td></tr>
+          <tr><td>optimization_runs → routes</td><td><b>1 : N</b></td><td>her araç bir rota</td></tr>
+          <tr><td>routes → route_stops</td><td><b>1 : N</b></td><td>sıralı duraklar</td></tr>
+          <tr><td>shipments → route_stops</td><td><b>1 : N</b></td><td>farklı koşu/günde tekrar</td></tr>
+          <tr><td>vehicles → routes</td><td><b>1 : N</b></td><td></td></tr>
+          <tr><td>couriers → routes</td><td><b>1 : N</b></td><td>günlük atama</td></tr>
+          <tr><td>shipments → notifications</td><td><b>1 : N</b></td><td></td></tr>
+        </table>
+
+        <h3 class="sec sp">Bütünlük kuralları</h3>
+        <div class="info">
+          <b style="color:#8e2c22">1.</b> Yalnızca <code>verification_status = VERIFIED</code>
+          adresli kargo plana dahil edilir.<br>
+          <b style="color:#8e2c22">2.</b> Bir plan altında en fazla <b>bir</b> koşu
+          <code>is_applied = true</code> olabilir.<br>
+          <b style="color:#8e2c22">3.</b> <code>routes.total_load_kg ≤ vehicles.capacity_kg</code>
+          — uygulama ve algoritma seviyesinde zorlanır.<br>
+          <b style="color:#8e2c22">4.</b> <code>routes.total_duration_s ≤
+          depots.max_route_duration_min × 60</code><br>
+          <b style="color:#8e2c22">5.</b> Alıcı adresi değiştirince
+          <code>verification_status → PENDING</code> (tetikleyici / servis katmanı).<br>
+          <b style="color:#8e2c22">6.</b> Kargo <code>YOLDA</code> iken adres
+          <b>değiştirilemez</b>.<br>
+          <b style="color:#8e2c22">7.</b> Silme davranışı: profil ve rota zincirinde
+          <code>ON DELETE CASCADE</code>; kargo ve koşu kayıtlarında
+          <code>ON DELETE RESTRICT</code> — geçmiş ölçüm verisi korunur.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>RouteWise · Kardinaliteler ve Bütünlük</span><span>09 / 18</span></div>
+</section>
+
+<!-- ═══ 10 ROLLER & DURUM MAKİNELERİ ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">10</span><span class="ptitle">Roller, Yetkiler ve Durum Makineleri</span>
+    <span class="psub">JWT · üç rol · iki durum makinesi</span></div>
+  <div class="body">
+    <div class="cols c21">
+      <div>
+        <table class="tbl">
+          <caption>Yetki matrisi</caption>
+          <tr><th>Yetki</th><th style="background:#2d7a6b">Firma</th><th style="background:#c87d1f">Kurye</th><th style="background:#6f4a9e">Alıcı</th></tr>
+          <tr><td>Kargo kaydı oluşturma</td><td>✓</td><td>—</td><td>—</td></tr>
+          <tr><td>Sipariş no üretimi</td><td>otomatik</td><td>—</td><td>—</td></tr>
+          <tr><td>Adres doğrulama / reddetme</td><td>✓</td><td>—</td><td>—</td></tr>
+          <tr><td>Rota oluşturma, optimizasyon</td><td>✓</td><td>—</td><td>—</td></tr>
+          <tr><td>Rotayı görme</td><td>tümü</td><td>kendi</td><td>kendi teslimatı</td></tr>
+          <tr><td>Teslimat durumu güncelleme</td><td>✓</td><td>kendi durakları</td><td>—</td></tr>
+          <tr><td>Kendi adresini değiştirme</td><td>✓</td><td>—</td><td>✓</td></tr>
+          <tr><td>Teslimatı erteleme</td><td>✓</td><td>—</td><td>✓</td></tr>
+          <tr><td>Araç / filo yönetimi</td><td>seed</td><td>—</td><td>—</td></tr>
+          <tr><td>Karşılaştırma koşusu başlatma</td><td>✓</td><td>—</td><td>—</td></tr>
+          <tr><td>Tasarruf raporları, Excel/PDF</td><td>✓</td><td>—</td><td>—</td></tr>
+        </table>
+        <div class="note">Kimlik doğrulama <b>JWT</b> ile; her endpoint rol bazlı korunur.
+        Test stratejisinde her endpoint için <b>rol sızıntısı testi</b> zorunludur —
+        alıcı başkasının teslimatını görememelidir.</div>
+
+        <div class="warn" style="margin-top:7px">
+          <b>Alıcı adresi doğrudan değiştirebilir</b> — güçlü bir özelliktir ama
+          tasarlanmazsa sistemi kırar. Zorunlu önlemler:
+          <br>• Yeni adres rotayı süre sınırının üstüne çıkarırsa teslimat
+            <b>otomatik ERTELENDİ'ye</b> düşer, alıcı bilgilendirilir
+          <br>• Teslimat <b>YOLDA</b> olunca adres <b>kilitlenir</b>
+          <br>• Maliyet artışı eşiği aşarsa sistem erteleme önerir
+          <br>• Teslimat başına <b>günlük değişiklik limiti</b>
+          <br>• Kuryeye <b>açık bildirim</b>; eski durak listesinden kaldırılır
+        </div>
+      </div>
+
+      <div style="display:flex">
+      <svg viewBox="0 0 440 560" preserveAspectRatio="xMidYMid meet">
+        <!-- address state machine -->
+        <text x="0" y="14" font-size="12" font-weight="700" fill="#b3382c">Adres doğrulama durum makinesi</text>
+        <g>
+          <rect x="4" y="30" width="110" height="38" rx="7" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.8"/>
+          <text x="59" y="54" font-size="10.5" font-weight="700" fill="#475569" text-anchor="middle">TASLAK</text>
+
+          <rect x="4" y="106" width="110" height="38" rx="7" fill="#fdf6ec" stroke="#c87d1f" stroke-width="2"/>
+          <text x="59" y="124" font-size="9.8" font-weight="700" fill="#8a5411" text-anchor="middle">DOĞRULAMA</text>
+          <text x="59" y="137" font-size="9.8" font-weight="700" fill="#8a5411" text-anchor="middle">BEKLİYOR</text>
+
+          <rect x="4" y="182" width="110" height="38" rx="7" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="2.4"/>
+          <text x="59" y="206" font-size="10.5" font-weight="700" fill="#215d3b" text-anchor="middle">DOĞRULANDI</text>
+
+          <rect x="166" y="106" width="110" height="38" rx="7" fill="#fdf2f1" stroke="#b3382c" stroke-width="2"/>
+          <text x="221" y="130" font-size="10.5" font-weight="700" fill="#8e2c22" text-anchor="middle">REDDEDİLDİ</text>
+
+          <g stroke-width="2" fill="none">
+            <path d="M59 68 V102" stroke="#64748b" marker-end="url(#ar)"/>
+            <path d="M59 144 V178" stroke="#2d7a4b" marker-end="url(#arG)"/>
+            <path d="M114 125 H162" stroke="#b3382c" marker-end="url(#arN)"/>
+            <path d="M114 201 Q150 201 150 162 Q150 125 118 125" stroke="#b3382c" stroke-width="2.2" marker-end="url(#arN)" stroke-dasharray="5 3"/>
+          </g>
+          <g font-size="8.6" fill="#475569">
+            <text x="66" y="90">alıcı kaydeder</text>
+            <text x="66" y="166" fill="#215d3b" font-weight="600">firma onaylar</text>
+            <text x="122" y="118" fill="#8e2c22">firma reddeder</text>
+          </g>
+          <text x="156" y="232" font-size="8.6" font-weight="700" fill="#8e2c22">alıcı adresi değiştirir</text>
+          <text x="156" y="244" font-size="8.6" fill="#8e2c22">→ otomatik geri düşer</text>
+        </g>
+
+        <rect x="4" y="258" width="430" height="36" rx="6" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="1.6"/>
+        <text x="16" y="276" font-size="9.4" font-weight="700" fill="#215d3b">Yalnızca DOĞRULANDI adresler optimizasyona girer.</text>
+        <text x="16" y="289" font-size="8.8" fill="#3a6b51">Bu kural olmadan firma doğruladığını sanırken başka adrese rota çizilir.</text>
+
+        <!-- shipment state machine -->
+        <text x="0" y="326" font-size="12" font-weight="700" fill="#2d7a6b">Teslimat durum makinesi</text>
+        <g>
+          <rect x="4" y="342" width="94" height="34" rx="7" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.8"/>
+          <text x="51" y="364" font-size="9.6" font-weight="700" fill="#475569" text-anchor="middle">BEKLEMEDE</text>
+
+          <rect x="118" y="342" width="94" height="34" rx="7" fill="#eef4fa" stroke="#3f6f9f" stroke-width="1.8"/>
+          <text x="165" y="364" font-size="9.6" font-weight="700" fill="#2c4e70" text-anchor="middle">PLANLANDI</text>
+
+          <rect x="232" y="342" width="94" height="34" rx="7" fill="#fdf6ec" stroke="#c87d1f" stroke-width="2"/>
+          <text x="279" y="364" font-size="9.6" font-weight="700" fill="#8a5411" text-anchor="middle">YOLDA</text>
+
+          <rect x="346" y="342" width="88" height="34" rx="7" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="2.2"/>
+          <text x="390" y="358" font-size="9" font-weight="700" fill="#215d3b" text-anchor="middle">TESLİM</text>
+          <text x="390" y="370" font-size="9" font-weight="700" fill="#215d3b" text-anchor="middle">EDİLDİ</text>
+
+          <rect x="118" y="440" width="208" height="38" rx="7" fill="#fdf2f1" stroke="#b3382c" stroke-width="2.2"/>
+          <text x="222" y="464" font-size="10.5" font-weight="700" fill="#8e2c22" text-anchor="middle">ERTELENDİ</text>
+
+          <g stroke-width="2" fill="none" stroke="#64748b">
+            <path d="M98 359 H114" marker-end="url(#ar)"/>
+            <path d="M212 359 H228" marker-end="url(#ar)"/>
+            <path d="M326 359 H342" marker-end="url(#ar)"/>
+          </g>
+          <g stroke-width="1.8" fill="none" stroke="#b3382c" stroke-dasharray="5 3">
+            <path d="M51 376 V458 H114" marker-end="url(#arN)"/>
+            <path d="M165 376 V436" marker-end="url(#arN)"/>
+            <path d="M279 376 V414 H240" marker-end="url(#arN)"/>
+          </g>
+          <g stroke-width="1.8" fill="none" stroke="#2d7a4b" stroke-dasharray="4 3">
+            <path d="M326 459 H400 V380" marker-end="url(#arG)"/>
+          </g>
+          <text x="340" y="474" font-size="8.4" fill="#215d3b" font-weight="600">ertesi gün yeniden planlanır</text>
+        </g>
+
+        <rect x="4" y="494" width="430" height="60" rx="6" fill="#fdf2f1" stroke="#b3382c" stroke-width="1.6"/>
+        <text x="16" y="512" font-size="9.6" font-weight="700" fill="#8e2c22">ERTELENDİ'ye geçiş sebepleri</text>
+        <g font-size="8.8" fill="#7a3b33">
+          <text x="16" y="528">• Alıcı "başka gün gelsin" der</text>
+          <text x="16" y="542">• Adres değişikliği rotayı süre sınırının üstüne çıkarır → <tspan font-weight="700">otomatik</tspan></text>
+          <text x="248" y="528">• Teslimat denemesi başarısız</text>
+          <text x="248" y="542">• Durak kümeden çıkar, rota yeniden hesaplanır</text>
+        </g>
+      </svg>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>RouteWise · Roller ve Durum Makineleri</span><span>10 / 18</span></div>
+</section>
+
+<!-- ═══ 11 VERİ HATTI ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">11</span><span class="ptitle">Veri Hattı — OSM'den Yol Grafına</span>
+    <span class="psub">Tek seferlik kurulum · harici API yok</span></div>
+  <div class="body">
+  <svg viewBox="0 0 1070 600" preserveAspectRatio="xMidYMid meet">
+    <text x="0" y="14" font-size="11.5" font-weight="700" fill="#1f5fa8">KURULUM HATTI — bir kez çalışır</text>
+
+    <!-- step 1 -->
+    <rect x="0" y="26" width="196" height="96" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2"/>
+    <circle cx="18" cy="44" r="12" fill="#94a3b8"/><text x="18" y="48" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+    <text x="38" y="48" font-size="11" font-weight="700" fill="#475569">download</text>
+    <text x="14" y="70" font-size="9.4" fill="#64748b">Geofabrik</text>
+    <text x="14" y="85" font-size="9" font-family="Consolas,monospace" fill="#334155">turkey-latest.osm.pbf</text>
+    <text x="14" y="101" font-size="9.6" font-weight="700" fill="#b3382c">619 MB</text>
+    <text x="14" y="115" font-size="8.4" fill="#64748b">08.10.2026 verisi</text>
+
+    <!-- step 2 -->
+    <rect x="224" y="26" width="196" height="96" rx="8" fill="#eef4fa" stroke="#3f6f9f" stroke-width="2"/>
+    <circle cx="242" cy="44" r="12" fill="#3f6f9f"/><text x="242" y="48" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+    <text x="262" y="48" font-size="11" font-weight="700" fill="#2c4e70">clip</text>
+    <text x="238" y="70" font-size="9.4" fill="#44658a">osmium-tool</text>
+    <text x="238" y="85" font-size="8.6" font-family="Consolas,monospace" fill="#334155">osmium extract --polygon</text>
+    <text x="238" y="100" font-size="9" font-family="Consolas,monospace" fill="#334155">bandirma.poly</text>
+    <text x="238" y="115" font-size="9" font-weight="700" fill="#215d3b">→ birkaç on MB</text>
+
+    <!-- step 3 -->
+    <rect x="448" y="26" width="196" height="96" rx="8" fill="#eef4fa" stroke="#3f6f9f" stroke-width="2.4"/>
+    <circle cx="466" cy="44" r="12" fill="#3f6f9f"/><text x="466" y="48" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+    <text x="486" y="48" font-size="11" font-weight="700" fill="#2c4e70">load</text>
+    <text x="462" y="70" font-size="9.4" fill="#44658a">osm2pgrouting 3.0</text>
+    <text x="462" y="86" font-size="9" fill="#334155">→ ways</text>
+    <text x="462" y="100" font-size="9" fill="#334155">→ ways_vertices_pgr</text>
+    <text x="462" y="115" font-size="8.6" font-weight="600" fill="#215d3b">topolojiyi kendi kurar</text>
+
+    <!-- step 4 -->
+    <rect x="672" y="26" width="196" height="96" rx="8" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="2.4"/>
+    <circle cx="690" cy="44" r="12" fill="#6f4a9e"/><text x="690" y="48" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+    <text x="710" y="48" font-size="11" font-weight="700" fill="#53367a">export</text>
+    <text x="686" y="70" font-size="9.4" fill="#5e4580">graf → ikili dosya</text>
+    <text x="686" y="86" font-size="9" fill="#453459">graphdata volume'üne</text>
+    <text x="686" y="102" font-size="8.6" fill="#5e4580">Python açılışta okur</text>
+    <text x="686" y="116" font-size="8.4" fill="#8e2c22" font-weight="600">JSON değil — restart hızı</text>
+
+    <g stroke-width="2.2" fill="none" stroke="#64748b">
+      <path d="M196 74 H220" marker-end="url(#ar)"/><path d="M420 74 H444" marker-end="url(#ar)"/>
+      <path d="M644 74 H668" marker-end="url(#ar)"/>
+    </g>
+
+    <!-- note on source -->
+    <rect x="896" y="26" width="174" height="96" rx="8" fill="#fdf2f1" stroke="#b3382c" stroke-width="1.8"/>
+    <text x="910" y="48" font-size="9.8" font-weight="700" fill="#8e2c22">Neden kendimiz kırpıyoruz</text>
+    <g font-size="8.4" fill="#7a3b33">
+      <text x="910" y="66">Geofabrik Türkiye için</text><text x="910" y="78">alt bölge yayınlamıyor:</text>
+      <text x="910" y="92" font-style="italic">"No sub regions are</text><text x="910" y="103" font-style="italic">defined for this region."</text>
+      <text x="910" y="117" font-weight="700">Tek dosya var.</text>
+    </g>
+
+    <!-- polygon vs bbox -->
+    <rect x="0" y="140" width="420" height="124" rx="8" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="14" y="162" font-size="10.5" font-weight="700" fill="#1b2430">bbox değil, poligon</text>
+    <g>
+      <rect x="18" y="176" width="110" height="76" fill="#fdf2f1" stroke="#b3382c" stroke-width="1.6"/>
+      <path d="M40 196 Q60 182 86 192 Q108 206 96 230 Q72 246 48 234 Q30 216 40 196 z" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="1.8"/>
+      <text x="73" y="266" font-size="8.4" fill="#64748b" text-anchor="middle">dikdörtgen vs ilçe sınırı</text>
+    </g>
+    <g font-size="9" fill="#475569">
+      <text x="146" y="192">Bbox dikdörtgeni komşu ilçelerden</text>
+      <text x="146" y="207">gereksiz yol ağı taşır: graf şişer,</text>
+      <text x="146" y="222">Dijkstra yavaşlar.</text>
+      <text x="146" y="242" font-weight="700" fill="#215d3b">Aynı poligon geofence kontrolünde</text>
+      <text x="146" y="256" font-weight="700" fill="#215d3b">de kullanılır — bir iş, iki fayda.</text>
+    </g>
+
+    <!-- runtime matrix -->
+    <text x="0" y="292" font-size="11.5" font-weight="700" fill="#2d7a6b">ÇALIŞMA ZAMANI — matris hesabı</text>
+    <rect x="0" y="302" width="868" height="92" rx="8" fill="#eef7f4" stroke="#2d7a6b" stroke-width="1.8"/>
+    <g>
+      <rect x="16" y="318" width="146" height="58" rx="6" fill="#fff" stroke="#3f6f9f" stroke-width="1.6"/>
+      <text x="89" y="340" font-size="9.6" font-weight="700" fill="#2c4e70" text-anchor="middle">Durak listesi</text>
+      <text x="89" y="358" font-size="8.6" fill="#64748b" text-anchor="middle">depo + teslimat noktaları</text>
+
+      <rect x="194" y="318" width="160" height="58" rx="6" fill="#fff" stroke="#1f5fa8" stroke-width="2"/>
+      <text x="274" y="340" font-size="9.6" font-weight="700" fill="#1f5fa8" text-anchor="middle">Kendi Dijkstra'mız</text>
+      <text x="274" y="358" font-size="8.6" fill="#44658a" text-anchor="middle">graf üzerinde, her çift için</text>
+
+      <rect x="386" y="318" width="160" height="58" rx="6" fill="#fff" stroke="#2d7a6b" stroke-width="1.6"/>
+      <text x="466" y="336" font-size="9.6" font-weight="700" fill="#1d5a4e" text-anchor="middle">Mesafe + süre matrisi</text>
+      <text x="466" y="353" font-size="8.6" fill="#64748b" text-anchor="middle">N × N</text>
+      <text x="466" y="368" font-size="8.2" fill="#64748b" text-anchor="middle">süre = uzunluk / maxspeed</text>
+
+      <rect x="578" y="318" width="160" height="58" rx="6" fill="#dcebe6" stroke="#2d7a6b" stroke-width="1.8"/>
+      <text x="658" y="336" font-size="9.6" font-weight="700" fill="#1d5a4e" text-anchor="middle">distance_matrix_cache</text>
+      <text x="658" y="353" font-size="8.6" fill="#2b4a43" text-anchor="middle">node_set_hash ile aranır</text>
+      <text x="658" y="368" font-size="8.2" fill="#2b4a43" text-anchor="middle">aynı küme → tekrar hesap yok</text>
+
+      <rect x="770" y="318" width="82" height="58" rx="6" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="1.8"/>
+      <text x="811" y="342" font-size="9.4" font-weight="700" fill="#53367a" text-anchor="middle">Python</text>
+      <text x="811" y="358" font-size="8.4" fill="#5e4580" text-anchor="middle">optimizer</text>
+
+      <g stroke-width="2" fill="none" stroke="#64748b">
+        <path d="M162 347 H190" marker-end="url(#ar)"/><path d="M354 347 H382" marker-end="url(#ar)"/>
+        <path d="M546 347 H574" marker-start="url(#ar)" marker-end="url(#ar)"/>
+        <path d="M738 347 H766" marker-end="url(#ar)"/>
+      </g>
+    </g>
+
+    <!-- why no api -->
+    <rect x="0" y="412" width="520" height="184" rx="9" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="2"/>
+    <text x="16" y="436" font-size="11.5" font-weight="700" fill="#215d3b">Harici rota API'si neden gerekmiyor</text>
+    <g font-size="9.2">
+      <text x="16" y="460" font-weight="700" fill="#475569">Hazır API ile (OpenRouteService / Google)</text>
+      <text x="320" y="460" font-weight="700" fill="#215d3b">Kendi grafımızla</text>
+      <line x1="16" y1="468" x2="504" y2="468" stroke="#aecbb9"/>
+      <text x="16" y="486" fill="#8e2c22">Günlük istek kotası</text><text x="320" y="486" fill="#215d3b" font-weight="600">sınırsız</text>
+      <text x="16" y="506" fill="#8e2c22">Matris başına ≈59 konum sınırı</text><text x="320" y="506" fill="#215d3b" font-weight="600">sınır yok</text>
+      <text x="16" y="526" fill="#8e2c22">API anahtarı yönetimi</text><text x="320" y="526" fill="#215d3b" font-weight="600">gerekmez</text>
+      <text x="16" y="546" fill="#8e2c22">Demo gününde internet riski</text><text x="320" y="546" fill="#215d3b" font-weight="600">tamamen yerel</text>
+      <text x="16" y="566" fill="#8e2c22">Ham graf alınamaz</text><text x="320" y="566" fill="#215d3b" font-weight="600">graf elimizde</text>
+    </g>
+    <rect x="16" y="576" width="488" height="14" rx="3" fill="#dcebe2"/>
+    <text x="24" y="587" font-size="8.4" font-weight="700" fill="#215d3b">Graf olmadan Seviye 1 (Dijkstra/A*/BFS/DFS) karşılaştırması zaten yapılamazdı.</text>
+
+    <!-- validation -->
+    <rect x="548" y="412" width="522" height="88" rx="9" fill="#fdf6ec" stroke="#c87d1f" stroke-width="1.8"/>
+    <text x="564" y="436" font-size="11" font-weight="700" fill="#8a5411">Doğruluk referansı</text>
+    <g font-size="9.2" fill="#5f4620">
+      <text x="564" y="458">pgRouting'in kendi <tspan font-family="Consolas,monospace" font-weight="600">pgr_dijkstra</tspan> fonksiyonu, bizim Dijkstra</text>
+      <text x="564" y="474">implementasyonumuzun doğruluk referansıdır: <tspan font-weight="700">aynı girdi → aynı mesafe.</tspan></text>
+      <text x="564" y="492">Test stratejisinin zorunlu maddesidir (sayfa 18).</text>
+    </g>
+
+    <!-- osm2pgrouting note -->
+    <rect x="548" y="512" width="522" height="84" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="564" y="534" font-size="11" font-weight="700" fill="#1b2430">osm2pgrouting — bilinen kısıt</text>
+    <g font-size="9.2" fill="#475569">
+      <text x="564" y="556">Araç veriyi <tspan font-weight="600">tamamen belleğe yükler</tspan>; bu, büyük ağlarda ciddi bir sınırdır.</text>
+      <text x="564" y="574">Bandırma ölçeğinde önemsizdir — kapsam daraltmanın üçüncü somut getirisi.</text>
+      <text x="564" y="590" font-size="8.4" fill="#64748b">Araç bakımlıdır: Debian'da 3.0.0 sürümü Mayıs 2026'da testing'e geçmiştir.</text>
+    </g>
+  </svg>
+  </div>
+  <div class="foot"><span>RouteWise · Veri Hattı</span><span>11 / 18</span></div>
+</section>
+
+<!-- ═══ 12 OPTİMİZASYON AKIŞI ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">12</span><span class="ptitle">Optimizasyon Akışı</span>
+    <span class="psub">Tetikleyiciden bildirime · anında yeniden hesaplama</span></div>
+  <div class="body">
+  <svg viewBox="0 0 1070 580" preserveAspectRatio="xMidYMid meet">
+    <!-- triggers -->
+    <rect x="0" y="0" width="1070" height="46" rx="7" fill="#fdf2f1" stroke="#b3382c" stroke-width="1.6"/>
+    <text x="14" y="20" font-size="10.5" font-weight="700" fill="#8e2c22">TETİKLEYİCİLER — her biri anında yeniden hesaplama başlatır</text>
+    <g font-size="9" fill="#7a3b33">
+      <text x="14" y="36">• Paket eklendi / çıkarıldı</text>
+      <text x="196" y="36">• Alıcı adresi değiştirdi</text>
+      <text x="376" y="36">• Alıcı "başka gün gelsin" dedi</text>
+      <text x="586" y="36">• Firma adresi doğruladı</text>
+      <text x="766" y="36">• Teslimat tamamlandı (dağıtım sırasında)</text>
+    </g>
+
+    <!-- lanes -->
+    <g>
+      <rect x="0" y="58" width="1070" height="106" fill="#fdf6ec"/>
+      <rect x="0" y="168" width="1070" height="200" fill="#eef7f4"/>
+      <rect x="0" y="372" width="1070" height="106" fill="#f5f0fa"/>
+      <rect x="0" y="482" width="1070" height="98" fill="#eef4fa"/>
+      <g font-size="10" font-weight="700">
+        <text x="8" y="76" fill="#8a5411">FRONTEND</text>
+        <text x="8" y="186" fill="#1d5a4e">BACKEND</text>
+        <text x="8" y="390" fill="#53367a">PYTHON</text>
+        <text x="8" y="500" fill="#2c4e70">VERİTABANI</text>
+      </g>
+      <g stroke="#cbd5e1" stroke-width="1">
+        <line x1="0" y1="164" x2="1070" y2="164"/><line x1="0" y1="368" x2="1070" y2="368"/>
+        <line x1="0" y1="478" x2="1070" y2="478"/>
+      </g>
+    </g>
+
+    <!-- 1 -->
+    <g><rect x="104" y="84" width="128" height="60" rx="7" fill="#fff" stroke="#c87d1f" stroke-width="1.8"/>
+      <circle cx="104" cy="84" r="12" fill="#c87d1f"/><text x="104" y="88" font-size="10.5" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+      <text x="168" y="106" font-size="9.4" font-weight="600" fill="#5f4620" text-anchor="middle">Değişiklik</text>
+      <text x="168" y="122" font-size="9.4" font-weight="600" fill="#5f4620" text-anchor="middle">yapılır</text>
+      <text x="168" y="137" font-size="8.2" fill="#8a7050" text-anchor="middle">~500ms debounce</text></g>
+
+    <!-- 2 -->
+    <g><rect x="104" y="196" width="128" height="58" rx="7" fill="#fff" stroke="#2d7a6b" stroke-width="1.8"/>
+      <circle cx="104" cy="196" r="12" fill="#2d7a6b"/><text x="104" y="200" font-size="10.5" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+      <text x="168" y="218" font-size="9.4" font-weight="600" fill="#2b4a43" text-anchor="middle">DOĞRULANMIŞ</text>
+      <text x="168" y="233" font-size="9.4" font-weight="600" fill="#2b4a43" text-anchor="middle">teslimatlar + araçlar</text>
+      <text x="168" y="247" font-size="8.2" fill="#4b6b5d" text-anchor="middle">+ depo yüklenir</text></g>
+
+    <!-- 3 -->
+    <g><rect x="276" y="196" width="140" height="58" rx="7" fill="#fff" stroke="#2d7a6b" stroke-width="1.8"/>
+      <circle cx="276" cy="196" r="12" fill="#2d7a6b"/><text x="276" y="200" font-size="10.5" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+      <text x="346" y="218" font-size="9.4" font-weight="600" fill="#2b4a43" text-anchor="middle">Matris: cache'ten</text>
+      <text x="346" y="233" font-size="9.4" font-weight="600" fill="#2b4a43" text-anchor="middle">oku, yoksa Dijkstra</text>
+      <text x="346" y="247" font-size="8.2" fill="#4b6b5d" text-anchor="middle">ve cache'le</text></g>
+
+    <!-- 4 -->
+    <g><rect x="460" y="196" width="128" height="58" rx="7" fill="#fff" stroke="#2d7a6b" stroke-width="1.8"/>
+      <circle cx="460" cy="196" r="12" fill="#2d7a6b"/><text x="460" y="200" font-size="10.5" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+      <text x="524" y="220" font-size="9.4" font-weight="600" fill="#2b4a43" text-anchor="middle">Python'a POST</text>
+      <text x="524" y="236" font-size="8.4" fill="#4b6b5d" text-anchor="middle">matris + kısıtlar</text>
+      <text x="524" y="249" font-size="8.4" fill="#4b6b5d" text-anchor="middle">+ maliyet parametreleri</text></g>
+
+    <!-- 5 -->
+    <g><rect x="460" y="398" width="196" height="64" rx="7" fill="#fff" stroke="#6f4a9e" stroke-width="2.2"/>
+      <circle cx="460" cy="398" r="12" fill="#6f4a9e"/><text x="460" y="402" font-size="10.5" font-weight="700" fill="#fff" text-anchor="middle">5</text>
+      <text x="558" y="420" font-size="9.6" font-weight="700" fill="#53367a" text-anchor="middle">RouteWise + naive baseline</text>
+      <text x="558" y="436" font-size="8.6" fill="#5e4580" text-anchor="middle">sıcak başlangıç · tohumlanmış SA</text>
+      <text x="558" y="452" font-size="8.6" fill="#5e4580" text-anchor="middle">asenkron · ilerleme göstergesi</text></g>
+
+    <!-- 6 -->
+    <g><rect x="700" y="196" width="140" height="58" rx="7" fill="#fff" stroke="#2d7a6b" stroke-width="1.8"/>
+      <circle cx="700" cy="196" r="12" fill="#2d7a6b"/><text x="700" y="200" font-size="10.5" font-weight="700" fill="#fff" text-anchor="middle">6</text>
+      <text x="770" y="218" font-size="9.4" font-weight="600" fill="#2b4a43" text-anchor="middle">Rota + metrikler</text>
+      <text x="770" y="233" font-size="9.4" font-weight="600" fill="#2b4a43" text-anchor="middle">kalıcılaştırılır</text>
+      <text x="770" y="247" font-size="8.2" fill="#4b6b5d" text-anchor="middle">baseline dahil</text></g>
+
+    <!-- 7 -->
+    <g><rect x="700" y="276" width="140" height="68" rx="7" fill="#eef7f4" stroke="#2d7a6b" stroke-width="2.2"/>
+      <circle cx="700" cy="276" r="12" fill="#2d7a6b"/><text x="700" y="280" font-size="10.5" font-weight="700" fill="#fff" text-anchor="middle">7</text>
+      <text x="770" y="298" font-size="9.6" font-weight="700" fill="#1d5a4e" text-anchor="middle">ETA hesabı</text>
+      <text x="770" y="314" font-size="8.6" fill="#2b4a43" text-anchor="middle">→ alıcıya bildirim</text>
+      <text x="770" y="330" font-size="8.4" fill="#4b6b5d" text-anchor="middle">uygulama içi + e-posta</text></g>
+
+    <!-- 8 -->
+    <g><rect x="898" y="84" width="150" height="60" rx="7" fill="#fff" stroke="#c87d1f" stroke-width="1.8"/>
+      <circle cx="898" cy="84" r="12" fill="#c87d1f"/><text x="898" y="88" font-size="10.5" font-weight="700" fill="#fff" text-anchor="middle">8</text>
+      <text x="973" y="106" font-size="9.4" font-weight="600" fill="#5f4620" text-anchor="middle">Harita güncellenir</text>
+      <text x="973" y="122" font-size="9.4" font-weight="600" fill="#5f4620" text-anchor="middle">tasarruf farkı gösterilir</text>
+      <text x="973" y="137" font-size="8.2" fill="#8a7050" text-anchor="middle">MapLibre + Recharts</text></g>
+
+    <!-- db touches -->
+    <g>
+      <rect x="104" y="506" width="128" height="44" rx="6" fill="#fff" stroke="#3f6f9f" stroke-width="1.5"/>
+      <text x="168" y="526" font-size="8.8" fill="#2c4e70" text-anchor="middle">shipments · vehicles</text>
+      <text x="168" y="541" font-size="8.8" fill="#64748b" text-anchor="middle">okuma</text>
+      <rect x="276" y="506" width="140" height="44" rx="6" fill="#fff" stroke="#3f6f9f" stroke-width="1.5"/>
+      <text x="346" y="526" font-size="8.8" fill="#2c4e70" text-anchor="middle">distance_matrix_cache</text>
+      <text x="346" y="541" font-size="8.8" fill="#64748b" text-anchor="middle">oku / yaz · ways</text>
+      <rect x="700" y="506" width="140" height="44" rx="6" fill="#fff" stroke="#3f6f9f" stroke-width="1.5"/>
+      <text x="770" y="526" font-size="8.8" fill="#2c4e70" text-anchor="middle">optimization_runs</text>
+      <text x="770" y="541" font-size="8.8" fill="#64748b" text-anchor="middle">routes · route_stops</text>
+    </g>
+
+    <!-- arrows -->
+    <g stroke-width="2.2" fill="none">
+      <path d="M168 144 V192" stroke="#64748b" marker-end="url(#ar)"/>
+      <path d="M232 225 H272" stroke="#64748b" marker-end="url(#ar)"/>
+      <path d="M416 225 H456" stroke="#64748b" marker-end="url(#ar)"/>
+      <path d="M524 254 V394" stroke="#6f4a9e" marker-end="url(#arV)"/>
+      <path d="M656 430 H676 V254" stroke="#6f4a9e" marker-end="url(#arV)"/>
+      <path d="M770 254 V272" stroke="#2d7a6b" marker-end="url(#arG)"/>
+      <path d="M840 300 H970 V148" stroke="#64748b" marker-end="url(#ar)"/>
+    </g>
+    <g stroke-width="1.5" fill="none" stroke="#3f6f9f" stroke-dasharray="5 3">
+      <path d="M168 254 V502" marker-end="url(#arD)"/>
+      <path d="M346 254 V502" marker-start="url(#arD)" marker-end="url(#arD)"/>
+      <path d="M770 344 V502" marker-end="url(#arD)"/>
+    </g>
+
+    <!-- eta box -->
+    <rect x="0" y="564" width="1070" height="0" fill="none"/>
+    <rect x="0" y="482" width="90" height="0" fill="none"/>
+  </svg>
+  </div>
+  <div class="foot"><span>RouteWise · Optimizasyon Akışı</span><span>12 / 18</span></div>
+</section>
+
+
+<!-- ═══ 13 DİNAMİK ROTALAMA ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">13</span><span class="ptitle">Dinamik Yeniden Rotalama</span>
+    <span class="psub">Dağıtım sırasında · projenin "dinamik" iddiasının karşılığı</span></div>
+  <div class="body">
+  <svg viewBox="0 0 1070 580" preserveAspectRatio="xMidYMid meet">
+    <!-- principle -->
+    <rect x="0" y="0" width="1070" height="62" rx="8" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="1.8"/>
+    <text x="14" y="22" font-size="11" font-weight="700" fill="#53367a">İlke</text>
+    <g font-size="9.4" fill="#453459">
+      <text x="14" y="40">Dağıtıma çıkmadan önce tam optimizasyon koşar ve en tasarruflu rota seçilir. Dağıtım sırasında bir olay olursa:</text>
+      <text x="14" y="55"><tspan font-weight="700">teslim edilmiş duraklar sabitlenir</tspan>, kalan duraklar yeniden optimize edilir ve kuryeye bildirilir.</text>
+    </g>
+
+    <!-- no gps -->
+    <rect x="0" y="76" width="340" height="104" rx="8" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="2"/>
+    <text x="14" y="98" font-size="10.5" font-weight="700" fill="#215d3b">Canlı GPS gerekmiyor</text>
+    <g font-size="9" fill="#3a6b51">
+      <text x="14" y="118">Yeniden optimizasyon <tspan font-weight="700">son tamamlanan</tspan></text>
+      <text x="14" y="132"><tspan font-weight="700">duraktan</tspan> başlar, canlı konumdan değil.</text>
+      <text x="14" y="150">Kurye her teslimatı tamamlandı işaretlediği</text>
+      <text x="14" y="164">için sistem nerede olduğunu zaten bilir.</text>
+    </g>
+
+    <!-- scenario A -->
+    <text x="0" y="206" font-size="11.5" font-weight="700" fill="#b3382c">SENARYO A — Alıcı "başka gün gelsin" der</text>
+    <rect x="0" y="216" width="520" height="168" rx="8" fill="#fafcfe" stroke="#cbd5e1"/>
+    <g>
+      <text x="16" y="238" font-size="9.4" font-weight="700" fill="#64748b">ÖNCE</text>
+      <rect x="16" y="246" width="12" height="12" rx="2" fill="#1b2430"/>
+      <g fill="none" stroke="#3f6f9f" stroke-width="2.4" stroke-linecap="round">
+        <path d="M22 252 L66 282 L112 262 L158 294 L206 274 L22 252"/>
+      </g>
+      <g fill="#fff" stroke="#3f6f9f" stroke-width="1.8">
+        <circle cx="66" cy="282" r="5"/><circle cx="112" cy="262" r="5"/>
+        <circle cx="158" cy="294" r="5"/><circle cx="206" cy="274" r="5"/>
+      </g>
+      <circle cx="112" cy="262" r="9" fill="none" stroke="#b3382c" stroke-width="2.4" stroke-dasharray="3 2"/>
+      <text x="112" y="245" font-size="8.4" fill="#8e2c22" font-weight="700" text-anchor="middle">ertelendi</text>
+      <text x="16" y="322" font-size="8.6" fill="#64748b">4 durak · 18,4 km</text>
+
+      <text x="286" y="238" font-size="9.4" font-weight="700" fill="#215d3b">SONRA</text>
+      <rect x="286" y="246" width="12" height="12" rx="2" fill="#1b2430"/>
+      <g fill="none" stroke="#2d7a4b" stroke-width="2.6" stroke-linecap="round">
+        <path d="M292 252 L336 282 L428 294 L476 274 L292 252"/>
+      </g>
+      <g fill="#fff" stroke="#2d7a4b" stroke-width="1.8">
+        <circle cx="336" cy="282" r="5"/><circle cx="428" cy="294" r="5"/><circle cx="476" cy="274" r="5"/>
+      </g>
+      <text x="382" y="258" font-size="8.4" fill="#8e2c22" font-weight="600">durak kümeden çıktı</text>
+      <text x="286" y="322" font-size="8.6" fill="#215d3b" font-weight="700">3 durak · 14,1 km · −23%</text>
+
+      <path d="M236 274 H276" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#ar)"/>
+    </g>
+    <g font-size="8.8" fill="#475569">
+      <text x="16" y="344">Kargo <tspan font-weight="700">ERTELENDİ</tspan> durumuna geçer, <tspan font-family="Consolas,monospace">postponed_to</tspan> alanı dolar.</text>
+      <text x="16" y="360">Rota yeniden hesaplanır, kuryeye bildirilir. Kargo ertesi gün yeniden planlanır.</text>
+      <text x="16" y="376" font-weight="600" fill="#215d3b">Risk düşüktür: durak yalnızca kümeden çıkar, yeni kısıt gelmez.</text>
+    </g>
+
+    <!-- scenario B -->
+    <text x="550" y="206" font-size="11.5" font-weight="700" fill="#b3382c">SENARYO B — Alıcı adresini değiştirir</text>
+    <rect x="550" y="216" width="520" height="168" rx="8" fill="#fafcfe" stroke="#cbd5e1"/>
+    <g>
+      <text x="566" y="238" font-size="9.4" font-weight="700" fill="#64748b">ÖNCE</text>
+      <rect x="566" y="246" width="12" height="12" rx="2" fill="#1b2430"/>
+      <g fill="none" stroke="#3f6f9f" stroke-width="2.4" stroke-linecap="round">
+        <path d="M572 252 L616 282 L662 262 L708 294 L756 274 L572 252"/>
+      </g>
+      <g fill="#fff" stroke="#3f6f9f" stroke-width="1.8">
+        <circle cx="616" cy="282" r="5"/><circle cx="662" cy="262" r="5"/>
+        <circle cx="708" cy="294" r="5"/><circle cx="756" cy="274" r="5"/>
+      </g>
+      <circle cx="662" cy="262" r="9" fill="none" stroke="#b3382c" stroke-width="2.4" stroke-dasharray="3 2"/>
+
+      <text x="836" y="238" font-size="9.4" font-weight="700" fill="#215d3b">SONRA</text>
+      <rect x="836" y="246" width="12" height="12" rx="2" fill="#1b2430"/>
+      <g fill="none" stroke="#2d7a4b" stroke-width="2.6" stroke-linecap="round">
+        <path d="M842 252 L886 282 L1004 250 L978 300 L926 288 L842 252"/>
+      </g>
+      <g fill="#fff" stroke="#2d7a4b" stroke-width="1.8">
+        <circle cx="886" cy="282" r="5"/><circle cx="978" cy="300" r="5"/><circle cx="926" cy="288" r="5"/>
+      </g>
+      <circle cx="1004" cy="250" r="6.5" fill="#fdf2f1" stroke="#b3382c" stroke-width="2.4"/>
+      <text x="1004" y="238" font-size="8.2" fill="#8e2c22" font-weight="700" text-anchor="middle">yeni konum</text>
+
+      <path d="M786 274 H826" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#ar)"/>
+    </g>
+    <g font-size="8.8" fill="#475569">
+      <text x="566" y="330">Adres <tspan font-weight="700" fill="#8e2c22">DOĞRULAMA_BEKLİYOR</tspan>'a düşer; firma onaylayana kadar rotaya girmez.</text>
+      <text x="566" y="346">Onaylanınca kalan duraklar yeniden optimize edilir.</text>
+      <text x="566" y="362" font-weight="700" fill="#8e2c22">Risk yüksektir: yeni konum rotayı olurluluk sınırının dışına çıkarabilir.</text>
+      <text x="566" y="378">Bu yüzden aşağıdaki beş önlem zorunludur.</text>
+    </g>
+
+    <!-- safeguards -->
+    <rect x="0" y="400" width="1070" height="180" rx="9" fill="#fdf2f1" stroke="#b3382c" stroke-width="2"/>
+    <text x="16" y="424" font-size="11.5" font-weight="700" fill="#8e2c22">Zorunlu güvenlik önlemleri — tasarlanmazsa sistem kırılır</text>
+    <g font-size="9">
+      <text x="16" y="448" font-weight="700" fill="#7a3b33">Risk</text>
+      <text x="470" y="448" font-weight="700" fill="#215d3b">Önlem</text>
+      <line x1="16" y1="456" x2="1054" y2="456" stroke="#d9b0ab"/>
+      <text x="16" y="476" fill="#7a3b33">Yeni adres rotayı maksimum süre sınırının üstüne çıkarır</text>
+      <text x="470" y="476" fill="#215d3b" font-weight="600">Teslimat <tspan font-weight="700">otomatik ERTELENDİ</tspan>'ye düşer, alıcı bilgilendirilir</text>
+      <text x="16" y="498" fill="#7a3b33">Kurye o durağa giderken adres değişir</text>
+      <text x="470" y="498" fill="#215d3b" font-weight="600">Teslimat <tspan font-weight="700">YOLDA</tspan> olunca adres kilitlenir, değişiklik kabul edilmez</text>
+      <text x="16" y="520" fill="#7a3b33">Kurye o bölgeden çoktan geçmiş, yeni nokta çok geride</text>
+      <text x="470" y="520" fill="#215d3b" font-weight="600">Maliyet artışı <tspan font-weight="700">eşiği aşarsa</tspan> sistem erteleme önerir</text>
+      <text x="16" y="542" fill="#7a3b33">Tekrarlayan değişiklikle rota titreşimi</text>
+      <text x="470" y="542" fill="#215d3b" font-weight="600">Teslimat başına <tspan font-weight="700">günlük değişiklik limiti</tspan> (change_count_today)</text>
+      <text x="16" y="564" fill="#7a3b33">Kurye sessizce eski adrese gider</text>
+      <text x="470" y="564" fill="#215d3b" font-weight="600">Kuryeye <tspan font-weight="700">açık bildirim</tspan>; eski durak listesinden kaldırılır</text>
+    </g>
+  </svg>
+  </div>
+  <div class="foot"><span>RouteWise · Dinamik Yeniden Rotalama</span><span>13 / 18</span></div>
+</section>
+
+<!-- ═══ 14 ALGORİTMA ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">14</span><span class="ptitle">RouteWise Algoritması</span>
+    <span class="psub">Hazır çözücü yok · projeye özgü implementasyon</span></div>
+  <div class="body">
+  <svg viewBox="0 0 1070 580" preserveAspectRatio="xMidYMid meet">
+    <!-- input -->
+    <rect x="0" y="0" width="200" height="150" rx="8" fill="#eef4fa" stroke="#3f6f9f" stroke-width="2"/>
+    <text x="14" y="22" font-size="10.5" font-weight="700" fill="#2c4e70">GİRDİ</text>
+    <g font-size="8.8" fill="#2c4e70">
+      <text x="14" y="42">• Mesafe matrisi (N×N)</text>
+      <text x="14" y="58">• Süre matrisi (N×N)</text>
+      <text x="14" y="74">• Teslimatlar: ağırlık, öncelik</text>
+      <text x="14" y="90">• Araçlar: kapasite, tüketim</text>
+      <text x="14" y="106">• Depo: max_route_duration</text>
+      <text x="14" y="122">• Maliyet parametreleri</text>
+      <text x="14" y="140" font-weight="700">• random_seed</text>
+    </g>
+
+    <!-- step 1 -->
+    <rect x="236" y="0" width="236" height="150" rx="8" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="2.2"/>
+    <circle cx="252" cy="18" r="12" fill="#6f4a9e"/><text x="252" y="22" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+    <text x="272" y="22" font-size="11" font-weight="700" fill="#53367a">Clarke-Wright savings</text>
+    <text x="250" y="44" font-size="9" fill="#453459">Başlangıç çözümü.</text>
+    <g font-size="8.6" fill="#453459">
+      <text x="250" y="64">Her teslimat tek başına bir rotayken</text>
+      <text x="250" y="78">başlanır; birleştirmenin kazancı</text>
+      <text x="250" y="94" font-family="Consolas,monospace" font-size="8.4">s(i,j) = d(0,i) + d(0,j) − d(i,j)</text>
+      <text x="250" y="110">en yüksek olan çiftler sırayla birleştirilir.</text>
+      <text x="250" y="130" font-weight="700" fill="#53367a">Kapasite ve süre farkında:</text>
+      <text x="250" y="143">olursuz birleştirme atlanır.</text>
+    </g>
+
+    <!-- step 2 -->
+    <rect x="508" y="0" width="268" height="150" rx="8" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="2.2"/>
+    <circle cx="524" cy="18" r="12" fill="#6f4a9e"/><text x="524" y="22" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+    <text x="544" y="22" font-size="11" font-weight="700" fill="#53367a">Yerel arama</text>
+    <g font-size="8.6">
+      <text x="522" y="46" font-weight="700" fill="#1d5a4e">2-opt</text>
+      <text x="580" y="46" fill="#453459">rota içi — iki kenarı değiştirir</text>
+      <text x="522" y="68" font-weight="700" fill="#1d5a4e">relocate</text>
+      <text x="580" y="68" fill="#453459">durağı başka rotaya taşır</text>
+      <text x="522" y="90" font-weight="700" fill="#1d5a4e">exchange</text>
+      <text x="580" y="90" fill="#453459">iki durağı takas eder</text>
+      <text x="522" y="112" font-weight="700" fill="#1d5a4e">Or-opt</text>
+      <text x="580" y="112" fill="#453459">2–3 duraklık dizi taşır</text>
+    </g>
+    <rect x="522" y="122" width="240" height="20" rx="4" fill="#ece2f5"/>
+    <text x="642" y="136" font-size="8.4" font-weight="700" fill="#53367a" text-anchor="middle">her hamlede olurluluk kontrol edilir</text>
+
+    <!-- step 3 -->
+    <rect x="812" y="0" width="258" height="150" rx="8" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="2.6"/>
+    <circle cx="828" cy="18" r="12" fill="#6f4a9e"/><text x="828" y="22" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+    <text x="848" y="22" font-size="11" font-weight="700" fill="#53367a">Simulated annealing</text>
+    <g font-size="8.6" fill="#453459">
+      <text x="826" y="46">Kötüleştiren hamleler de olasılıkla</text>
+      <text x="826" y="60">kabul edilir → yerel optimumdan kaçış.</text>
+      <text x="826" y="78" font-family="Consolas,monospace" font-size="8.4">P = exp(−Δ / T) , T azalır</text>
+      <text x="826" y="98" font-weight="700" fill="#8e2c22">Tohumlanmış (seeded):</text>
+      <text x="826" y="112">tohumsuz aynı girdi farklı rota verir,</text>
+      <text x="826" y="126">harita sebepsiz zıplar, sonuç</text>
+      <text x="826" y="140">tekrar üretilemez.</text>
+    </g>
+
+    <g stroke-width="2.4" fill="none" stroke="#6f4a9e">
+      <path d="M200 74 H232" marker-end="url(#arV)"/><path d="M472 74 H504" marker-end="url(#arV)"/>
+      <path d="M776 74 H808" marker-end="url(#arV)"/>
+    </g>
+
+    <!-- feasibility gate -->
+    <rect x="0" y="176" width="520" height="150" rx="9" fill="#fdf2f1" stroke="#b3382c" stroke-width="2.2"/>
+    <text x="16" y="200" font-size="11.5" font-weight="700" fill="#8e2c22">Olurluluk kapısı — her hamlede</text>
+    <g font-size="9.2" fill="#7a3b33">
+      <text x="16" y="224">Her yerel arama hamlesi ve her SA adımı, kabul edilmeden önce</text>
+      <text x="16" y="238">iki sert kısıta karşı sınanır:</text>
+    </g>
+    <rect x="16" y="248" width="236" height="36" rx="6" fill="#fff" stroke="#d9b0ab" stroke-width="1.6"/>
+    <text x="134" y="264" font-size="9.2" font-weight="700" fill="#8e2c22" text-anchor="middle">Σ ağırlık ≤ araç kapasitesi</text>
+    <text x="134" y="278" font-size="8.2" fill="#8a6560" text-anchor="middle">vehicles.capacity_kg</text>
+    <rect x="268" y="248" width="236" height="36" rx="6" fill="#fff" stroke="#d9b0ab" stroke-width="1.6"/>
+    <text x="386" y="264" font-size="9.2" font-weight="700" fill="#8e2c22" text-anchor="middle">toplam süre ≤ gün sınırı</text>
+    <text x="386" y="278" font-size="8.2" fill="#8a6560" text-anchor="middle">depots.max_route_duration_min</text>
+    <text x="16" y="306" font-size="8.8" fill="#7a3b33">Bu kontroller olmadan algoritma <tspan font-weight="700">sessizce geçersiz rota döndürür</tspan> ve kimse fark etmez —</text>
+    <text x="16" y="319" font-size="8.8" fill="#7a3b33">test stratejisindeki en kritik test sınıfı budur.</text>
+
+    <!-- warm start -->
+    <rect x="550" y="176" width="520" height="150" rx="9" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="2"/>
+    <text x="566" y="200" font-size="11.5" font-weight="700" fill="#215d3b">Sıcak başlangıç (warm start)</text>
+    <g font-size="9.2" fill="#3a6b51">
+      <text x="566" y="224">Kargo listesi her değiştiğinde SA <tspan font-weight="700">sıfırdan değil, önceki rotadan</tspan> başlar.</text>
+      <text x="566" y="244">İki faydası vardır:</text>
+      <text x="580" y="264">• <tspan font-weight="700">Hız</tspan> — iyi bir çözümden başlanır, daha az iterasyon gerekir</text>
+      <text x="580" y="284">• <tspan font-weight="700">Kararlılık</tspan> — tek paket eklenince rota baştan aşağı değişmez;</text>
+      <text x="594" y="298">kullanıcı sistemin ne yaptığını anlar ve güvenir</text>
+    </g>
+    <rect x="566" y="306" width="488" height="14" rx="3" fill="#dcebe2"/>
+    <text x="574" y="317" font-size="8.4" font-weight="700" fill="#215d3b">Tohumlanmış rastgelelik + sıcak başlangıç birlikte "anında tetikleme"yi kullanılabilir kılar.</text>
+
+    <!-- why savings valid -->
+    <rect x="0" y="352" width="520" height="228" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="16" y="376" font-size="11.5" font-weight="700" fill="#1b2430">Neden savings ve 2-opt kullanılabiliyor</text>
+    <g font-size="9.2" fill="#475569">
+      <text x="16" y="400">Çalışmanın erken aşamasında kapsam <tspan font-weight="700">zaman penceresi (VRPTW)</tspan> içeriyordu.</text>
+      <text x="16" y="416">O kapsamda bu iki yöntem <tspan font-weight="700" fill="#8e2c22">kullanılamazdı:</tspan></text>
+      <text x="30" y="438">• <tspan font-weight="700">Savings</tspan> tek depolu, penceresiz CVRP için tasarlanmıştır;</text>
+      <text x="44" y="452">birleştirme adımında pencere olurluluğunu değerlendiremez.</text>
+      <text x="30" y="474">• <tspan font-weight="700">2-opt</tspan> bir rota segmentini <tspan font-weight="700">ters çevirir</tspan>. Ters çevirme segment</text>
+      <text x="44" y="488">boyunca tüm varış saatlerini kaydırır ve pencereleri ihlal eder.</text>
+      <text x="16" y="514" font-weight="700" fill="#215d3b">Kapsam gün sınırına daraltılınca gerekçe ortadan kalktı:</text>
+      <text x="16" y="532">simetrik matriste ters çevirme mesafeyi azaltıyorsa süreyi de azaltır,</text>
+      <text x="16" y="546">dolayısıyla süre kısıtı <tspan font-weight="700">basit bir toplam kontrolüyle</tspan> korunur.</text>
+      <text x="16" y="568" font-weight="700" fill="#1b2430">Sonuç: literatürde en iyi dokümante edilmiş klasik kurulum kullanılabiliyor.</text>
+    </g>
+
+    <!-- complexity -->
+    <rect x="550" y="352" width="520" height="228" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="566" y="376" font-size="11.5" font-weight="700" fill="#1b2430">Problem sınıfı ve beklenti</text>
+    <g font-size="9.2" fill="#475569">
+      <text x="566" y="400">CVRP <tspan font-weight="700">NP-zordur</tspan>. Durak sayısı arttıkça olası rota sayısı faktöriyel</text>
+      <text x="566" y="414">büyür; gerçek optimumu bulmak küçük örnekler dışında mümkün değildir.</text>
+      <text x="566" y="436" font-weight="700" fill="#1b2430">Bu yüzden hedef "optimal çözüm" değil, ölçülebilir şekilde iyi çözümdür.</text>
+      <text x="566" y="458">Kalite iki referansa karşı ölçülür:</text>
+      <text x="580" y="480">• <tspan font-weight="700">Naive baseline</tspan> — insan dispatcher davranışı → tasarruf %</text>
+      <text x="580" y="500">• <tspan font-weight="700">DFS-exhaustive</tspan> (n ≤ 10) — gerçek optimum → sapma %</text>
+      <text x="566" y="526">İkincisi raporun en güçlü nicel iddiasını üretir:</text>
+    </g>
+    <rect x="566" y="534" width="488" height="34" rx="6" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="1.6"/>
+    <text x="810" y="555" font-size="10" font-weight="700" fill="#215d3b" text-anchor="middle">"RouteWise, gerçek optimumun %X içinde."</text>
+  </svg>
+  </div>
+  <div class="foot"><span>RouteWise · Algoritma</span><span>14 / 18</span></div>
+</section>
+
+
+<!-- ═══ 15 AMAÇ FONKSİYONU ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">15</span><span class="ptitle">Amaç Fonksiyonu — Maliyet Modeli</span>
+    <span class="psub">Projenin özgün yanının kodda karşılığı</span></div>
+  <div class="body">
+  <svg viewBox="0 0 1070 580" preserveAspectRatio="xMidYMid meet">
+    <rect x="0" y="0" width="1070" height="52" rx="8" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="2"/>
+    <text x="14" y="22" font-size="11" font-weight="700" fill="#53367a">Maliyet, rota hesaplandıktan SONRA eklenen bir rapor alanı değildir.</text>
+    <text x="14" y="40" font-size="9.2" fill="#453459">Amaç fonksiyonunun parçasıdır — algoritmanın her kararını bu değerler yönlendirir. "Sadece en kısa yol değil, değişkenler birlikte" cümlesinin kodda karşılığı burasıdır.</text>
+
+    <!-- formula -->
+    <rect x="0" y="68" width="1070" height="76" rx="8" fill="#fafcfe" stroke="#1f5fa8" stroke-width="2"/>
+    <text x="14" y="90" font-size="10" font-weight="700" fill="#1f5fa8">Amaç fonksiyonu</text>
+    <text x="30" y="116" font-size="11.5" font-family="Consolas,monospace" fill="#1b2430">
+      min  Z = Σ<tspan font-size="8.5" dy="3">r</tspan><tspan dy="-3"> ( </tspan><tspan fill="#2d7a4b">mesafe</tspan><tspan>(r) · c</tspan><tspan font-size="8.5" dy="3">km</tspan><tspan dy="-3">  +  </tspan><tspan fill="#c87d1f">yakıt</tspan><tspan>(r) · c</tspan><tspan font-size="8.5" dy="3">yakıt</tspan><tspan dy="-3">  +  </tspan><tspan fill="#3f6f9f">süre</tspan><tspan>(r) · c</tspan><tspan font-size="8.5" dy="3">sürücü</tspan><tspan dy="-3"> )  +  </tspan><tspan fill="#b3382c">Σ</tspan><tspan font-size="8.5" dy="3" fill="#b3382c">i</tspan><tspan dy="-3" fill="#b3382c"> öncelik</tspan><tspan fill="#b3382c">(i) · p</tspan>
+    </text>
+    <text x="30" y="136" font-size="8.8" fill="#64748b">r: rotalar · i: teslimatlar · c: birim maliyetler (cost_parameters) · p: öncelik ceza katsayısı</text>
+
+    <!-- hard constraints -->
+    <rect x="0" y="162" width="300" height="236" rx="9" fill="#fdf2f1" stroke="#b3382c" stroke-width="2.4"/>
+    <text x="16" y="186" font-size="11.5" font-weight="700" fill="#8e2c22">SERT KISITLAR</text>
+    <text x="16" y="204" font-size="8.8" fill="#7a3b33">Aşılamaz. İhlal eden çözüm cezalandırılmaz,</text>
+    <text x="16" y="217" font-size="8.8" font-weight="700" fill="#8e2c22">reddedilir.</text>
+    <rect x="16" y="230" width="268" height="72" rx="7" fill="#fff" stroke="#d9b0ab" stroke-width="1.6"/>
+    <text x="30" y="252" font-size="10.5" font-weight="700" fill="#8e2c22">Araç kapasitesi</text>
+    <text x="30" y="270" font-size="9" fill="#5a3b36">Σ shipments.weight_kg ≤</text>
+    <text x="30" y="284" font-size="9" fill="#5a3b36">vehicles.capacity_kg</text>
+    <text x="30" y="297" font-size="8.2" fill="#8a6560">araç tanımından gelir</text>
+    <rect x="16" y="312" width="268" height="72" rx="7" fill="#fff" stroke="#d9b0ab" stroke-width="1.6"/>
+    <text x="30" y="334" font-size="10.5" font-weight="700" fill="#8e2c22">Maksimum rota süresi</text>
+    <text x="30" y="352" font-size="9" fill="#5a3b36">routes.total_duration_s ≤</text>
+    <text x="30" y="366" font-size="9" fill="#5a3b36">max_route_duration_min × 60</text>
+    <text x="30" y="379" font-size="8.2" fill="#8a6560">"gün içinde bitsin" kuralı</text>
+
+    <!-- components -->
+    <rect x="326" y="162" width="744" height="236" rx="9" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="2.4"/>
+    <text x="342" y="186" font-size="11.5" font-weight="700" fill="#215d3b">AMAÇ FONKSİYONU BİLEŞENLERİ — minimize edilir</text>
+    <g>
+      <rect x="342" y="200" width="232" height="86" rx="7" fill="#fff" stroke="#aecbb9" stroke-width="1.6"/>
+      <text x="356" y="222" font-size="10.5" font-weight="700" fill="#1d5a4e">Mesafe maliyeti</text>
+      <text x="356" y="242" font-size="9" fill="#3a6b51">toplam mesafe (km)</text>
+      <text x="356" y="258" font-size="8.4" fill="#5c8070">kaynak: yol grafı + Dijkstra</text>
+      <text x="356" y="276" font-size="8.4" fill="#5c8070">→ optimization_runs.total_distance_m</text>
+
+      <rect x="590" y="200" width="232" height="86" rx="7" fill="#fff" stroke="#aecbb9" stroke-width="1.6"/>
+      <text x="604" y="222" font-size="10.5" font-weight="700" fill="#1d5a4e">Yakıt maliyeti</text>
+      <text x="604" y="242" font-size="9" fill="#3a6b51">(L/100km × km) × birim fiyat</text>
+      <text x="604" y="258" font-size="8.4" fill="#5c8070">tüketim araç bazlıdır</text>
+      <text x="604" y="276" font-size="8.4" fill="#5c8070">→ total_fuel_l · cost_parameters</text>
+
+      <rect x="838" y="200" width="218" height="86" rx="7" fill="#fff" stroke="#aecbb9" stroke-width="1.6"/>
+      <text x="852" y="222" font-size="10.5" font-weight="700" fill="#1d5a4e">Sürücü maliyeti</text>
+      <text x="852" y="242" font-size="9" fill="#3a6b51">süre (saat) × saatlik ücret</text>
+      <text x="852" y="258" font-size="8.4" fill="#5c8070">servis süresi dahil</text>
+      <text x="852" y="276" font-size="8.4" fill="#5c8070">→ driver_cost_per_hour</text>
+
+      <rect x="342" y="298" width="232" height="86" rx="7" fill="#fff" stroke="#aecbb9" stroke-width="1.6"/>
+      <text x="356" y="320" font-size="10.5" font-weight="700" fill="#1d5a4e">Süre maliyeti</text>
+      <text x="356" y="340" font-size="9" fill="#3a6b51">seyahat + servis süresi</text>
+      <text x="356" y="356" font-size="8.4" fill="#5c8070">yol grafındaki maxspeed'den</text>
+      <text x="356" y="374" font-size="8.4" fill="#5c8070">→ total_duration_s</text>
+
+      <rect x="590" y="298" width="232" height="86" rx="7" fill="#fff" stroke="#c87d1f" stroke-width="2.2"/>
+      <text x="604" y="320" font-size="10.5" font-weight="700" fill="#8a5411">Öncelik ihlali cezası</text>
+      <text x="604" y="340" font-size="9" fill="#5f4620">shipments.priority × katsayı</text>
+      <text x="604" y="356" font-size="8.4" fill="#8a7050">yumuşak kısıt — reddedilmez,</text>
+      <text x="604" y="372" font-size="8.4" fill="#8a7050">pahalılaşır</text>
+
+      <rect x="838" y="298" width="218" height="86" rx="7" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="5 4"/>
+      <text x="852" y="320" font-size="10.5" font-weight="700" fill="#334155">Araç sabit maliyeti</text>
+      <text x="852" y="340" font-size="9" fill="#475569">fixed_cost_per_day</text>
+      <text x="852" y="356" font-size="8.4" fill="#64748b">az araçla çözmeyi teşvik eder</text>
+      <text x="852" y="374" font-size="8.4" fill="#64748b">opsiyonel bileşen</text>
+    </g>
+
+    <!-- param flow -->
+    <rect x="0" y="416" width="520" height="164" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="16" y="440" font-size="11" font-weight="700" fill="#1b2430">Parametreler nereden gelir</text>
+    <rect x="16" y="454" width="146" height="50" rx="6" fill="#eef7f4" stroke="#2d7a6b" stroke-width="1.6"/>
+    <text x="89" y="474" font-size="9.6" font-weight="700" fill="#1d5a4e" text-anchor="middle">cost_parameters</text>
+    <text x="89" y="492" font-size="8.4" fill="#2b4a43" text-anchor="middle">DB · tarihli kayıt</text>
+    <rect x="212" y="454" width="146" height="50" rx="6" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="1.6"/>
+    <text x="285" y="474" font-size="9.6" font-weight="700" fill="#53367a" text-anchor="middle">Python servisi</text>
+    <text x="285" y="492" font-size="8.4" fill="#453459" text-anchor="middle">istekle alır</text>
+    <path d="M162 479 H208" stroke="#64748b" stroke-width="2.2" fill="none" marker-end="url(#ar)"/>
+    <text x="185" y="471" font-size="8" fill="#64748b" text-anchor="middle">her çağrıda</text>
+    <rect x="16" y="516" width="488" height="50" rx="6" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="1.6"/>
+    <text x="30" y="536" font-size="9.4" font-weight="700" fill="#215d3b">Yakıt fiyatı veya sürücü maliyeti değiştiğinde kod değişmez;</text>
+    <text x="30" y="553" font-size="9.4" font-weight="700" fill="#215d3b">optimizasyon sonuçları kendiliğinden değişir.</text>
+
+    <!-- why multivariable -->
+    <rect x="550" y="416" width="520" height="164" rx="9" fill="#fff" stroke="#1f5fa8" stroke-width="2"/>
+    <text x="566" y="440" font-size="11" font-weight="700" fill="#1f5fa8">Neden "sadece en kısa yol" yetmez</text>
+    <g font-size="9.2" fill="#475569">
+      <text x="566" y="464">Aynı mesafedeki iki rota eşit değildir:</text>
+      <text x="580" y="486">• Biri dar sokaklarda yavaş ilerler → <tspan font-weight="700">sürücü maliyeti</tspan> artar</text>
+      <text x="580" y="506">• Diğeri daha uzun ama hızlı güzergâhtan gider → <tspan font-weight="700">süre ve yakıt</tspan> düşer</text>
+      <text x="580" y="526">• Üçüncüsü yüksek öncelikli paketi güne çok geç bırakır → <tspan font-weight="700">ceza</tspan></text>
+      <text x="566" y="552" font-weight="700" fill="#1b2430">Yalnızca mesafeyi minimize eden algoritma bu üç farkı göremez.</text>
+      <text x="566" y="568" font-weight="700" fill="#1f5fa8">RouteWise'ın amaç fonksiyonu görür.</text>
+    </g>
+  </svg>
+  </div>
+  <div class="foot"><span>RouteWise · Amaç Fonksiyonu</span><span>15 / 18</span></div>
+</section>
+
+<!-- ═══ 16 KARŞILAŞTIRMA ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">16</span><span class="ptitle">Algoritma Karşılaştırması — İki Karar Seviyesi</span>
+    <span class="psub">Karıştırılmaması gereken ayrım</span></div>
+  <div class="body">
+  <svg viewBox="0 0 1070 580" preserveAspectRatio="xMidYMid meet">
+    <!-- L1 -->
+    <rect x="0" y="0" width="1070" height="272" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <rect x="0" y="0" width="1070" height="28" rx="9" fill="#1f5fa8"/><rect x="0" y="16" width="1070" height="12" fill="#1f5fa8"/>
+    <text x="14" y="20" font-size="11.5" font-weight="700" fill="#fff">SEVİYE 1 — YOL BULMA</text>
+    <text x="220" y="20" font-size="9.4" fill="#d6e4f5">"A noktasından B noktasına hangi yoldan gidilir?" · Bandırma yol grafı üzerinde · kayıt: path_comparison_runs</text>
+
+    <g>
+      <rect x="14" y="40" width="300" height="218" rx="7" fill="#fff" stroke="#e2e8f0"/>
+      <g fill="#fff" stroke="#94a3b8" stroke-width="2">
+        <circle cx="48" cy="150" r="12"/><circle cx="118" cy="92" r="9"/><circle cx="118" cy="208" r="9"/>
+        <circle cx="192" cy="74" r="9"/><circle cx="192" cy="150" r="9"/><circle cx="192" cy="222" r="9"/>
+        <circle cx="268" cy="150" r="12"/>
+      </g>
+      <g stroke="#cbd5e1" stroke-width="2.2" fill="none">
+        <path d="M48 150 L118 92"/><path d="M48 150 L118 208"/><path d="M118 92 L192 74"/><path d="M118 92 L192 150"/>
+        <path d="M118 208 L192 222"/><path d="M118 208 L192 150"/><path d="M192 74 L268 150"/>
+        <path d="M192 150 L268 150"/><path d="M192 222 L268 150"/>
+      </g>
+      <g fill="none" stroke-width="3.2" stroke-linecap="round">
+        <path d="M48 150 L118 208 L192 150 L268 150" stroke="#2d7a4b"/>
+        <path d="M48 150 L118 92 L192 150 L268 150" stroke="#b3382c" stroke-dasharray="7 4"/>
+      </g>
+      <g font-size="8.6" fill="#64748b">
+        <text x="76" y="114">8</text><text x="76" y="192">3</text><text x="152" y="76">6</text><text x="158" y="124">9</text>
+        <text x="152" y="226">2</text><text x="158" y="190">4</text><text x="234" y="104">7</text><text x="228" y="144">5</text><text x="232" y="198">6</text>
+      </g>
+      <text x="48" y="176" font-size="10" font-weight="700" fill="#1b2430" text-anchor="middle">A</text>
+      <text x="268" y="176" font-size="10" font-weight="700" fill="#1b2430" text-anchor="middle">B</text>
+      <g font-size="8.8">
+        <line x1="28" y1="56" x2="50" y2="56" stroke="#2d7a4b" stroke-width="3.2"/>
+        <text x="58" y="59" fill="#215d3b" font-weight="600">Dijkstra / A* → uzunluk 12</text>
+        <line x1="28" y1="72" x2="50" y2="72" stroke="#b3382c" stroke-width="3.2" stroke-dasharray="7 4"/>
+        <text x="58" y="75" fill="#8e2c22" font-weight="600">BFS → 3 kenar, ama uzunluk 22</text>
+      </g>
+    </g>
+
+    <g>
+      <rect x="330" y="40" width="176" height="96" rx="7" fill="#eef7f4" stroke="#2d7a4b" stroke-width="2"/>
+      <text x="344" y="62" font-size="11" font-weight="700" fill="#1d5a4e">Dijkstra</text>
+      <text x="344" y="82" font-size="8.8" fill="#2b4a43">Ağırlıklı grafta en kısa</text>
+      <text x="344" y="96" font-size="8.8" fill="#2b4a43">yolu <tspan font-weight="700">garanti eder</tspan></text>
+      <rect x="344" y="104" width="112" height="18" rx="4" fill="#cfe5d8"/>
+      <text x="400" y="117" font-size="8.4" font-weight="700" fill="#215d3b" text-anchor="middle">REFERANS OPTİMUM</text>
+
+      <rect x="522" y="40" width="176" height="96" rx="7" fill="#eef7f4" stroke="#2d7a4b" stroke-width="2"/>
+      <text x="536" y="62" font-size="11" font-weight="700" fill="#1d5a4e">A*</text>
+      <text x="536" y="82" font-size="8.8" fill="#2b4a43">Dijkstra ile <tspan font-weight="700">aynı yolu</tspan></text>
+      <text x="536" y="96" font-size="8.8" fill="#2b4a43">daha az düğüm gezerek bulur</text>
+      <text x="536" y="118" font-size="8.4" fill="#4b6b5d">haversine sezgiseli</text>
+
+      <rect x="714" y="40" width="176" height="96" rx="7" fill="#fdf2f1" stroke="#b3382c" stroke-width="2.2"/>
+      <text x="728" y="62" font-size="11" font-weight="700" fill="#8e2c22">BFS</text>
+      <text x="728" y="82" font-size="8.8" fill="#7a3b33">Kenar ağırlıklarını</text>
+      <text x="728" y="96" font-size="8.8" font-weight="700" fill="#7a3b33">YOK SAYAR</text>
+      <rect x="728" y="104" width="148" height="18" rx="4" fill="#f5d9d5"/>
+      <text x="802" y="117" font-size="8.2" font-weight="700" fill="#8e2c22" text-anchor="middle">en az kavşak ≠ en kısa</text>
+
+      <rect x="906" y="40" width="150" height="96" rx="7" fill="#fdf2f1" stroke="#b3382c" stroke-width="2"/>
+      <text x="920" y="62" font-size="11" font-weight="700" fill="#8e2c22">DFS</text>
+      <text x="920" y="82" font-size="8.8" fill="#7a3b33">Optimallik garantisi</text>
+      <text x="920" y="96" font-size="8.8" fill="#7a3b33">yok</text>
+      <text x="920" y="118" font-size="8.4" fill="#7a3b33">keşif sırasına bağlı</text>
+    </g>
+
+    <rect x="330" y="150" width="726" height="52" rx="7" fill="#fff" stroke="#b3382c" stroke-width="1.8"/>
+    <text x="346" y="170" font-size="10" font-weight="700" fill="#8e2c22">Rapor için değerli bulgu</text>
+    <text x="346" y="188" font-size="8.8" fill="#5a3b36">Yol ağı <tspan font-weight="700">ağırlıklı</tspan> bir graftır; ağırlıkları yok sayan bir arama algoritması doğru cevabı veremez. BFS'in bu yanlışlığını sayısallaştırmak, algoritma seçiminin neden kritik olduğunu gösterir.</text>
+
+    <text x="330" y="222" font-size="9.4" font-weight="700" fill="#1b2430">Ölçülen metrikler</text>
+    <text x="330" y="240" font-size="9" fill="#475569">yol uzunluğu (m) · hesaplama süresi (ms) · gezilen düğüm sayısı · Dijkstra optimumundan sapma (%)</text>
+    <text x="330" y="256" font-size="8.4" fill="#64748b">Tümü <tspan font-family="Consolas,monospace">path_comparison_runs</tspan> tablosuna yazılır.</text>
+
+    <!-- L2 -->
+    <rect x="0" y="288" width="1070" height="292" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <rect x="0" y="288" width="1070" height="28" rx="9" fill="#6f4a9e"/><rect x="0" y="304" width="1070" height="12" fill="#6f4a9e"/>
+    <text x="14" y="308" font-size="11.5" font-weight="700" fill="#fff">SEVİYE 2 — TUR SIRASI</text>
+    <text x="212" y="308" font-size="9.4" fill="#e4d7f2">"Hangi teslimat hangi sırayla, hangi araçla?" · mesafe matrisi üzerinde · kayıt: optimization_runs</text>
+
+    <g>
+      <rect x="14" y="328" width="300" height="186" rx="7" fill="#fff" stroke="#e2e8f0"/>
+      <text x="30" y="350" font-size="9.4" font-weight="700" fill="#8e2c22">Naive (giriş sırası)</text>
+      <g fill="none" stroke="#b3382c" stroke-width="2.4" stroke-linecap="round">
+        <path d="M42 374 L96 396 L62 418 L128 370 L150 410 L42 374"/>
+      </g>
+      <text x="186" y="350" font-size="9.4" font-weight="700" fill="#215d3b">RouteWise</text>
+      <g fill="none" stroke="#2d7a4b" stroke-width="2.4" stroke-linecap="round">
+        <path d="M198 374 L252 370 L302 396 L272 418 L220 410 L198 374"/>
+      </g>
+      <g fill="#1b2430"><rect x="36" y="368" width="11" height="11" rx="2"/><rect x="192" y="368" width="11" height="11" rx="2"/></g>
+      <g fill="#fff" stroke="#64748b" stroke-width="1.6">
+        <circle cx="96" cy="396" r="4.5"/><circle cx="62" cy="418" r="4.5"/><circle cx="128" cy="370" r="4.5"/><circle cx="150" cy="410" r="4.5"/>
+        <circle cx="252" cy="370" r="4.5"/><circle cx="302" cy="396" r="4.5"/><circle cx="272" cy="418" r="4.5"/><circle cx="220" cy="410" r="4.5"/>
+      </g>
+      <text x="164" y="446" font-size="8.8" fill="#64748b" text-anchor="middle">Aynı duraklar, farklı sıra → farklı mesafe, süre, maliyet</text>
+      <rect x="30" y="458" width="268" height="44" rx="6" fill="#f1f5f9"/>
+      <text x="42" y="476" font-size="8.6" fill="#475569">Her koşuda naive baseline de hesaplanır ve kaydedilir:</text>
+      <text x="42" y="492" font-size="8.6" font-weight="700" fill="#1b2430">tasarruf ölçümü bu karşılaştırmadan türetilir.</text>
+    </g>
+
+    <g>
+      <rect x="330" y="328" width="232" height="72" rx="7" fill="#fdf2f1" stroke="#b3382c" stroke-width="1.8"/>
+      <text x="344" y="348" font-size="10.5" font-weight="700" fill="#8e2c22">Naive — giriş sırası</text>
+      <text x="344" y="368" font-size="8.8" fill="#7a3b33">Taban çizgi: insan dispatcher</text>
+      <text x="344" y="384" font-size="8.8" fill="#7a3b33">davranışı. Optimizasyon yok.</text>
+
+      <rect x="578" y="328" width="232" height="72" rx="7" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.8"/>
+      <text x="592" y="348" font-size="10.5" font-weight="700" fill="#334155">Nearest Neighbor (greedy)</text>
+      <text x="592" y="368" font-size="8.8" fill="#475569">Açgözlü kurucu heuristik.</text>
+      <text x="592" y="384" font-size="8.8" fill="#475569">Çok hızlı, kalite orta.</text>
+
+      <rect x="826" y="328" width="230" height="72" rx="7" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.8"/>
+      <text x="840" y="348" font-size="10.5" font-weight="700" fill="#334155">Clarke-Wright savings</text>
+      <text x="840" y="368" font-size="8.8" fill="#475569">Klasik kurucu heuristik.</text>
+      <text x="840" y="384" font-size="8.8" fill="#475569">RouteWise'ın 1. adımı.</text>
+
+      <rect x="330" y="414" width="480" height="92" rx="7" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="2.4"/>
+      <text x="344" y="436" font-size="11.5" font-weight="700" fill="#53367a">RouteWise — projenin kendi algoritması</text>
+      <text x="344" y="458" font-size="9" fill="#453459">savings (başlangıç) → 2-opt · relocate · exchange · Or-opt (yerel arama)</text>
+      <text x="344" y="474" font-size="9" fill="#453459">→ simulated annealing (tohumlanmış, sıcak başlangıçlı)</text>
+      <text x="344" y="496" font-size="8.6" font-weight="700" fill="#53367a">Her hamlede kapasite ve maksimum rota süresi olurluluğu kontrol edilir.</text>
+
+      <rect x="826" y="414" width="230" height="92" rx="7" fill="#eef7f4" stroke="#2d7a4b" stroke-width="2"/>
+      <text x="840" y="436" font-size="10.5" font-weight="700" fill="#1d5a4e">DFS-exhaustive</text>
+      <text x="840" y="456" font-size="8.8" fill="#2b4a43">yalnızca n ≤ 10</text>
+      <text x="840" y="472" font-size="8.8" fill="#2b4a43">Tüm permütasyonlar gezilir</text>
+      <rect x="840" y="480" width="200" height="18" rx="4" fill="#cfe5d8"/>
+      <text x="940" y="493" font-size="8.4" font-weight="700" fill="#215d3b" text-anchor="middle">GERÇEK OPTİMUM</text>
+    </g>
+
+    <rect x="14" y="522" width="1042" height="46" rx="7" fill="#fff" stroke="#6f4a9e" stroke-width="1.6"/>
+    <text x="30" y="540" font-size="9.4" font-weight="700" fill="#53367a">Yöntem notu</text>
+    <text x="118" y="540" font-size="8.8" fill="#453459">Hız karşılaştırması ancak implementasyonlar aynı dilde, benzer özenle, aynı veri yapıları üzerinde yazıldığında adildir. Her algoritma N kez koşturulur, medyan raporlanır.</text>
+    <text x="30" y="558" font-size="8.8" fill="#475569">Asıl ilginç sonuç tek başına hız değil, <tspan font-weight="700" fill="#1b2430">kalite–süre dengesidir</tspan> — greedy hızlı ama kötü, DFS-exhaustive optimal ama kullanılamaz; RouteWise ikisinin arasındadır.</text>
+  </svg>
+  </div>
+  <div class="foot"><span>RouteWise · Algoritma Karşılaştırması</span><span>16 / 18</span></div>
+</section>
+
+<!-- ═══ 17 ANALİZ & RAPOR ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">17</span><span class="ptitle">Analiz, Excel Raporları ve Tasarruf Yüzdesi</span>
+    <span class="psub">Projenin ana amacının ölçüldüğü yer</span></div>
+  <div class="body">
+  <svg viewBox="0 0 1070 580" preserveAspectRatio="xMidYMid meet">
+    <!-- savings formula -->
+    <rect x="0" y="0" width="660" height="92" rx="9" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="2.4"/>
+    <text x="16" y="24" font-size="11.5" font-weight="700" fill="#215d3b">Tasarruf yüzdesi — ana metrik</text>
+    <rect x="16" y="34" width="628" height="42" rx="6" fill="#fff" stroke="#aecbb9" stroke-width="1.4"/>
+    <text x="330" y="54" font-size="12" font-family="Consolas,monospace" fill="#1b2430" text-anchor="middle">
+      tasarruf % = ( cost<tspan font-size="8.5" dy="3">naive</tspan><tspan dy="-3"> − cost</tspan><tspan font-size="8.5" dy="3">routewise</tspan><tspan dy="-3"> ) / cost</tspan><tspan font-size="8.5" dy="3">naive</tspan><tspan dy="-3"> × 100</tspan>
+    </text>
+    <text x="330" y="70" font-size="8.4" fill="#64748b" text-anchor="middle">her ikisi de optimization_runs tablosunda, aynı plan_id altında</text>
+    <text x="16" y="88" font-size="8.6" fill="#3a6b51">Her optimizasyon koşusunda naive baseline <tspan font-weight="700">de</tspan> hesaplanıp kaydedildiği için tasarruf geçmişe dönük agrege edilebilir.</text>
+
+    <!-- data flow -->
+    <rect x="684" y="0" width="386" height="92" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="698" y="24" font-size="10.5" font-weight="700" fill="#1b2430">Veri akışı — durumsuzluk korunur</text>
+    <g>
+      <rect x="698" y="34" width="110" height="42" rx="6" fill="#eef7f4" stroke="#2d7a6b" stroke-width="1.6"/>
+      <text x="753" y="52" font-size="9" font-weight="700" fill="#1d5a4e" text-anchor="middle">Spring Boot</text>
+      <text x="753" y="67" font-size="8" fill="#2b4a43" text-anchor="middle">SQL agregasyon</text>
+      <rect x="828" y="34" width="110" height="42" rx="6" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="1.6"/>
+      <text x="883" y="52" font-size="9" font-weight="700" fill="#53367a" text-anchor="middle">Python analytics</text>
+      <text x="883" y="67" font-size="8" fill="#453459" text-anchor="middle">pandas · scipy · matplotlib</text>
+      <rect x="958" y="34" width="100" height="42" rx="6" fill="#fdf6ec" stroke="#c87d1f" stroke-width="1.6"/>
+      <text x="1008" y="52" font-size="9" font-weight="700" fill="#8a5411" text-anchor="middle">React</text>
+      <text x="1008" y="67" font-size="8" fill="#5f4620" text-anchor="middle">Recharts · indirme</text>
+      <g stroke="#64748b" stroke-width="2" fill="none">
+        <path d="M808 55 H824" marker-end="url(#ar)"/><path d="M938 55 H954" marker-end="url(#ar)"/>
+      </g>
+    </g>
+
+    <!-- excel -->
+    <rect x="0" y="108" width="348" height="252" rx="9" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="2"/>
+    <text x="16" y="132" font-size="11.5" font-weight="700" fill="#215d3b">Excel raporu &nbsp;<tspan font-size="8.4" font-weight="400">openpyxl</tspan></text>
+    <text x="16" y="150" font-size="8.6" fill="#3a6b51">Ham sayılar — danışmanın kendi analizini yapabileceği tablo.</text>
+    <g>
+      <rect x="16" y="160" width="316" height="30" rx="5" fill="#fff" stroke="#aecbb9"/>
+      <text x="28" y="173" font-size="9.2" font-weight="700" fill="#1d5a4e">Sayfa 1 — Özet</text>
+      <text x="28" y="185" font-size="8.2" fill="#3a6b51">dönem · toplam km · yakıt L · maliyet TL · tasarruf %</text>
+
+      <rect x="16" y="196" width="316" height="30" rx="5" fill="#fff" stroke="#aecbb9"/>
+      <text x="28" y="209" font-size="9.2" font-weight="700" fill="#1d5a4e">Sayfa 2 — Koşu detayı</text>
+      <text x="28" y="221" font-size="8.2" fill="#3a6b51">her optimization_run satır satır · algoritma · metrikler</text>
+
+      <rect x="16" y="232" width="316" height="30" rx="5" fill="#fff" stroke="#aecbb9"/>
+      <text x="28" y="245" font-size="9.2" font-weight="700" fill="#1d5a4e">Sayfa 3 — Algoritma karşılaştırma</text>
+      <text x="28" y="257" font-size="8.2" fill="#3a6b51">Seviye 1 ve Seviye 2 tabloları · sapma % · süre ms</text>
+
+      <rect x="16" y="268" width="316" height="30" rx="5" fill="#fff" stroke="#aecbb9"/>
+      <text x="28" y="281" font-size="9.2" font-weight="700" fill="#1d5a4e">Sayfa 4 — Zaman serisi</text>
+      <text x="28" y="293" font-size="8.2" fill="#3a6b51">haftalık / aylık / yıllık kırılım · pandas resample</text>
+
+      <rect x="16" y="304" width="316" height="30" rx="5" fill="#fff" stroke="#aecbb9"/>
+      <text x="28" y="317" font-size="9.2" font-weight="700" fill="#1d5a4e">Sayfa 5 — İstatistiksel test</text>
+      <text x="28" y="329" font-size="8.2" fill="#3a6b51">Wilcoxon / t-test sonuçları · p değerleri · n</text>
+    </g>
+    <text x="16" y="352" font-size="8.4" fill="#64748b">CSV dışa aktarma da aynı veriden türetilir.</text>
+
+    <!-- pdf -->
+    <rect x="364" y="108" width="330" height="252" rx="9" fill="#fdf6ec" stroke="#c87d1f" stroke-width="2"/>
+    <text x="380" y="132" font-size="11.5" font-weight="700" fill="#8a5411">PDF raporu &nbsp;<tspan font-size="8.4" font-weight="400">matplotlib</tspan></text>
+    <text x="380" y="150" font-size="8.6" fill="#5f4620">Figürlerle birlikte sunuma ve teze hazır rapor.</text>
+    <g font-size="8.8" fill="#5f4620">
+      <text x="380" y="174">• Kapak: dönem, depo, araç sayısı</text>
+      <text x="380" y="194">• Tasarruf özeti — büyük punto, tek sayı</text>
+      <text x="380" y="214">• Zaman serisi grafiği (haftalık/aylık/yıllık)</text>
+      <text x="380" y="234">• Algoritma karşılaştırma tablosu</text>
+      <text x="380" y="254">• Kalite–süre dengesi grafiği</text>
+      <text x="380" y="274">• İstatistiksel anlamlılık sonucu</text>
+      <text x="380" y="294">• Örnek rota haritası (önce / sonra)</text>
+    </g>
+    <rect x="380" y="306" width="298" height="42" rx="6" fill="#fff" stroke="#c87d1f" stroke-width="1.4"/>
+    <text x="392" y="324" font-size="8.8" font-weight="700" fill="#8a5411">Vektörel çıktı (SVG/PDF)</text>
+    <text x="392" y="339" font-size="8.4" fill="#5f4620">Tez raporuna doğrudan gömülür; ekran görüntüsü alınmaz, baskıda bozulmaz.</text>
+
+    <!-- charts -->
+    <rect x="710" y="108" width="360" height="252" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="726" y="132" font-size="11.5" font-weight="700" fill="#1b2430">Görsel karşılaştırmalar</text>
+    <g font-size="8.8">
+      <text x="726" y="154" font-weight="700" fill="#475569">Grafik</text>
+      <text x="906" y="154" font-weight="700" fill="#475569">Gösterdiği</text>
+      <line x1="726" y1="160" x2="1054" y2="160" stroke="#cbd5e1"/>
+      <text x="726" y="178" fill="#334155">Çubuk — algoritma × maliyet</text><text x="906" y="178" fill="#64748b">hangisi ucuz</text>
+      <text x="726" y="198" fill="#334155">Çizgi — zaman × tasarruf %</text><text x="906" y="198" fill="#64748b">iyileşme eğilimi</text>
+      <text x="726" y="218" fill="#334155">Dağılım — süre × sapma</text><text x="906" y="218" fill="#64748b">kalite–hız dengesi</text>
+      <text x="726" y="238" fill="#334155">Yığılmış çubuk — maliyet kırılımı</text><text x="906" y="238" fill="#64748b">yakıt / sürücü payı</text>
+      <text x="726" y="258" fill="#334155">Kutu grafiği — senaryo dağılımı</text><text x="906" y="258" fill="#64748b">tutarlılık</text>
+      <text x="726" y="278" fill="#334155">Harita — önce / sonra rota</text><text x="906" y="278" fill="#64748b">görsel kanıt</text>
+    </g>
+    <rect x="726" y="292" width="328" height="56" rx="6" fill="#fff" stroke="#1f5fa8" stroke-width="1.4"/>
+    <text x="738" y="310" font-size="9" font-weight="700" fill="#1f5fa8">İki yerde, iki amaçla</text>
+    <text x="738" y="326" font-size="8.4" fill="#475569"><tspan font-weight="600">React + Recharts</tspan> → ekranda interaktif: hover, filtre</text>
+    <text x="738" y="341" font-size="8.4" fill="#475569"><tspan font-weight="600">Python + matplotlib</tspan> → raporda yayın kalitesi</text>
+
+    <!-- significance -->
+    <rect x="0" y="376" width="660" height="204" rx="9" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="2.4"/>
+    <text x="16" y="400" font-size="11.5" font-weight="700" fill="#53367a">İstatistiksel anlamlılık — iddiayı savunulabilir kılan adım</text>
+    <g font-size="9.2" fill="#453459">
+      <text x="16" y="424">Tek başına <tspan font-style="italic">"RouteWise greedy'den %13 daha iyi"</tspan> zayıf bir iddiadır.</text>
+      <text x="16" y="440" font-weight="700" fill="#8e2c22">Jüri sorar: "Bu fark şans eseri olamaz mı? Kaç senaryoda denedin?"</text>
+      <text x="16" y="464">Aynı senaryo kümesi tüm algoritmalarla koşturulur ve <tspan font-weight="700">eşleştirilmiş Wilcoxon</tspan></text>
+      <text x="16" y="480"><tspan font-weight="700">işaretli sıra testi</tspan> uygulanır (dağılım varsayımı gerektirmez; alternatif paired t-test).</text>
+    </g>
+    <rect x="16" y="492" width="628" height="36" rx="6" fill="#fff" stroke="#b79ad1" stroke-width="1.6"/>
+    <text x="330" y="515" font-size="10.5" font-weight="700" fill="#53367a" text-anchor="middle">"RouteWise, greedy'ye göre anlamlı derecede daha iyi (p &lt; 0.001, n = 50 senaryo)."</text>
+    <g font-size="8.8" fill="#453459">
+      <text x="16" y="548">Maliyeti birkaç satır <tspan font-family="Consolas,monospace">scipy.stats</tspan> kodudur; kazancı, iddianın "benim sayılarım daha güzel"den</text>
+      <text x="16" y="564">savunulabilir bir bulguya dönüşmesidir. Analiz modülüne <tspan font-weight="700">baştan</tspan> konur.</text>
+    </g>
+
+    <!-- metrics -->
+    <rect x="684" y="376" width="386" height="204" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="700" y="400" font-size="11" font-weight="700" fill="#1b2430">Raporlanan metrikler</text>
+    <g font-size="8.8" fill="#475569">
+      <text x="700" y="422">• Toplam mesafe (km)</text>
+      <text x="700" y="440">• Yakıt tüketimi (L)</text>
+      <text x="700" y="458">• Yakıt maliyeti (TL)</text>
+      <text x="700" y="476">• Sürücü maliyeti (TL)</text>
+      <text x="700" y="494" font-weight="700" fill="#1b2430">• Toplam maliyet (TL)</text>
+      <text x="890" y="422">• Kullanılan araç sayısı</text>
+      <text x="890" y="440">• Ortalama teslimat süresi</text>
+      <text x="890" y="458">• ETA doğruluk sapması</text>
+      <text x="890" y="476">• Hesaplama süresi (ms)</text>
+      <text x="890" y="494" font-weight="700" fill="#215d3b">• Tasarruf (%)</text>
+    </g>
+    <rect x="700" y="508" width="354" height="56" rx="6" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="1.4"/>
+    <text x="712" y="526" font-size="9" font-weight="700" fill="#215d3b">Kırılımlar</text>
+    <text x="712" y="542" font-size="8.6" fill="#3a6b51">Haftalık · aylık · yıllık — pandas resample ile</text>
+    <text x="712" y="557" font-size="8.6" fill="#3a6b51">optimization_runs.created_at üzerinden</text>
+  </svg>
+  </div>
+  <div class="foot"><span>RouteWise · Analiz ve Raporlama</span><span>17 / 18</span></div>
+</section>
+
+
+<!-- ═══ 18 YOL HARİTASI ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">18</span><span class="ptitle">Geliştirme Yol Haritası</span>
+    <span class="psub">Her katman çalışan ve demo edilebilir bir sistem</span></div>
+  <div class="body">
+  <svg viewBox="0 0 1070 580" preserveAspectRatio="xMidYMid meet">
+    <rect x="0" y="0" width="1070" height="44" rx="8" fill="#fdf2f1" stroke="#b3382c" stroke-width="1.8"/>
+    <text x="14" y="20" font-size="10.5" font-weight="700" fill="#8e2c22">Pazarlık payı olmayan kural</text>
+    <text x="14" y="37" font-size="9" fill="#5a3b36">Sistem tek parça yazılmaz. Takvim sıkışırsa son çalışan katman sunulur; tek parça geliştirmede proje bitmezse ortada gösterilebilir hiçbir şey kalmaz.</text>
+
+    <g>
+      <!-- L1 -->
+      <rect x="0" y="58" width="1070" height="92" rx="8" fill="#fafcfe" stroke="#cbd5e1" stroke-width="1.6"/>
+      <rect x="0" y="58" width="96" height="92" rx="8" fill="#1f5fa8"/><rect x="86" y="58" width="10" height="92" fill="#1f5fa8"/>
+      <text x="48" y="98" font-size="22" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+      <text x="48" y="118" font-size="8.4" fill="#cfe0f5" text-anchor="middle">KATMAN</text>
+      <text x="116" y="84" font-size="12" font-weight="700" fill="#1b2430">Kargo listesi + adres doğrulama + tek araç rotası (TSP)</text>
+      <g font-size="8.8" fill="#475569">
+        <text x="116" y="104">• Docker compose + PostGIS/pgRouting · Liquibase şema · seed filo</text>
+        <text x="116" y="121">• OSM veri hattı: download → clip → load → export</text>
+        <text x="116" y="138">• Kargo CRUD · haritadan konum seçimi · 5 katmanlı adres doğrulama · Dijkstra matris</text>
+      </g>
+      <rect x="730" y="76" width="326" height="56" rx="6" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="1.4"/>
+      <text x="742" y="94" font-size="8.8" font-weight="700" fill="#215d3b">Demo: "Paket ekliyorum, rota haritada yeniden çiziliyor."</text>
+      <text x="742" y="110" font-size="8.4" fill="#3a6b51">Kapasite ve maliyet henüz yok. Tek araç, tek rota.</text>
+      <text x="742" y="125" font-size="8.4" fill="#64748b">Risk: yol grafı kurulumu — en erken çözülmeli.</text>
+
+      <!-- L2 -->
+      <rect x="0" y="160" width="1070" height="92" rx="8" fill="#fafcfe" stroke="#cbd5e1" stroke-width="1.6"/>
+      <rect x="0" y="160" width="96" height="92" rx="8" fill="#2d7a6b"/><rect x="86" y="160" width="10" height="92" fill="#2d7a6b"/>
+      <text x="48" y="200" font-size="22" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+      <text x="48" y="220" font-size="8.4" fill="#cfe5df" text-anchor="middle">KATMAN</text>
+      <text x="116" y="186" font-size="12" font-weight="700" fill="#1b2430">Çok araç + kapasite kısıtı + maliyet modeli (CVRP)</text>
+      <g font-size="8.8" fill="#475569">
+        <text x="116" y="206">• Clarke-Wright savings → 2-opt / relocate / exchange / Or-opt → simulated annealing</text>
+        <text x="116" y="223">• Amaç fonksiyonu: mesafe + yakıt + sürücü + öncelik · naive baseline kaydı</text>
+        <text x="116" y="240">• <tspan font-weight="700">Olurluluk testleri</tspan> — kapasite ihlali asla üretilmemeli</text>
+      </g>
+      <rect x="730" y="178" width="326" height="56" rx="6" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="1.4"/>
+      <text x="742" y="196" font-size="8.8" font-weight="700" fill="#215d3b">Demo: "3 araçla dağıtım planı, TL cinsinden maliyet."</text>
+      <text x="742" y="212" font-size="8.4" fill="#3a6b51">Naive planla farkı tablo halinde görünür.</text>
+      <text x="742" y="227" font-size="8.4" fill="#8e2c22" font-weight="600">Ölçüm altyapısı buradan itibaren hazır tutulur.</text>
+
+      <!-- L3 -->
+      <rect x="0" y="262" width="1070" height="92" rx="8" fill="#fafcfe" stroke="#cbd5e1" stroke-width="1.6"/>
+      <rect x="0" y="262" width="96" height="92" rx="8" fill="#c87d1f"/><rect x="86" y="262" width="10" height="92" fill="#c87d1f"/>
+      <text x="48" y="302" font-size="22" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+      <text x="48" y="322" font-size="8.4" fill="#f5e3cc" text-anchor="middle">KATMAN</text>
+      <text x="116" y="288" font-size="12" font-weight="700" fill="#1b2430">Maksimum rota süresi + ETA + bildirim + roller</text>
+      <g font-size="8.8" fill="#475569">
+        <text x="116" y="308">• Çalışma günü süresi sert kısıt olarak algoritmaya girer</text>
+        <text x="116" y="325">• Durak bazında ETA (maxspeed + servis süresi) · uygulama içi + e-posta bildirim</text>
+        <text x="116" y="342">• JWT · üç rol · <tspan font-weight="700">rol sızıntısı testleri</tspan></text>
+      </g>
+      <rect x="730" y="280" width="326" height="56" rx="6" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="1.4"/>
+      <text x="742" y="298" font-size="8.8" font-weight="700" fill="#215d3b">Demo: "Paketiniz tahmini 14:20'de teslim edilecek"</text>
+      <text x="742" y="314" font-size="8.4" fill="#3a6b51">bildirimi alıcıya ulaşır; kurye kendi rotasını görür.</text>
+
+      <!-- L4 -->
+      <rect x="0" y="364" width="1070" height="92" rx="8" fill="#fafcfe" stroke="#cbd5e1" stroke-width="1.6"/>
+      <rect x="0" y="364" width="96" height="92" rx="8" fill="#b3382c"/><rect x="86" y="364" width="10" height="92" fill="#b3382c"/>
+      <text x="48" y="404" font-size="22" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+      <text x="48" y="424" font-size="8.4" fill="#f5d9d5" text-anchor="middle">KATMAN</text>
+      <text x="116" y="390" font-size="12" font-weight="700" fill="#1b2430">Dinamik yeniden rotalama</text>
+      <g font-size="8.8" fill="#475569">
+        <text x="116" y="410">• Erteleme ("başka gün gelsin") · alıcı adres değişikliği · otomatik erteleme</text>
+        <text x="116" y="427">• Teslim edilenler sabit, kalan duraklar yeniden optimize — son tamamlanan duraktan</text>
+        <text x="116" y="444">• Beş güvenlik önlemi (sayfa 13) · sıcak başlangıç · debounce</text>
+      </g>
+      <rect x="730" y="382" width="326" height="56" rx="6" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="1.4"/>
+      <text x="742" y="400" font-size="8.8" font-weight="700" fill="#215d3b">Demo: Kurye yoldayken alıcı erteliyor,</text>
+      <text x="742" y="416" font-size="8.4" fill="#3a6b51">rota canlı olarak yeniden hesaplanıyor.</text>
+      <text x="742" y="431" font-size="8.4" fill="#8e2c22" font-weight="600">Projenin "dinamik" iddiasının kanıtı.</text>
+
+      <!-- L5 -->
+      <rect x="0" y="466" width="1070" height="92" rx="8" fill="#f5f0fa" stroke="#6f4a9e" stroke-width="2.4"/>
+      <rect x="0" y="466" width="96" height="92" rx="8" fill="#6f4a9e"/><rect x="86" y="466" width="10" height="92" fill="#6f4a9e"/>
+      <text x="48" y="506" font-size="22" font-weight="700" fill="#fff" text-anchor="middle">5</text>
+      <text x="48" y="526" font-size="8.4" fill="#e4d7f2" text-anchor="middle">KATMAN</text>
+      <text x="116" y="492" font-size="12" font-weight="700" fill="#53367a">Algoritma karşılaştırma modülü + istatistik raporları</text>
+      <g font-size="8.8" fill="#453459">
+        <text x="116" y="512">• Seviye 1: Dijkstra · A* · BFS · DFS — yol grafı üzerinde</text>
+        <text x="116" y="529">• Seviye 2: naive · greedy · savings · RouteWise · DFS-exhaustive</text>
+        <text x="116" y="546">• pandas/scipy analiz · Excel + PDF dışa aktarma · haftalık/aylık/yıllık tasarruf</text>
+      </g>
+      <rect x="730" y="484" width="326" height="56" rx="6" fill="#ece2f5" stroke="#6f4a9e" stroke-width="1.4"/>
+      <text x="742" y="502" font-size="8.8" font-weight="700" fill="#53367a">Projenin en görünür çıktısı</text>
+      <text x="742" y="518" font-size="8.4" fill="#5e4580">Ölçüm altyapısı Katman 2'den beri hazır olduğu için</text>
+      <text x="742" y="533" font-size="8.4" fill="#5e4580">bu katman veri üretmeyi beklemez.</text>
+    </g>
+  </svg>
+  </div>
+  <div class="foot"><span>RouteWise · Yol Haritası</span><span>18 / 18</span></div>
+</section>
+
+</body>
+</html>
