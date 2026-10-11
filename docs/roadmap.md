@@ -66,11 +66,18 @@ Geliştirme ortamı ayakta, Bandırma yol grafı veritabanında, `docker compose
 8. **Doğrula** — `ways` ve `ways_vertices_pgr` tabloları dolu; `pgr_dijkstra` ile iki nokta arası sorgu sonuç veriyor
 
 ### Biten iş tanımı
-- [ ] `docker compose up` ile dört servis ayağa kalkıyor, healthcheck'ler yeşil
+
+> **Düzeltme (11.10.2026):** Bu listede önce "dört servis ayağa kalkıyor" yazıyordu.
+> Yanlıştı: Faz 0'da `backend/`, `python/` ve `frontend/` boştur, Dockerfile'ları yoktur,
+> dolayısıyla build edilemezler. Uygulama servisleri **Faz 1a'nın** işidir.
+> Faz 0 gerçekte `db` + `dataprep` + yol grafı teslim eder.
+
+- [ ] `docker compose up -d db` ile veritabanı ayağa kalkıyor, healthcheck yeşil
+- [ ] `postgis` ve `pgrouting` uzantıları kurulu
 - [ ] `ways` tablosunda Bandırma yol ağı var, satır sayısı makul (binler mertebesi)
 - [ ] `pgr_dijkstra` örnek sorgusu mesafe döndürüyor
-- [ ] `graphdata` volume'ünde graf dosyası var
-- [ ] Kurulum adımları `README.md`'de belgelendi — **başka biri sıfırdan kurabilmeli**
+- [ ] `graphdata` volume'ünde `bandirma-graph.npz` var, bbox Bandırma'yı gösteriyor
+- [ ] Kurulum adımları belgelendi — **başka biri sıfırdan kurabilmeli**
 
 ### Risk
 - **OSM poligonu yanlış/eksik** → graf boş veya çok küçük çıkar. Erken fark etmek için

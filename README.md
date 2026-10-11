@@ -4,64 +4,124 @@
 
 Lojistik Dağıtım Süreçlerinde Dinamik Rota ve Araç Optimizasyonu Sağlayan Akıllı Yazılım Sistemi
 
+> **Durum:** Faz 0 — altyapı ve veri hattı kuruluyor. Uygulama kodu henüz yazılmadı.
+> Yol planı: [docs/roadmap.md](docs/roadmap.md)
+
 ---
 
 ## Amaç
 
-Kargo ve lojistik dağıtım süreçlerinde oluşan **yakıt, zaman ve araç kullanım maliyetlerini**
-azaltmak amacıyla dinamik rota optimizasyonu gerçekleştiren akıllı bir yazılım sistemi geliştirmek.
+Kargo dağıtım süreçlerinde oluşan **yakıt, zaman ve araç kullanım maliyetlerini**
+azaltmak amacıyla dinamik rota optimizasyonu gerçekleştiren bir yazılım sistemi
+geliştirmek.
+
+**Kapsam:** Bandırma içi kargo dağıtımı, tek dağıtım merkezi.
 
 ## Özgün Yanı
 
-Sistem yalnızca en kısa rotayı bulmaz. Dağıtım sürecini birden fazla değişkeni
-**birlikte** değerlendirerek optimize eder:
+Sistem yalnızca en kısa rotayı bulmaz. Maliyet, rota hesaplandıktan *sonra* eklenen bir
+rapor alanı değil, **amaç fonksiyonunun parçasıdır** — algoritmanın her kararını bu
+değerler yönlendirir:
 
-- Araç kapasitesi
-- Teslimat öncelikleri
-- Mesafe ve tahmini süre
-- Yakıt tüketimi ve toplam maliyet
+| Değişken | Rol |
+|---|---|
+| Araç kapasitesi | sert kısıt |
+| Çalışma günü süresi | sert kısıt |
+| Teslimat önceliği | ceza katsayısı |
+| Mesafe · süre · yakıt · sürücü maliyeti | amaç fonksiyonu bileşenleri |
+
+### Çözülen problem
+
+**CVRP + maksimum rota süresi** — tek depo, kapasiteli araç filosu, çalışma günü
+sınırı; üstüne dağıtım sırasında **dinamik yeniden rotalama**.
+
+Müşteri bazlı zaman penceresi (VRPTW) kapsam dışıdır: "tüm teslimatlar gün içinde
+bitsin" rota başına tek bir süre üst sınırıdır.
+
+### Algoritma
+
+Hazır çözücü (OR-Tools vb.) kullanılmaz; algoritma projeye özgü geliştirilir:
+
+```
+Clarke-Wright savings  →  2-opt · relocate · exchange · Or-opt  →  simulated annealing
+   (başlangıç çözümü)            (yerel arama)                (tohumlanmış, sıcak başlangıçlı)
+```
+
+Her hamlede kapasite ve maksimum rota süresi olurluluğu kontrol edilir.
+
+Çözüm kalitesi iki referansa karşı ölçülür: her koşuda hesaplanan **naive baseline**'a
+göre tasarruf yüzdesi, ve küçük örneklerde **DFS-exhaustive** ile bulunan gerçek
+optimuma göre sapma.
 
 ## Mimari
 
-Web tabanlı, servis ayrımlı bir mimari. Ayrıntılar: [Sistem Mimarisi](docs/architecture.md)
-
 | Bileşen | Teknoloji | Sorumluluk |
 |---|---|---|
-| **Backend** | Java 21 + Spring Boot 3.4+ | Domain yönetimi, veri sahipliği, matris cache'i, analizler |
-| **Optimizer** | Python 3.12 + FastAPI | Rota optimizasyon algoritması (durumsuz, DB erişimi yok) |
-| **Frontend** | React 19 + Vite + TypeScript + MapLibre | Yönetim arayüzü, harita görselleştirme, raporlar |
-| **Veritabanı** | PostgreSQL + PostGIS | Coğrafi veri, dağıtım geçmişi, performans metrikleri |
-| **Mesafe verisi** | OpenRouteService API | Mesafe/süre matrisi (`DistanceMatrixProvider` arkasında; OSRM'e geçiş açık) |
+| **Backend** | Java 21 · Spring Boot 3.4+ | Veri sahipliği, domain, JWT, matris cache, ETA, raporlar |
+| **Python servisi** | Python 3.12 · FastAPI | Optimizasyon algoritmaları + analiz (durumsuz, DB erişimi yok) |
+| **Frontend** | React 19 · Vite · TypeScript · MapLibre | Üç rol için arayüz, harita, grafikler |
+| **Veritabanı** | PostgreSQL 17 · PostGIS 3.6 · pgRouting 3.8 | İş verisi, coğrafi sorgular, yol grafı |
 
-### Çözülen Problem
+**Mesafe verisi için harici API kullanılmaz.** Bandırma OSM çıkartması kendi
+veritabanımıza yüklenir; mesafe ve süre matrisi kendi Dijkstra implementasyonumuzla
+bu graf üzerinden hesaplanır. Kota, API anahtarı ve internet bağımlılığı yoktur.
 
-**MDVRPTW** — Multi-Depot Vehicle Routing Problem with Time Windows. Çok depo, araç
-kapasitesi ve teslimat zaman penceresi sert kısıt; teslimat önceliği, yakıt ve sürücü
-maliyeti amaç fonksiyonunda **birlikte** değerlendirilir.
+Ayrıntı: [docs/architecture.md](docs/architecture.md)
 
-Optimizasyon algoritması hazır bir çözücü değil, projeye özgü olarak geliştirilir:
-Solomon I1 insertion ile başlangıç çözümü, ardından zaman olurluluğunu koruyan yerel
-arama hamleleri (relocate, exchange, Or-opt, 2-opt\*) üzerinde simulated annealing.
+## Kurulum
 
-Sistem üç katman hâlinde inşa edilir ve her katman çalışan bir sistemdir:
-**CVRP → VRPTW → MDVRPTW**.
+### Gereksinimler
+- Docker Desktop (çalışır durumda)
+- Disk: ~10 GB (OSM verisi + veritabanı)
 
-Çözüm kalitesi iki şekilde ölçülür: her koşuda hesaplanan naive baseline rotaya karşı
-tasarruf yüzdesi, ve literatürdeki standart test kümelerine (Solomon, Cordeau) karşı
-en iyi bilinen çözümden sapma (gap %).
+### Adımlar
 
-## Gelişim Planı
+```bash
+cd infra
+cp .env.example .env          # POSTGRES_PASSWORD değerini değiştir
+docker compose up -d db
+```
 
-- [ ] Proje gereksinimlerinin ve kullanım senaryolarının belirlenmesi
-- [ ] Sistem mimarisinin ve veritabanı tasarımının oluşturulması
-- [ ] Kullanıcı, araç, teslimat ve konum yönetimi modüllerinin geliştirilmesi
-- [ ] Rota oluşturma ve rota optimizasyon algoritmasının sisteme dahil edilmesi
-- [ ] Teslimat tercihlerine göre dinamik rota güncelleme mekanizmasının geliştirilmesi
-- [ ] Yakıt, mesafe, süre ve maliyet hesaplama modüllerinin oluşturulması
-- [ ] Haftalık, aylık ve yıllık performans analizlerinin geliştirilmesi
-- [ ] Farklı dağıtım senaryoları üzerinde testlerin gerçekleştirilmesi
-- [ ] Sistem performansının ve elde edilen tasarruf oranlarının değerlendirilmesi
-- [ ] Son testler, dokümantasyon ve proje raporunun tamamlanması
+Veritabanı hazır olunca yol grafını kur (tek seferlik, ~619 MB indirme):
+
+```bash
+docker compose --profile tools run --rm dataprep all
+```
+
+Adımlar tek tek de çalıştırılabilir: `download` · `clip` · `load` · `export` · `verify`.
+Ayrıntı: [infra/dataprep/README.md](infra/dataprep/README.md)
+
+> **`docker compose down -v` çalıştırmayın.** Volume'ler 619 MB indirme ve dakikalarca
+> süren import içerir; `-v` hepsini siler. Volume'süz `down` yeterlidir.
+
+### Doğrulama
+
+```bash
+docker compose --profile tools run --rm dataprep verify
+```
+
+`ways` tablosu dolu, `pgr_dijkstra` mesafe döndürüyor ve `graphdata` volume'ünde
+`bandirma-graph.npz` varsa Faz 0 tamamdır.
+
+## Proje yapısı
+
+```
+backend/      Spring Boot          (Faz 1a)
+python/       FastAPI              (Faz 1a)
+frontend/     React + Vite         (Faz 1a)
+infra/        Docker Compose + veri hattı
+docs/         mimari, yol planı, analiz dokümanları
+```
+
+## Dokümantasyon
+
+| Doküman | İçerik |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | Sistem mimarisi — 15 bölüm |
+| [docs/roadmap.md](docs/roadmap.md) | Geliştirme yol planı — 8 faz, 14–18 hafta |
+| [docs/RouteWise-Detayli-Sistem-Analizi.pdf](docs/RouteWise-Detayli-Sistem-Analizi.pdf) | Görsel sistem analizi — 25 sayfa, ER diyagramı dahil |
+| [docs/proposal.md](docs/proposal.md) | Orijinal proje önerisi |
+| [infra/dataprep/README.md](infra/dataprep/README.md) | Veri hattı ve sınır poligonunun kaynağı |
 
 ## Başarı Kriterleri
 
@@ -74,7 +134,3 @@ en iyi bilinen çözümden sapma (gap %).
 7. Haftalık, aylık ve yıllık tasarruf analizlerinin raporlanabilmesi
 8. Sistemin farklı araç ve dağıtım senaryolarında çalıştırılabilmesi
 9. Geleneksel rota planlamasına kıyasla ölçülebilir bir verimlilik artışı sağlanması
-
-## Dokümantasyon
-
-- [Proje Önerisi](docs/proposal.md)

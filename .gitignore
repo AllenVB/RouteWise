@@ -33,3 +33,12 @@ logs/
 # Test & coverage
 coverage/
 .nyc_output/
+
+# Veri hattı çıktıları — Docker volume'lerinde tutulur, repoya girmez
+*.osm.pbf
+*.npz
+# bandirma.poly BİLEREK versiyonlanır: tekrar üretilebilirlik için
+# (bkz. infra/dataprep/README.md)
+
+# Figür önizleme çıktıları — kanonik biçim SVG'dir
+docs/diagrams/*.png

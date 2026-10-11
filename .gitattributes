@@ -1,0 +1,15 @@
+# Linux container'larında çalışacak dosyalar LF olmak zorunda.
+# Windows'ta CRLF'e dönerlerse bash "\r: command not found" ile patlar.
+*.sh        text eol=lf
+*.py        text eol=lf
+*.sql       text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.poly      text eol=lf
+Dockerfile  text eol=lf
+
+*.pdf       binary
+*.png       binary
+*.jpg       binary
+*.npz       binary
+*.pbf       binary
