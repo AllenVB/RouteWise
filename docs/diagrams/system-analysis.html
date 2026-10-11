@@ -136,6 +136,7 @@
       <span class="grp">Çıktı</span>
       <b>17</b> Analiz, Excel raporları ve tasarruf yüzdesi<br>
       <b>18</b> Geliştirme yol haritası<br>
+      <b>19</b> Maliyet karşılaştırması — matplotlib çıktısı<br>
     </div>
   </div>
 </section>
@@ -146,73 +147,168 @@
   <div class="phead"><span class="pnum">02</span><span class="ptitle">Problem Tanımı, Kapsam ve Kısıtlar</span>
     <span class="psub">Ne çözülüyor, ne çözülmüyor</span></div>
   <div class="body">
-    <div class="cols c2">
-      <div>
-        <h3 class="sec">Çözülen problem</h3>
-        <div class="info">
-          <b style="color:#1b2430">CVRP + maksimum rota süresi</b> — Capacitated Vehicle Routing
-          Problem, tek depo, çalışma günü süre sınırı ile; üstüne dağıtım sırasında
-          <b style="color:#1b2430">dinamik yeniden rotalama</b>.
-          <br><br>Bandırma'daki tek kargo şubesinden çıkan araçlar, kapasiteleri kadar paketi
-          gün içinde teslim edip şubeye döner. Sistem bu dağıtımı yalnızca mesafe değil,
-          <b style="color:#1b2430">yakıt, süre, sürücü maliyeti ve teslimat önceliğini birlikte</b>
-          değerlendirerek planlar.
-        </div>
+  <svg viewBox="0 0 1070 580" preserveAspectRatio="xMidYMid meet">
 
-        <h3 class="sec sp">Kısıtlar ve değişkenler</h3>
-        <table class="tbl">
-          <tr><th>Boyut</th><th>Tip</th><th>Modelleme</th></tr>
-          <tr><td>Araç kapasitesi</td><td style="color:#b3382c;font-weight:700">SERT</td><td>Σ paket ağırlığı ≤ kapasite · aşılamaz</td></tr>
-          <tr><td>Çalışma günü süresi</td><td style="color:#b3382c;font-weight:700">SERT</td><td>toplam rota süresi ≤ gün sınırı</td></tr>
-          <tr><td>Teslimat önceliği</td><td style="color:#c87d1f;font-weight:700">YUMUŞAK</td><td>amaç fonksiyonunda ceza katsayısı</td></tr>
-          <tr><td>Toplam mesafe</td><td>amaç</td><td>yol grafı + Dijkstra</td></tr>
-          <tr><td>Yakıt tüketimi</td><td>amaç</td><td>araç bazlı L/100km × km</td></tr>
-          <tr><td>Sürücü maliyeti</td><td>amaç</td><td>süre × saatlik ücret</td></tr>
-          <tr><td>Dağıtım merkezi</td><td>yapısal</td><td><b>tek</b> depo</td></tr>
-        </table>
+    <!-- ── A: problem görseli ── -->
+    <rect x="0" y="0" width="438" height="246" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="14" y="22" font-size="11" font-weight="700" fill="#1b2430">Problem — tek depo, çok araç, kapasiteli dağıtım</text>
 
-        <div class="warn" style="margin-top:7px">
-          <b>Kapsam dışı:</b> müşteri bazlı zaman penceresi (VRPTW). "Tüm teslimatlar gün
-          içinde bitsin" rota başına <b>tek bir süre üst sınırıdır</b>; "bu paket 09:00–12:00
-          arası teslim edilmeli" değildir. İkincisi her teslimat için ayrı olurluluk kontrolü,
-          varış saati yayılımı ve bekleme süresi hesabı gerektirir ve problem sınıfını değiştirir.
-        </div>
-      </div>
+    <g stroke="#e8edf3" stroke-width="1">
+      <path d="M14 70 H424"/><path d="M14 132 H424"/><path d="M14 194 H424"/>
+      <path d="M110 34 V232"/><path d="M206 34 V232"/><path d="M302 34 V232"/>
+    </g>
+    <g fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M96 132 L152 74 L214 56 L286 80" stroke="#3b6fb5"/>
+      <path d="M96 132 L158 142 L236 130 L310 152" stroke="#1d7a5f"/>
+      <path d="M96 132 L146 192 L224 212 L300 216" stroke="#d4892a"/>
+    </g>
+    <g fill="#fff" stroke-width="2.4">
+      <circle cx="152" cy="74" r="6" stroke="#3b6fb5"/><circle cx="214" cy="56" r="6" stroke="#3b6fb5"/>
+      <circle cx="286" cy="80" r="6" stroke="#3b6fb5"/>
+      <circle cx="158" cy="142" r="6" stroke="#1d7a5f"/><circle cx="236" cy="130" r="6" stroke="#1d7a5f"/>
+      <circle cx="310" cy="152" r="6" stroke="#1d7a5f"/>
+      <circle cx="146" cy="192" r="6" stroke="#d4892a"/><circle cx="224" cy="212" r="6" stroke="#d4892a"/>
+      <circle cx="300" cy="216" r="6" stroke="#d4892a"/>
+    </g>
+    <rect x="80" y="116" width="32" height="32" rx="6" fill="#1b2430"/>
+    <path d="M88 134 h16 M88 140 h16" stroke="#fff" stroke-width="1.8"/>
+    <path d="M90 128 l6 -5 l6 5 z" fill="#fff"/>
+    <text x="96" y="164" font-size="9.4" font-weight="700" fill="#1b2430" text-anchor="middle">DEPO</text>
 
-      <div>
-        <h3 class="sec">Projenin özgün yanı</h3>
-        <div class="ok">
-          Sistem <b>yalnızca en kısa rotayı</b> bulmaz. Maliyet, rota hesaplandıktan sonra
-          eklenen bir rapor alanı değil, <b>amaç fonksiyonunun parçasıdır</b> — algoritmanın
-          kararlarını doğrudan bu değerler yönlendirir. (bkz. sayfa 15)
-        </div>
+    <g font-size="8.8" fill="#475569">
+      <line x1="330" y1="48" x2="350" y2="48" stroke="#3b6fb5" stroke-width="2.8"/><text x="356" y="51">Araç 1</text>
+      <line x1="330" y1="66" x2="350" y2="66" stroke="#1d7a5f" stroke-width="2.8"/><text x="356" y="69">Araç 2</text>
+      <line x1="330" y1="84" x2="350" y2="84" stroke="#d4892a" stroke-width="2.8"/><text x="356" y="87">Araç 3</text>
+    </g>
+    <text x="219" y="240" font-size="8.6" fill="#64748b" text-anchor="middle">Her araç depodan çıkar, kapasitesi kadar teslimat yapar, gün içinde depoya döner.</text>
 
-        <h3 class="sec sp">Başarı kriterleri — proje önerisinden</h3>
-        <ul class="lst">
-          <li>Teslimat noktalarına göre <b>otomatik ve optimize</b> rota oluşturulabilmesi</li>
-          <li>Teslimat bilgisi değiştiğinde rotanın <b>yeniden oluşturulabilmesi</b></li>
-          <li>Araç kapasitesi ve önceliklerin planlamaya dahil edilebilmesi</li>
-          <li>Toplam mesafe ve <b>tahmini yakıt tüketiminin</b> hesaplanabilmesi</li>
-          <li>Optimize rota ile <b>standart rota farkının ölçülebilmesi</b></li>
-          <li>Dağıtım verilerinin saklanabilmesi</li>
-          <li>Haftalık / aylık / yıllık <b>tasarruf analizlerinin raporlanabilmesi</b></li>
-          <li>Farklı araç ve dağıtım senaryolarında çalıştırılabilmesi</li>
-          <li>Geleneksel planlamaya kıyasla <b>ölçülebilir verimlilik artışı</b></li>
-        </ul>
+    <!-- ── B: kısıtlar ── -->
+    <rect x="456" y="0" width="614" height="246" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="470" y="22" font-size="11" font-weight="700" fill="#1b2430">Kısıtlar ve değişkenler</text>
+    <g font-size="8.8" font-weight="700" fill="#64748b">
+      <text x="470" y="42">BOYUT</text><text x="700" y="42">TİP</text><text x="792" y="42">MODELLEME</text>
+    </g>
+    <line x1="470" y1="48" x2="1056" y2="48" stroke="#cbd5e1"/>
 
-        <h3 class="sec sp">Kapsam daraltma kararı</h3>
-        <div class="info">
-          Çalışmanın erken aşamasında <b>çok depo + zaman penceresi (MDVRPTW)</b>
-          düşünülmüştü. Sistem tarifi netleştikçe kapsam <b>tek depo + gün sınırına</b>
-          daraltıldı. Bu daraltmanın üç somut getirisi oldu:
-          <br>• Klasik, iyi dokümante edilmiş algoritmalar (savings, 2-opt) kullanılabilir hale geldi
-          <br>• Bandırma ölçeğinde <b>kendi yol grafımızı</b> kurmak ucuzladı → harici rota API'si gerekmiyor
-          <br>• <code>osm2pgrouting</code>'in bellek kısıtı önemsizleşti
-        </div>
-      </div>
-    </div>
+    <g font-size="9.2">
+      <rect x="470" y="54" width="586" height="24" rx="4" fill="#fdf2f1"/>
+      <text x="478" y="70" font-weight="600" fill="#1b2430">Araç kapasitesi</text>
+      <rect x="700" y="59" width="46" height="14" rx="7" fill="#b3382c"/>
+      <text x="723" y="70" font-size="8" font-weight="700" fill="#fff" text-anchor="middle">SERT</text>
+      <text x="792" y="70" fill="#7a3b33">Σ paket ağırlığı ≤ kapasite · aşılamaz</text>
+
+      <rect x="470" y="82" width="586" height="24" rx="4" fill="#fdf2f1"/>
+      <text x="478" y="98" font-weight="600" fill="#1b2430">Çalışma günü süresi</text>
+      <rect x="700" y="87" width="46" height="14" rx="7" fill="#b3382c"/>
+      <text x="723" y="98" font-size="8" font-weight="700" fill="#fff" text-anchor="middle">SERT</text>
+      <text x="792" y="98" fill="#7a3b33">toplam rota süresi ≤ gün sınırı</text>
+
+      <rect x="470" y="110" width="586" height="24" rx="4" fill="#fdf6ec"/>
+      <text x="478" y="126" font-weight="600" fill="#1b2430">Teslimat önceliği</text>
+      <rect x="700" y="115" width="68" height="14" rx="7" fill="#c87d1f"/>
+      <text x="734" y="126" font-size="8" font-weight="700" fill="#fff" text-anchor="middle">YUMUŞAK</text>
+      <text x="792" y="126" fill="#5f4620">amaç fonksiyonunda ceza katsayısı</text>
+
+      <rect x="470" y="138" width="586" height="22" rx="4" fill="#f0f7f3"/>
+      <text x="478" y="153" fill="#1b2430">Toplam mesafe</text>
+      <rect x="700" y="142" width="46" height="14" rx="7" fill="#2d7a4b"/>
+      <text x="723" y="153" font-size="8" font-weight="700" fill="#fff" text-anchor="middle">AMAÇ</text>
+      <text x="792" y="153" fill="#3a6b51">yol grafı + Dijkstra</text>
+
+      <rect x="470" y="164" width="586" height="22" rx="4" fill="#f0f7f3"/>
+      <text x="478" y="179" fill="#1b2430">Yakıt tüketimi</text>
+      <rect x="700" y="168" width="46" height="14" rx="7" fill="#2d7a4b"/>
+      <text x="723" y="179" font-size="8" font-weight="700" fill="#fff" text-anchor="middle">AMAÇ</text>
+      <text x="792" y="179" fill="#3a6b51">araç bazlı L/100km × km</text>
+
+      <rect x="470" y="190" width="586" height="22" rx="4" fill="#f0f7f3"/>
+      <text x="478" y="205" fill="#1b2430">Sürücü maliyeti</text>
+      <rect x="700" y="194" width="46" height="14" rx="7" fill="#2d7a4b"/>
+      <text x="723" y="205" font-size="8" font-weight="700" fill="#fff" text-anchor="middle">AMAÇ</text>
+      <text x="792" y="205" fill="#3a6b51">süre × saatlik ücret</text>
+
+      <rect x="470" y="216" width="586" height="22" rx="4" fill="#f1f5f9"/>
+      <text x="478" y="231" fill="#1b2430">Dağıtım merkezi</text>
+      <rect x="700" y="220" width="60" height="14" rx="7" fill="#64748b"/>
+      <text x="730" y="231" font-size="8" font-weight="700" fill="#fff" text-anchor="middle">YAPISAL</text>
+      <text x="792" y="231" fill="#475569"><tspan font-weight="700">tek</tspan> depo</text>
+    </g>
+
+    <!-- ── C: kombinatoryal patlama ── -->
+    <rect x="0" y="262" width="520" height="164" rx="9" fill="#fff" stroke="#b3382c" stroke-width="2"/>
+    <text x="14" y="284" font-size="11" font-weight="700" fill="#8e2c22">Neden sezgisel algoritma zorunlu — problem büyüklüğü</text>
+    <text x="14" y="300" font-size="8.6" fill="#7a3b33">Tek araç için olası ziyaret sırası sayısı: (n−1)! / 2</text>
+
+    <g font-size="9">
+      <text x="14" y="320" font-size="8.4" font-weight="700" fill="#64748b">DURAK</text>
+      <text x="92" y="320" font-size="8.4" font-weight="700" fill="#64748b">OLASI ROTA</text>
+      <text x="230" y="320" font-size="8.4" font-weight="700" fill="#64748b">ÖLÇEK</text>
+      <line x1="14" y1="326" x2="506" y2="326" stroke="#e8edf3"/>
+
+      <text x="14" y="342" fill="#1b2430">5</text><text x="92" y="342" fill="#475569">12</text>
+      <rect x="230" y="335" width="4" height="9" rx="1.5" fill="#2d7a4b"/>
+      <text x="300" y="342" font-size="8.4" fill="#215d3b">tam arama mümkün</text>
+
+      <text x="14" y="360" fill="#1b2430">8</text><text x="92" y="360" fill="#475569">2.520</text>
+      <rect x="230" y="353" width="11" height="9" rx="1.5" fill="#2d7a4b"/>
+      <text x="300" y="360" font-size="8.4" fill="#215d3b">tam arama mümkün</text>
+
+      <text x="14" y="378" fill="#1b2430">10</text><text x="92" y="378" fill="#475569">181.440</text>
+      <rect x="230" y="371" width="20" height="9" rx="1.5" fill="#c87d1f"/>
+      <text x="300" y="378" font-size="8.4" fill="#8a5411">DFS-exhaustive sınırı</text>
+
+      <text x="14" y="396" fill="#1b2430">15</text><text x="92" y="396" fill="#475569">43,6 milyar</text>
+      <rect x="230" y="389" width="42" height="9" rx="1.5" fill="#b3382c"/>
+      <text x="300" y="396" font-size="8.4" fill="#8e2c22">pratikte imkânsız</text>
+
+      <text x="14" y="414" fill="#1b2430">20</text><text x="92" y="414" fill="#475569">6,1 × 10¹⁶</text>
+      <rect x="230" y="407" width="62" height="9" rx="1.5" fill="#b3382c"/>
+      <text x="300" y="414" font-size="8.4" fill="#8e2c22">pratikte imkânsız</text>
+    </g>
+
+    <!-- ── D: kapsam ── -->
+    <rect x="540" y="262" width="530" height="164" rx="9" fill="#fafcfe" stroke="#cbd5e1"/>
+    <text x="554" y="284" font-size="11" font-weight="700" fill="#1b2430">Kapsam sınırı</text>
+
+    <rect x="554" y="294" width="248" height="120" rx="7" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="1.8"/>
+    <text x="566" y="313" font-size="9.6" font-weight="700" fill="#215d3b">KAPSAM İÇİ</text>
+    <g font-size="8.6" fill="#3a6b51">
+      <text x="566" y="332">✓ Bandırma içi dağıtım</text>
+      <text x="566" y="349">✓ Tek dağıtım merkezi</text>
+      <text x="566" y="366">✓ Araç kapasitesi (sert)</text>
+      <text x="566" y="383">✓ Gün sınırı (sert)</text>
+      <text x="566" y="400">✓ Dinamik yeniden rotalama</text>
+    </g>
+
+    <rect x="814" y="294" width="242" height="120" rx="7" fill="#fdf2f1" stroke="#b3382c" stroke-width="1.8"/>
+    <text x="826" y="313" font-size="9.6" font-weight="700" fill="#8e2c22">KAPSAM DIŞI</text>
+    <g font-size="8.6" fill="#7a3b33">
+      <text x="826" y="332">✕ Müşteri zaman penceresi</text>
+      <text x="826" y="349">✕ Çok depo (MDVRP)</text>
+      <text x="826" y="366">✕ Şehirlerarası taşıma</text>
+      <text x="826" y="383">✕ SMS bildirimi</text>
+      <text x="826" y="400">✕ Harici rota API'si</text>
+    </g>
+
+    <!-- ── E: başarı kriterleri ── -->
+    <rect x="0" y="442" width="1070" height="138" rx="9" fill="#f0f7f3" stroke="#2d7a4b" stroke-width="2"/>
+    <text x="14" y="464" font-size="11" font-weight="700" fill="#215d3b">Somut başarı kriterleri — proje önerisinden</text>
+    <g font-size="8.8" fill="#3a6b51">
+      <text x="14" y="486"><tspan font-weight="700" fill="#215d3b">1</tspan>  Teslimat noktalarına göre otomatik ve optimize rota oluşturulabilmesi</text>
+      <text x="14" y="506"><tspan font-weight="700" fill="#215d3b">2</tspan>  Teslimat bilgisi değiştiğinde rotanın yeniden oluşturulabilmesi</text>
+      <text x="14" y="526"><tspan font-weight="700" fill="#215d3b">3</tspan>  Araç kapasitesi ve önceliklerin planlamaya dahil edilebilmesi</text>
+      <text x="14" y="546"><tspan font-weight="700" fill="#215d3b">4</tspan>  Toplam mesafe ve tahmini yakıt tüketiminin hesaplanabilmesi</text>
+      <text x="14" y="566"><tspan font-weight="700" fill="#215d3b">5</tspan>  Optimize rota ile standart rota farkının ölçülebilmesi</text>
+
+      <text x="556" y="486"><tspan font-weight="700" fill="#215d3b">6</tspan>  Gerçekleştirilen dağıtımlara ait verilerin saklanabilmesi</text>
+      <text x="556" y="506"><tspan font-weight="700" fill="#215d3b">7</tspan>  Haftalık / aylık / yıllık tasarruf analizlerinin raporlanabilmesi</text>
+      <text x="556" y="526"><tspan font-weight="700" fill="#215d3b">8</tspan>  Farklı araç ve dağıtım senaryolarında çalıştırılabilmesi</text>
+      <text x="556" y="546"><tspan font-weight="700" fill="#215d3b">9</tspan>  Geleneksel planlamaya kıyasla ölçülebilir verimlilik artışı</text>
+      <text x="556" y="566" font-size="8.4" font-style="italic" fill="#5c8070">Ölçüm yöntemi: sayfa 16–17 · çıktılar: Excel, PDF, grafik</text>
+    </g>
+  </svg>
   </div>
-  <div class="foot"><span>RouteWise · Detaylı Sistem Analizi</span><span>02 / 18</span></div>
+  <div class="foot"><span>RouteWise · Problem Tanımı</span><span>02 / 19</span></div>
 </section>
 
 
@@ -320,7 +416,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>RouteWise · Teknoloji Yığını</span><span>03 / 18</span></div>
+  <div class="foot"><span>RouteWise · Teknoloji Yığını</span><span>03 / 19</span></div>
 </section>
 
 <!-- ═══ 4 SİSTEM MİMARİSİ ═══ -->
@@ -450,7 +546,7 @@
     </g>
   </svg>
   </div>
-  <div class="foot"><span>RouteWise · Sistem Mimarisi</span><span>04 / 18</span></div>
+  <div class="foot"><span>RouteWise · Sistem Mimarisi</span><span>04 / 19</span></div>
 </section>
 
 
@@ -589,7 +685,7 @@
     </g>
   </svg>
   </div>
-  <div class="foot"><span>RouteWise · Docker Dağıtım Mimarisi</span><span>05 / 18</span></div>
+  <div class="foot"><span>RouteWise · Docker Dağıtım Mimarisi</span><span>05 / 19</span></div>
 </section>
 
 <!-- ═══ 6 ER GENEL ═══ -->
@@ -805,7 +901,7 @@
     </g>
   </svg>
   </div>
-  <div class="foot"><span>RouteWise · ER Diyagramı</span><span>06 / 18</span></div>
+  <div class="foot"><span>RouteWise · ER Diyagramı</span><span>06 / 19</span></div>
 </section>
 
 <!-- ═══ 7 TABLO DETAY I ═══ -->
@@ -920,7 +1016,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>RouteWise · Tablo Detayları I</span><span>07 / 18</span></div>
+  <div class="foot"><span>RouteWise · Tablo Detayları I</span><span>07 / 19</span></div>
 </section>
 
 <!-- ═══ 8 TABLO DETAY II ═══ -->
@@ -1026,7 +1122,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>RouteWise · Tablo Detayları II</span><span>08 / 18</span></div>
+  <div class="foot"><span>RouteWise · Tablo Detayları II</span><span>08 / 19</span></div>
 </section>
 
 <!-- ═══ 9 KARDİNALİTE ═══ -->
@@ -1145,7 +1241,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>RouteWise · Kardinaliteler ve Bütünlük</span><span>09 / 18</span></div>
+  <div class="foot"><span>RouteWise · Kardinaliteler ve Bütünlük</span><span>09 / 19</span></div>
 </section>
 
 <!-- ═══ 10 ROLLER & DURUM MAKİNELERİ ═══ -->
@@ -1270,7 +1366,7 @@
       </div>
     </div>
   </div>
-  <div class="foot"><span>RouteWise · Roller ve Durum Makineleri</span><span>10 / 18</span></div>
+  <div class="foot"><span>RouteWise · Roller ve Durum Makineleri</span><span>10 / 19</span></div>
 </section>
 
 <!-- ═══ 11 VERİ HATTI ═══ -->
@@ -1415,7 +1511,7 @@
     </g>
   </svg>
   </div>
-  <div class="foot"><span>RouteWise · Veri Hattı</span><span>11 / 18</span></div>
+  <div class="foot"><span>RouteWise · Veri Hattı</span><span>11 / 19</span></div>
 </section>
 
 <!-- ═══ 12 OPTİMİZASYON AKIŞI ═══ -->
@@ -1543,7 +1639,7 @@
     <rect x="0" y="482" width="90" height="0" fill="none"/>
   </svg>
   </div>
-  <div class="foot"><span>RouteWise · Optimizasyon Akışı</span><span>12 / 18</span></div>
+  <div class="foot"><span>RouteWise · Optimizasyon Akışı</span><span>12 / 19</span></div>
 </section>
 
 
@@ -1662,7 +1758,7 @@
     </g>
   </svg>
   </div>
-  <div class="foot"><span>RouteWise · Dinamik Yeniden Rotalama</span><span>13 / 18</span></div>
+  <div class="foot"><span>RouteWise · Dinamik Yeniden Rotalama</span><span>13 / 19</span></div>
 </section>
 
 <!-- ═══ 14 ALGORİTMA ═══ -->
@@ -1795,7 +1891,7 @@
     <text x="810" y="555" font-size="10" font-weight="700" fill="#215d3b" text-anchor="middle">"RouteWise, gerçek optimumun %X içinde."</text>
   </svg>
   </div>
-  <div class="foot"><span>RouteWise · Algoritma</span><span>14 / 18</span></div>
+  <div class="foot"><span>RouteWise · Algoritma</span><span>14 / 19</span></div>
 </section>
 
 
@@ -1902,7 +1998,7 @@
     </g>
   </svg>
   </div>
-  <div class="foot"><span>RouteWise · Amaç Fonksiyonu</span><span>15 / 18</span></div>
+  <div class="foot"><span>RouteWise · Amaç Fonksiyonu</span><span>15 / 19</span></div>
 </section>
 
 <!-- ═══ 16 KARŞILAŞTIRMA ═══ -->
@@ -2046,7 +2142,7 @@
     <text x="30" y="558" font-size="8.8" fill="#475569">Asıl ilginç sonuç tek başına hız değil, <tspan font-weight="700" fill="#1b2430">kalite–süre dengesidir</tspan> — greedy hızlı ama kötü, DFS-exhaustive optimal ama kullanılamaz; RouteWise ikisinin arasındadır.</text>
   </svg>
   </div>
-  <div class="foot"><span>RouteWise · Algoritma Karşılaştırması</span><span>16 / 18</span></div>
+  <div class="foot"><span>RouteWise · Algoritma Karşılaştırması</span><span>16 / 19</span></div>
 </section>
 
 <!-- ═══ 17 ANALİZ & RAPOR ═══ -->
@@ -2183,7 +2279,7 @@
     <text x="712" y="557" font-size="8.6" fill="#3a6b51">optimization_runs.created_at üzerinden</text>
   </svg>
   </div>
-  <div class="foot"><span>RouteWise · Analiz ve Raporlama</span><span>17 / 18</span></div>
+  <div class="foot"><span>RouteWise · Analiz ve Raporlama</span><span>17 / 19</span></div>
 </section>
 
 
@@ -2279,7 +2375,79 @@
     </g>
   </svg>
   </div>
-  <div class="foot"><span>RouteWise · Yol Haritası</span><span>18 / 18</span></div>
+  <div class="foot"><span>RouteWise · Yol Haritası</span><span>18 / 19</span></div>
+</section>
+
+<!-- ═══ 19 MALİYET GRAFİĞİ ═══ -->
+<section class="page">
+  <div class="phead"><span class="pnum">19</span><span class="ptitle">Maliyet Karşılaştırması — matplotlib Çıktısı</span>
+    <span class="psub">Analytics modülünün üreteceği rapor figürü</span></div>
+  <div class="body">
+    <div style="flex:0 0 auto">
+      <img src="cost-comparison.svg" alt="Algoritma maliyet karşılaştırması"
+           style="width:100%;height:auto;display:block">
+    </div>
+
+    <div class="cols c21" style="margin-top:6px">
+      <div>
+        <table class="tbl">
+          <caption>Figürü besleyen veri &nbsp;<span style="font-size:7.5pt;font-weight:600;color:#b3382c">ÖRNEK</span></caption>
+          <tr>
+            <th>Algoritma</th><th>Yakıt TL</th><th>Sürücü TL</th><th>Araç TL</th>
+            <th>Toplam TL</th><th>Araç</th><th>Tasarruf</th>
+          </tr>
+          <tr><td>Naive (giriş sırası)</td><td>576</td><td>870</td><td>750</td><td><b>2.196</b></td><td>3</td><td class="ty">taban çizgi</td></tr>
+          <tr><td>Greedy NN</td><td>480</td><td>735</td><td>750</td><td><b>1.965</b></td><td>3</td><td>%10,5</td></tr>
+          <tr><td>Clarke-Wright savings</td><td>440</td><td>675</td><td>750</td><td><b>1.865</b></td><td>3</td><td>%15,1</td></tr>
+          <tr style="background:#f5f0fa"><td><b>RouteWise</b></td><td>418</td><td>630</td><td><b>500</b></td><td><b>1.548</b></td><td><b>2</b></td><td style="color:#215d3b"><b>%29,5</b></td></tr>
+        </table>
+        <div class="note">
+          Birim maliyetler <code>cost_parameters</code> tablosundan gelir: yakıt 44 TL/L ·
+          sürücü 150 TL/saat · araç 250 TL/gün. <b>RouteWise aynı işi 2 araçla bitirdiği
+          için araç sabit maliyeti düşer</b> — bu, amaç fonksiyonuna araç sabit maliyeti
+          konulmasının somut etkisidir.
+        </div>
+        <div class="warn" style="margin-top:5px">
+          <b>Bu sayfadaki sayılar örnektir.</b> Figürün yapısını ve rapor biçimini
+          göstermek için üretilmiştir; gerçek değerler <code>optimization_runs</code>
+          tablosundan okunacaktır. Ölçüm henüz yapılmamıştır.
+        </div>
+      </div>
+
+      <div>
+        <h3 class="sec">Nasıl üretiliyor</h3>
+        <div class="info">
+          Figür <code>docs/diagrams/cost_comparison.py</code> betiğiyle <b>matplotlib</b>
+          kullanılarak üretilir ve <b>vektörel SVG</b> olarak kaydedilir; teze ve sunuma
+          kayıpsız gömülür. Betik, Python servisindeki <code>analytics/</code> modülünün
+          üreteceği rapor figürünün prototipidir.
+        </div>
+
+        <h3 class="sec sp">Renk paleti doğrulandı</h3>
+        <div class="ok">
+          Kategorik palet gözle değil, <b>çalıştırılabilir bir doğrulayıcıyla</b> seçildi:
+          açıklık bandı, kroma tabanı, <b>renk körlüğü ayrımı</b> (protan/deutan/tritan)
+          ve normal görme eşiği kontrollerinin tamamından geçer.
+          İlk aday palet (mavi–mor) renk körlüğünde ΔE 3,0 ile <b>başarısız oldu</b> ve
+          değiştirildi.
+        </div>
+        <div class="note">
+          Kontrast uyarısı, her segmentin <b>doğrudan sayı etiketi</b> taşıması ve bu
+          sayfadaki tablo ile karşılanır — renk tek başına bilgi taşımaz.
+        </div>
+
+        <h3 class="sec sp">Raporda kullanılacak diğer figürler</h3>
+        <table class="tbl" style="margin-top:0">
+          <tr><th>Figür</th><th>Gösterdiği</th></tr>
+          <tr><td>Zaman serisi — tasarruf %</td><td>haftalık/aylık/yıllık eğilim</td></tr>
+          <tr><td>Dağılım — süre × sapma</td><td>kalite–hız dengesi</td></tr>
+          <tr><td>Kutu grafiği — senaryo dağılımı</td><td>tutarlılık, aykırı değerler</td></tr>
+          <tr><td>Harita — önce / sonra rota</td><td>görsel kanıt</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>RouteWise · Maliyet Karşılaştırması</span><span>19 / 19</span></div>
 </section>
 
 </body>
