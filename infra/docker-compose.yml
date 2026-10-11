@@ -1,0 +1,59 @@
+name: routewise
+
+# Faz 0 kapsamı: db + dataprep.
+# backend / python / frontend servisleri Faz 1a'da eklenecek — henüz Dockerfile'ları yok.
+
+services:
+  db:
+    image: pgrouting/pgrouting:17-3.6-3.8
+    container_name: routewise-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # pg_isready tek başına yetmez: uzantılar kurulmadan "hazır" görünebilir.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} && psql -U $${POSTGRES_USER} -d $${POSTGRES_DB} -tAc \"SELECT 1 FROM pg_extension WHERE extname='pgrouting'\" | grep -q 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  dataprep:
+    build:
+      context: ./dataprep
+    image: routewise-dataprep:local
+    container_name: routewise-dataprep
+    # Normal `docker compose up` ile başlamaz; yalnızca açıkça çağrılır:
+    #   docker compose --profile tools run --rm dataprep <adım>
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      OSM_SOURCE_URL: ${OSM_SOURCE_URL}
+    volumes:
+      - osmdata:/data/osm
+      - graphdata:/data/graph
+    restart: "no"
+
+volumes:
+  # Üçü de pahalıdır: 619 MB indirme ve dakikalarca süren graf import'u.
+  # `docker compose down -v` ÇALIŞTIRILMAMALIDIR.
+  pgdata:
+    name: routewise-pgdata
+  osmdata:
+    name: routewise-osmdata
+  graphdata:
+    name: routewise-graphdata
