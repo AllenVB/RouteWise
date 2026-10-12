@@ -1,0 +1,18 @@
+# Servis
+fastapi==0.118.0
+uvicorn[standard]==0.37.0
+pydantic==2.11.9
+pydantic-settings==2.11.0
+
+# Hesaplama
+numpy==2.2.4
+
+# Analiz ve raporlama (Faz 6'da kullanılacak, bağımlılık baştan sabitlendi)
+pandas==2.3.3
+scipy==1.16.2
+matplotlib==3.10.5
+openpyxl==3.1.5
+
+# Test
+pytest==8.4.2
+httpx==0.28.1

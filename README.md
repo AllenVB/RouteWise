@@ -94,14 +94,39 @@ Ayrıntı: [infra/dataprep/README.md](infra/dataprep/README.md)
 > **`docker compose down -v` çalıştırmayın.** Volume'ler 619 MB indirme ve dakikalarca
 > süren import içerir; `-v` hepsini siler. Volume'süz `down` yeterlidir.
 
+### Tüm servisleri çalıştır
+
+Yol grafı kurulduktan sonra:
+
+```bash
+docker compose up -d
+```
+
+| Servis | Adres | İçerik |
+|---|---|---|
+| Frontend | http://localhost:5173 | React + Vite |
+| Backend | http://localhost:8090 | Spring Boot — `/actuator/health`, `/system/status` |
+| Python | http://localhost:8000 | FastAPI — `/health` |
+| Veritabanı | localhost:5432 | PostgreSQL + PostGIS + pgRouting |
+
+> Backend 8080 yerine **8090**'da yayınlanır; container içi port 8080'dir.
+> Sebebi bu makinede 8080–8086 aralığının başka bir projeye ait olmasıdır.
+> `infra/.env` içindeki `BACKEND_PORT` ile değiştirilebilir.
+
 ### Doğrulama
 
 ```bash
-docker compose --profile tools run --rm dataprep verify
+curl http://localhost:8090/system/status
 ```
 
-`ways` tablosu dolu, `pgr_dijkstra` mesafe döndürüyor ve `graphdata` volume'ünde
-`bandirma-graph.npz` varsa Faz 0 tamamdır.
+Yanıt hem backend'i hem Python servisini ve yüklenen yol grafını göstermelidir:
+9.797 düğüm, 1.259,2 km.
+
+Testler:
+
+```bash
+docker compose run --rm --no-deps python pytest -q
+```
 
 ## Proje yapısı
 

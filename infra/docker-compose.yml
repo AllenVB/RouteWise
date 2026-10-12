@@ -28,6 +28,71 @@ services:
       start_period: 20s
     restart: unless-stopped
 
+  backend:
+    build:
+      context: ../backend
+    image: routewise-backend:local
+    container_name: routewise-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      OPTIMIZER_URL: http://python:8000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    restart: unless-stopped
+
+  python:
+    build:
+      context: ../python
+    image: routewise-python:local
+    container_name: routewise-python
+    ports:
+      - "${PYTHON_PORT:-8000}:8000"
+    environment:
+      ROUTEWISE_GRAPH_PATH: /data/graph/bandirma-graph.npz
+    volumes:
+      # Graf salt okunur: servis iş verisi açısından durumsuzdur, grafı yazmaz.
+      - graphdata:/data/graph:ro
+      # Geliştirmede kaynak bağlanır; --reload ile anında yansır.
+      - ../python/app:/srv/app
+      - ../python/tests:/srv/tests
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+    image: routewise-frontend:local
+    container_name: routewise-frontend
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      BACKEND_ORIGIN: http://backend:8080
+    volumes:
+      # node_modules container'da kalsın; Windows'tan bağlanırsa bozulur.
+      - ../frontend/src:/srv/src
+      - ../frontend/index.html:/srv/index.html
+      - ../frontend/vite.config.ts:/srv/vite.config.ts
+    restart: unless-stopped
+
   dataprep:
     build:
       context: ./dataprep

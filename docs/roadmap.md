@@ -191,12 +191,16 @@ frontend/src/
 5. Frontend: Vite + React + TS + yönlendirme + boş sayfalar
 6. Üçünü de Docker'dan ayağa kaldır, birbirine erişimi doğrula
 
-### Biten iş tanımı
-- [ ] `docker compose up` → backend `/actuator/health` ve python `/health` 200 dönüyor
-- [ ] Liquibase tüm tabloları oluşturuyor, `docker compose down && up` tekrarlanabilir
-- [ ] Python servisi gerçek grafı yükleyip düğüm sayısını logluyor
-- [ ] Frontend açılıyor, backend'e örnek bir istek atıp yanıt alıyor
-- [ ] Testler boş da olsa koşuyor (`gradle test`, `pytest`, `vitest`)
+### Biten iş tanımı  ✅ TAMAMLANDI (12.10.2026)
+- [x] `docker compose up` → backend `/actuator/health` ve python `/health` 200 dönüyor
+- [x] Liquibase 15 tabloyu oluşturuyor (22 changeset), yeniden çalıştırmada tekrar uygulamıyor
+- [x] Python servisi gerçek grafı yüklüyor: 9.797 düğüm, 24.181 yönlü kenar, 1.259,2 km
+- [x] Frontend açılıyor, backend üzerinden Python servisine ulaşıyor (`/system/status`)
+- [x] Python testleri koşuyor — 9 test
+- [x] Bütünlük kuralları sınandı: 7 denemenin 7'si doğru davrandı
+
+**Not:** Backend host portu 8090'dır (8080 değil). Bu makinede 8080–8086 aralığı
+başka bir projeye ait; `infra/.env` içindeki `BACKEND_PORT` ile değiştirilebilir.
 
 ### Risk
 - **Şema baştan yanlış kurulursa** sonraki her faz etkilenir. Sayfa 7–9'daki alan listelerine
