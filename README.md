@@ -60,7 +60,7 @@ optimuma göre sapma.
 | **Backend** | Java 21 · Spring Boot 3.4+ | Veri sahipliği, domain, JWT, matris cache, ETA, raporlar |
 | **Python servisi** | Python 3.12 · FastAPI | Optimizasyon algoritmaları + analiz (durumsuz, DB erişimi yok) |
 | **Frontend** | React 19 · Vite · TypeScript · MapLibre | Üç rol için arayüz, harita, grafikler |
-| **Veritabanı** | PostgreSQL 17 · PostGIS 3.6 · pgRouting 3.8 | İş verisi, coğrafi sorgular, yol grafı |
+| **Veritabanı** | PostgreSQL 17.5 · PostGIS 3.5.2 · pgRouting 4.0.1 | İş verisi, coğrafi sorgular, yol grafı |
 
 **Mesafe verisi için harici API kullanılmaz.** Bandırma OSM çıkartması kendi
 veritabanımıza yüklenir; mesafe ve süre matrisi kendi Dijkstra implementasyonumuzla

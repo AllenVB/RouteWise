@@ -54,7 +54,7 @@ Geliştirme ortamı ayakta, Bandırma yol grafı veritabanında, `docker compose
    - `docker info` çıktısı alınabilmeli
 2. **Repo klasör yapısını oluştur** — `backend/`, `python/`, `frontend/`, `infra/`, `docs/`
 3. **`infra/docker-compose.yml`** — `db`, `backend`, `python`, `frontend`, `dataprep` servisleri
-   - `db`: `pgrouting/pgrouting:17-3.6-3.8`
+   - `db`: `pgrouting/pgrouting:17-3.5-4.0.1`
    - Volume'ler: `pgdata`, `osmdata`, `graphdata`, `gradle-cache`
    - Healthcheck'ler: `pg_isready`, `/actuator/health`, `/health`
 4. **`.env.example`** yaz, `.env` dosyasını `.gitignore`'a ekle

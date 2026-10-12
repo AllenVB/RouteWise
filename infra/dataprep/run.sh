@@ -7,8 +7,16 @@ OSM_DIR=/data/osm
 GRAPH_DIR=/data/graph
 TR_PBF="$OSM_DIR/turkey-latest.osm.pbf"
 BND_PBF="$OSM_DIR/bandirma.osm.pbf"
+# osm2pgrouting 2.3.8 PBF okuyamaz, yalnızca XML kabul eder.
+# Bandırma küçük olduğu için XML'e çevirmek ucuz.
+BND_XML="$OSM_DIR/bandirma.osm"
 POLY=/opt/dataprep/bandirma.poly
-MAPCONFIG=/usr/share/osm2pgrouting/mapconfig.xml
+
+# ÖNEMLİ: araç profili kullanılır, jenerik profil DEĞİL.
+# mapconfig.xml yaya ve bisiklet yollarını da grafa katar; kargo aracı bu
+# yollardan rota alır ve mesafeler gerçek dışı çıkar. Araç profili yalnızca
+# motorlu taşıtın geçebileceği yol tiplerini alır.
+MAPCONFIG="${OSM2PGR_CONFIG:-/usr/share/osm2pgrouting/mapconfig_for_cars.xml}"
 
 log() { printf '\n\033[1;34m[dataprep]\033[0m %s\n' "$*"; }
 die() { printf '\n\033[1;31m[dataprep HATA]\033[0m %s\n' "$*" >&2; exit 1; }
@@ -37,17 +45,20 @@ step_clip() {
     osmium extract --polygon "$POLY" "$TR_PBF" -o "$BND_PBF" --overwrite \
         || die "osmium extract başarısız"
     log "Bitti: $(du -h "$BND_PBF" | cut -f1)"
-    osmium fileinfo -e "$BND_PBF" | sed -n '1,14p'
+    log "osm2pgrouting için XML'e çevriliyor"
+    osmium cat "$BND_PBF" -o "$BND_XML" --overwrite || die "pbf -> xml çevrimi başarısız"
+    log "XML: $(du -h "$BND_XML" | cut -f1)"
 }
 
 step_load() {
-    [ -s "$BND_PBF" ] || die "Bandırma dosyası yok — önce 'clip' çalıştır"
+    [ -s "$BND_XML" ] || die "Bandırma XML dosyası yok — önce 'clip' çalıştır"
     [ -f "$MAPCONFIG" ] || die "mapconfig bulunamadı: $MAPCONFIG"
     log "osm2pgrouting ile yükleniyor -> $PGDATABASE@$PGHOST"
+    log "profil: $(basename "$MAPCONFIG")"
     # --clean: ways / ways_vertices_pgr tablolarını sıfırlar.
     # Yalnızca graf tablolarını etkiler, uygulama tablolarına dokunmaz.
     osm2pgrouting \
-        --f "$BND_PBF" \
+        --f "$BND_XML" \
         --conf "$MAPCONFIG" \
         --dbname "$PGDATABASE" \
         --host "$PGHOST" \
@@ -75,13 +86,20 @@ step_export() {
 step_verify() {
     log "pgRouting referans sorgusu (pgr_dijkstra)"
     psql -tA <<'SQL'
+-- length_m'yi maliyet olarak veriyoruz ki sonuç METRE cinsinden çıksın.
+-- (ways.cost derece cinsindendir, insan için okunaksızdır.)
+-- Negatif reverse_cost tek yönlü yol demektir; işareti koruyoruz.
 WITH uc AS (
   SELECT (SELECT id FROM ways_vertices_pgr ORDER BY id ASC  LIMIT 1) AS s,
          (SELECT id FROM ways_vertices_pgr ORDER BY id DESC LIMIT 1) AS t
 )
-SELECT 'toplam maliyet: '||COALESCE(round(sum(cost)::numeric, 2)::text, 'yol bulunamadı')
+SELECT 'yol uzunlugu: '||COALESCE(round(sum(cost)::numeric)::text||' m', 'yol bulunamadi')
+     ||'   durak sayisi: '||count(*)
 FROM pgr_dijkstra(
-  'SELECT gid AS id, source, target, cost, reverse_cost FROM ways',
+  'SELECT gid AS id, source, target,
+          length_m AS cost,
+          CASE WHEN reverse_cost < 0 THEN -1 ELSE length_m END AS reverse_cost
+   FROM ways',
   (SELECT s FROM uc), (SELECT t FROM uc), directed := true);
 SQL
 }

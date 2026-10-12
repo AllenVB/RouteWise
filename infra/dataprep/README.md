@@ -55,6 +55,47 @@ Aynı poligon ikinci bir işe daha yarar: adres doğrulamasındaki **geofence**
 kontrolü (`ST_Contains`) de bu sınırı kullanır. Haritada Bandırma dışına
 tıklandığında adres bu sayede reddedilir.
 
+## Yol profili — araç, yaya değil
+
+`load` adımı **`mapconfig_for_cars.xml`** profiliyle çalışır, jenerik
+`mapconfig.xml` ile değil.
+
+Fark önemlidir: jenerik profil yaya yollarını (`footway`, `path`, `steps`) ve
+bisiklet yollarını da grafa katar. Kargo aracı bu yollardan geçemez; grafa
+girerlerse Dijkstra aracı yaya yolundan geçirir, mesafeler gerçek dışı kısalır
+ve **tüm tasarruf ölçümü bozulur**.
+
+Profil `OSM2PGR_CONFIG` ortam değişkeniyle değiştirilebilir:
+
+```bash
+docker compose --profile tools run --rm \
+  -e OSM2PGR_CONFIG=/usr/share/osm2pgrouting/mapconfig.xml \
+  dataprep load
+```
+
+| Profil | Kapsam |
+|---|---|
+| `mapconfig_for_cars.xml` | **varsayılan** — motorlu taşıtın geçebileceği yollar |
+| `mapconfig.xml` | tüm yol tipleri (yaya, bisiklet dahil) |
+| `mapconfig_for_bicycles.xml` | bisiklet |
+| `mapconfig_for_pedestrian.xml` | yaya |
+
+## Araç sürümleri
+
+Debian 13 (trixie) tabanlı imajda:
+
+| Araç | Sürüm |
+|---|---|
+| osmium-tool | 1.18.0 |
+| **osm2pgrouting** | **2.3.8** |
+| psql | 17.11 |
+| numpy | 2.2.4 |
+
+> osm2pgrouting'in 3.x sürümü trixie'de **yoktur** — Debian'da 3.0.0 trixie
+> donduktan sonra testing'e girmiştir. 2.3.8 bu proje için yeterlidir: ürettiği
+> `ways` tablosu ihtiyacımız olan tüm alanları (`source`, `target`, `cost`,
+> `cost_s`, `length_m`) içerir.
+
 ## Üretilen tablolar
 
 `osm2pgrouting` topolojiyi kendisi kurar; ayrıca `pgr_createTopology`

@@ -5,7 +5,10 @@ name: routewise
 
 services:
   db:
-    image: pgrouting/pgrouting:17-3.6-3.8
+    # Etiket biçimi: <postgres>-<postgis>-<pgrouting>
+    # PG 17 için yayınlanan PostGIS sürümü 3.5'tir; yama sürümüne kadar
+    # sabitlendi — tez için tekrar üretilebilirlik.
+    image: pgrouting/pgrouting:17-3.5-4.0.1
     container_name: routewise-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB}

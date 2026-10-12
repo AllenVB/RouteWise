@@ -417,7 +417,7 @@ Danışman/jüri tek komutla sistemi ayağa kaldırabilmelidir.
 
 | Servis | İmaj / kaynak | Port |
 |---|---|---|
-| `db` | `pgrouting/pgrouting:17-3.6-3.8` (PostgreSQL 17 + PostGIS 3.6 + pgRouting 3.8) | 5432 |
+| `db` | `pgrouting/pgrouting:17-3.5-4.0.1` (PostgreSQL 17.5 + PostGIS 3.5.2 + pgRouting 4.0.1) | 5432 |
 | `backend` | `./backend` — Java 21, Spring Boot | 8080 |
 | `python` | `./python` — Python 3.12, FastAPI (optimizer + analytics) | 8000 |
 | `frontend` | `./frontend` — Node 22, Vite (dev) / nginx (prod) | 5173 / 80 |

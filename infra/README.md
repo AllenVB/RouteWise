@@ -23,7 +23,7 @@ docker compose --profile tools run --rm dataprep all
 
 | Servis | İmaj | Port | Not |
 |---|---|---|---|
-| `db` | `pgrouting/pgrouting:17-3.6-3.8` | 5432 | PostGIS 3.6 + pgRouting 3.8 |
+| `db` | `pgrouting/pgrouting:17-3.5-4.0.1` | 5432 | PostgreSQL 17.5 · PostGIS 3.5.2 · pgRouting 4.0.1 |
 | `dataprep` | yerel build | — | `profiles: ["tools"]` — normal `up` ile başlamaz |
 
 `postgis/postgis` kullanılmıyor: pgRouting içermiyor.
