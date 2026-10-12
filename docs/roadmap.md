@@ -96,7 +96,7 @@ Geliştirme ortamı ayakta, Bandırma yol grafı veritabanında, `docker compose
 ### Backend paket düzeni
 
 Paket-özellik (package-by-feature) yaklaşımı: her özellik kendi `entity / repository /
-service / controller / dto` katmanlarını içinde taşır. Bu, 13 tablolu bir projede
+service / controller / dto` katmanlarını içinde taşır. Bu, 15 tablolu bir projede
 katman-bazlı düzenden daha okunabilirdir.
 
 ```
@@ -185,7 +185,7 @@ frontend/src/
 
 ### Görevler
 1. Gradle projesi + Spring Boot başlat, `RouteWiseApplication` ayağa kalksın
-2. Liquibase master changelog + **tüm tabloların şeması** (13 tablo, sayfa 7–9'daki alanlar)
+2. Liquibase master changelog + **tüm tabloların şeması** (15 tablo, sayfa 7–9'daki alanlar)
 3. Seed verisi: depo (1), filo (sabit), test kullanıcıları (üç rol)
 4. Python: FastAPI iskeleti + `/health` + graf yükleyici (gerçek graf dosyasını okusun)
 5. Frontend: Vite + React + TS + yönlendirme + boş sayfalar
