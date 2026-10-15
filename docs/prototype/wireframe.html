@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="tr" data-theme="light"><head><meta charset="utf-8">
+<title>RouteWise Ekran Wireframe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+
+/* Layout: sabit sol ray (rol + ekran listesi) + içerik paneli; dar ekranda üst bara iner. */
+:root{
+  --bg:#f4f6f9; --surface:#ffffff; --surface-2:#eef2f7; --line:#d9e0ea;
+  --ink:#16202c; --ink-2:#51607180; --muted:#5b6b7d;
+  --accent:#1f5fa8; --accent-soft:#e4edf8;
+  --ok:#2d7a4b; --ok-soft:#e3f1e9;
+  --warn:#b2741a; --warn-soft:#fbf0de;
+  --bad:#b3382c; --bad-soft:#fbe7e4;
+  --firma:#2d7a6b; --kurye:#c87d1f; --alici:#6f4a9e;
+
+  --f-display:'Archivo','Segoe UI',system-ui,sans-serif;
+  --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f151c; --surface:#172029; --surface-2:#1e2935; --line:#2b3947;
+    --ink:#e7edf4; --ink-2:#8fa0b280; --muted:#93a4b6;
+    --accent:#6ba3e8; --accent-soft:#1b2b3f;
+    --ok:#6ec08f; --ok-soft:#172a1f;
+    --warn:#e0a252; --warn-soft:#2b2317;
+    --bad:#e98477; --bad-soft:#2d1b18;
+    --firma:#5fb4a1; --kurye:#e0a252; --alici:#a784d1;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f151c; --surface:#172029; --surface-2:#1e2935; --line:#2b3947;
+  --ink:#e7edf4; --ink-2:#8fa0b280; --muted:#93a4b6;
+  --accent:#6ba3e8; --accent-soft:#1b2b3f;
+  --ok:#6ec08f; --ok-soft:#172a1f;
+  --warn:#e0a252; --warn-soft:#2b2317;
+  --bad:#e98477; --bad-soft:#2d1b18;
+  --firma:#5fb4a1; --kurye:#e0a252; --alici:#a784d1;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--f-body); font-size:14px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:var(--f-display); text-wrap:balance; margin:0}
+button{font:inherit; color:inherit; cursor:pointer}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- kabuk ---------- */
+.app{display:grid; grid-template-columns:248px 1fr; height:100%}
+.rail{
+  background:var(--surface); border-right:1px solid var(--line);
+  display:flex; flex-direction:column; min-height:0;
+  padding-block:14px; padding-inline:12px; gap:14px; overflow-y:auto;
+}
+.brand{display:flex; align-items:baseline; gap:7px; padding-inline:4px}
+.brand b{font-family:var(--f-display); font-weight:700; font-size:18px; color:var(--accent); letter-spacing:-.02em}
+.brand span{font-size:10.5px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase}
+
+.roles{display:grid; gap:5px}
+.role{
+  display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+  background:transparent; border:1px solid transparent; border-radius:7px;
+  padding:7px 9px; font-size:13px; font-weight:500;
+}
+.role:hover{background:var(--surface-2)}
+.role[aria-pressed="true"]{background:var(--surface-2); border-color:var(--line)}
+.role .dot{width:8px; height:8px; border-radius:50%; flex:none}
+.role small{margin-left:auto; color:var(--muted); font-size:11px; font-variant-numeric:tabular-nums}
+
+.navlabel{
+  font-size:10px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--muted); padding-inline:5px; margin-top:2px;
+}
+.nav{display:grid; gap:2px}
+.nav button{
+  display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+  background:transparent; border:0; border-radius:6px; padding:6.5px 9px; font-size:13px;
+}
+.nav button:hover{background:var(--surface-2)}
+.nav button[aria-current="true"]{background:var(--accent-soft); color:var(--accent); font-weight:600}
+.nav .code{font-family:var(--f-mono); font-size:10.5px; color:var(--muted); width:19px; flex:none}
+.nav button[aria-current="true"] .code{color:var(--accent)}
+
+.railfoot{margin-top:auto; display:grid; gap:8px; padding-inline:4px}
+.statepick{display:grid; gap:4px}
+.statepick label{font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted)}
+.statepick select{
+  width:100%; background:var(--surface-2); color:var(--ink);
+  border:1px solid var(--line); border-radius:6px; padding:5px 7px; font:inherit; font-size:12px;
+}
+.note{font-size:10.5px; color:var(--muted); line-height:1.45}
+
+/* ---------- içerik ---------- */
+.panel{min-width:0; overflow-y:auto; padding-block:0; display:flex; flex-direction:column}
+.topbar{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:5;
+  background:var(--surface); border-bottom:1px solid var(--line);
+  padding:13px 20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.topbar h1{font-size:17px; font-weight:600}
+.crumb{font-family:var(--f-mono); font-size:11px; color:var(--muted); background:var(--surface-2);
+  border:1px solid var(--line); border-radius:5px; padding:2px 6px}
+.topbar .who{margin-left:auto; display:flex; align-items:center; gap:7px; font-size:12px; color:var(--muted)}
+.avatar{width:25px; height:25px; border-radius:50%; display:grid; place-items:center;
+  font-size:10.5px; font-weight:600; color:#fff; font-family:var(--f-display)}
+
+.screen{padding:20px; display:grid; gap:16px; align-content:start; max-width:1080px}
+.sub{color:var(--muted); font-size:13px; margin:0}
+
+/* ---------- parçalar ---------- */
+.cards{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+.stat{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:13px 14px}
+.stat .k{font-size:11px; color:var(--muted); letter-spacing:.03em}
+.stat .v{font-family:var(--f-display); font-size:24px; font-weight:700; margin-top:3px; font-variant-numeric:tabular-nums}
+.stat .d{font-size:11.5px; margin-top:2px}
+
+.card{background:var(--surface); border:1px solid var(--line); border-radius:9px; overflow:hidden}
+.card>header{padding:11px 14px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:9px}
+.card>header h2{font-size:13.5px; font-weight:600}
+.card>header .tools{margin-left:auto; display:flex; gap:6px}
+.card .body{padding:14px}
+
+.tablewrap{overflow-x:auto}
+table{width:100%; border-collapse:collapse; font-size:12.5px}
+th{text-align:left; font-weight:600; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted); padding:8px 12px; border-bottom:1px solid var(--line); white-space:nowrap}
+td{padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:var(--surface-2)}
+.num{font-variant-numeric:tabular-nums; text-align:right}
+.mono{font-family:var(--f-mono); font-size:11.5px}
+
+.pill{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600;
+  border-radius:999px; padding:2.5px 9px; white-space:nowrap}
+.pill.ok{background:var(--ok-soft); color:var(--ok)}
+.pill.warn{background:var(--warn-soft); color:var(--warn)}
+.pill.bad{background:var(--bad-soft); color:var(--bad)}
+.pill.info{background:var(--accent-soft); color:var(--accent)}
+.pill.mute{background:var(--surface-2); color:var(--muted)}
+
+.btn{background:var(--accent); color:#fff; border:1px solid var(--accent); border-radius:7px;
+  padding:7px 13px; font-size:12.5px; font-weight:600}
+.btn.ghost{background:transparent; color:var(--ink); border-color:var(--line)}
+.btn.ok{background:var(--ok); border-color:var(--ok)}
+.btn.bad{background:transparent; color:var(--bad); border-color:var(--bad)}
+.btn.sm{padding:4.5px 10px; font-size:11.5px}
+.btnrow{display:flex; gap:8px; flex-wrap:wrap}
+
+.field{display:grid; gap:5px}
+.field label{font-size:11.5px; font-weight:600; color:var(--muted)}
+.field input,.field select,.field textarea{
+  background:var(--surface-2); color:var(--ink); border:1px solid var(--line);
+  border-radius:7px; padding:8px 10px; font:inherit; font-size:13px; width:100%;
+}
+.grid2{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.split{display:grid; gap:14px; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); align-items:start}
+
+.map{position:relative; aspect-ratio:16/10; max-width:100%; background:var(--surface-2);
+  border-radius:8px; overflow:hidden; border:1px solid var(--line)}
+.map svg{width:100%; height:100%; display:block}
+
+.list{display:grid; gap:0}
+.row{display:flex; align-items:center; gap:11px; padding:11px 14px; border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .seq{width:23px; height:23px; border-radius:50%; display:grid; place-items:center; flex:none;
+  font-size:11px; font-weight:600; background:var(--surface-2); color:var(--muted); font-variant-numeric:tabular-nums}
+.row .seq.done{background:var(--ok-soft); color:var(--ok)}
+.row .seq.now{background:var(--accent); color:#fff}
+.row .main{min-width:0; flex:1}
+.row .main b{display:block; font-size:13px; font-weight:600}
+.row .main span{display:block; font-size:11.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.row .right{text-align:right; flex:none; font-size:12px}
+
+.empty{display:grid; gap:9px; place-items:center; text-align:center; padding:40px 20px; color:var(--muted)}
+.empty b{font-family:var(--f-display); font-size:15px; color:var(--ink)}
+.skel{height:11px; border-radius:5px; background:linear-gradient(90deg,var(--surface-2),var(--line),var(--surface-2));
+  background-size:200% 100%; animation:sh 1.3s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.errbox{border:1px solid var(--bad); background:var(--bad-soft); color:var(--bad);
+  border-radius:8px; padding:13px 15px; display:grid; gap:7px}
+.errbox b{font-family:var(--f-display); font-size:13.5px}
+.errbox p{margin:0; font-size:12.5px; color:var(--ink)}
+
+.callout{border:1px solid var(--line); border-left:3px solid var(--accent); background:var(--surface);
+  border-radius:0 8px 8px 0; padding:11px 14px; font-size:12.5px}
+.callout.warn{border-left-color:var(--warn)}
+.callout.bad{border-left-color:var(--bad)}
+.callout b{display:block; margin-bottom:3px; font-size:12.5px}
+
+.bar{height:7px; border-radius:4px; background:var(--surface-2); overflow:hidden}
+.bar i{display:block; height:100%; border-radius:4px; background:var(--accent)}
+
+.login{display:grid; place-items:center; padding:48px 20px}
+.loginbox{background:var(--surface); border:1px solid var(--line); border-radius:11px;
+  padding:26px; width:min(360px,100%); display:grid; gap:14px}
+.loginbox h2{font-size:19px}
+
+.legend{display:flex; gap:13px; flex-wrap:wrap; font-size:11.5px; color:var(--muted)}
+.legend i{display:inline-block; width:15px; height:3px; border-radius:2px; margin-right:5px; vertical-align:middle}
+
+@media (max-width:860px){
+  .app{grid-template-columns:1fr; grid-template-rows:auto 1fr}
+  .rail{border-right:0; border-bottom:1px solid var(--line); max-height:none; overflow:visible}
+  .nav{grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); display:grid}
+  .roles{grid-template-columns:repeat(3,1fr); display:grid}
+  .role small{display:none}
+  .split{grid-template-columns:1fr}
+  .screen{padding:16px}
+  .railfoot{margin-top:0}
+}
+
+
+/* ---- wireframe sayfa düzeni ---- */
+@page { size: A4 landscape; margin: 0; }
+html, body { height: auto; background: #fff; }
+.wf {
+  width: 297mm; height: 208mm; padding: 11mm 13mm 8mm;
+  display: flex; flex-direction: column; overflow: hidden;
+  page-break-after: always; break-after: page; background: #fff;
+}
+.wf:last-child { page-break-after: auto; break-after: auto; }
+.wfhead {
+  display: flex; align-items: baseline; gap: 9px; flex: 0 0 auto;
+  border-bottom: 1.5px solid #16202c; padding-bottom: 5px; margin-bottom: 7px;
+}
+.wfrole {
+  font-family: var(--f-body); font-size: 9.5pt; font-weight: 600; color: #fff;
+  background: var(--r); border-radius: 4px; padding: 2px 8px;
+}
+.wfcode { font-family: var(--f-mono); font-size: 10pt; font-weight: 500; color: #1f5fa8; }
+.wfhead h2 { font-size: 15pt; font-weight: 600; color: #16202c; }
+.wfbox { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.wfinner { width: 1080px; }
+.wfinner .screen { padding: 0; max-width: 1080px; }
+.wfnote {
+  flex: 0 0 auto; margin: 7px 0 0; padding-top: 5px; border-top: 1px solid #d9e0ea;
+  font-family: var(--f-body); font-size: 8.5pt; color: #5b6b7d; line-height: 1.45;
+}
+/* Wireframe daima açık temada basılır. */
+.wf, .wf * { color-scheme: light; }
+
+/* Haritalar ekranda 16:10; basılı sayfada bu kadar yükseklik, ekranın
+   tamamını okunmayacak kadar küçültüyor. Yüksekliği sabitliyoruz. */
+.wf .map { aspect-ratio: auto; height: 190px; }
+</style></head>
+<body>
+<script>
+
+/* ============ veri ============ */
+const ROL = {
+  firma: { ad:'Kargo Firması', kisa:'Bandırma Şube', renk:'var(--firma)', bas:'BŞ',
+    ekranlar:[
+      ['F1','Giriş'],['F2','Gösterge paneli'],['F3','Kargo listesi'],['F4','Yeni kargo'],
+      ['F5','Adres doğrulama'],['F6','Rota planlama'],['F7','Rota detayı'],
+      ['F8','Algoritma karşılaştırma'],['F9','Tasarruf raporları']] },
+  kurye: { ad:'Kurye', kisa:'Mehmet Yılmaz', renk:'var(--kurye)', bas:'MY',
+    ekranlar:[['K1','Giriş'],['K2','Bugünkü rotam'],['K3','Durak detayı'],
+      ['K4','Harita görünümü'],['K5','Rota değişti']] },
+  alici: { ad:'Alıcı', kisa:'Elif Demir', renk:'var(--alici)', bas:'ED',
+    ekranlar:[['A1','Giriş'],['A2','Kargolarım'],['A3','Kargo detayı'],
+      ['A4','Adresim'],['A5','Bildirimler']] },
+};
+
+const KARGOLAR = [
+  ['BND-2026-00417','Elif Demir','Yeni Mahalle, 1204 Sk. No:7',  4.2, 2,'PLANLANDI','ok'],
+  ['BND-2026-00418','Ahmet Kaya','Çınarlı Mah., 318 Sk. No:12', 11.8,0,'PLANLANDI','ok'],
+  ['BND-2026-00419','Zeynep Arı','Paşabayır Mah., 77 Sk. No:3',  2.5,1,'YOLDA','info'],
+  ['BND-2026-00420','Murat Şen','600 Evler, 42 Sk. No:19',       7.0,0,'BEKLEMEDE','mute'],
+  ['BND-2026-00421','Fatma Toprak','Günaydın Mah., 9 Sk. No:5',  1.3,3,'ERTELENDİ','bad'],
+  ['BND-2026-00422','Can Özkan','İhsaniye Mah., 55 Sk. No:8',   16.4,0,'BEKLEMEDE','mute'],
+  ['BND-2026-00423','Hatice Ak','Hacı Yusuf Mah., 21 Sk. No:2',  3.9,1,'TESLİM EDİLDİ','ok'],
+];
+
+const DOGRULAMA = [
+  ['BND-2026-00424','Serkan Bulut','Edincik Mah., 4 Sk. No:11', 18, 'uyari','Nokta diğer teslimatlardan 11 km uzakta'],
+  ['BND-2026-00425','Nalan Yüce','Çınarlı Mah., 290 Sk. No:6',   7, 'ok',   null],
+  ['BND-2026-00426','Okan Deniz','600 Evler, 15 Sk. No:33',    142, 'hata', 'Yola uzaklık 142 m — araç ulaşamaz'],
+];
+
+const DURAKLAR = [
+  [1,'Zeynep Arı','Paşabayır Mah., 77 Sk. No:3','09:14','teslim'],
+  [2,'Hatice Ak','Hacı Yusuf Mah., 21 Sk. No:2','09:41','teslim'],
+  [3,'Elif Demir','Yeni Mahalle, 1204 Sk. No:7','10:05','simdi'],
+  [4,'Ahmet Kaya','Çınarlı Mah., 318 Sk. No:12','10:32','bekliyor'],
+  [5,'Murat Şen','600 Evler, 42 Sk. No:19','11:08','bekliyor'],
+  [6,'Can Özkan','İhsaniye Mah., 55 Sk. No:8','11:44','bekliyor'],
+];
+
+const ALGO = [
+  ['Naive (giriş sırası)', 142.6, 13.1, 2196, 3, 1,    0.0, 'bad'],
+  ['Greedy NN',            118.4, 10.9, 1965, 3, 8,   10.5, 'warn'],
+  ['Clarke-Wright savings',109.2, 10.0, 1865, 3, 42,  15.1, 'warn'],
+  ['RouteWise',            103.5,  9.5, 1548, 2, 1840,29.5, 'ok'],
+];
+
+const YOLBULMA = [
+  ['Dijkstra', 4820, 12.4, 3140, 0,    'ok',  'Ağırlıklı grafta en kısa yolu garanti eder'],
+  ['A*',       4820,  6.1, 1020, 0,    'ok',  'Aynı yol, daha az düğüm'],
+  ['BFS',      7450,  9.8, 2760, 54.6, 'bad', 'Kenar ağırlıklarını yok sayar'],
+  ['DFS',     14230,  4.2,  890, 195.2,'bad', 'Optimallik garantisi yok'],
+];
+
+/* ============ yardımcılar ============ */
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const tl  = (n) => n.toLocaleString('tr-TR');
+const pill = (t, k='mute') => `<span class="pill ${k}">${esc(t)}</span>`;
+
+let rol = 'firma', ekran = 'F2', durum = 'dolu';
+
+/* Durum anahtarı yalnızca veri yüklü ekranlarda anlamlı. */
+const VERILI = new Set(['F2','F3','F5','F6','F7','F8','F9','K2','K4','A2','A5']);
+
+function durumBloku(baslik, ipucu){
+  if (durum === 'yukleniyor')
+    return `<div class="card"><div class="body" style="display:grid;gap:9px">
+      ${'<div class="skel" style="width:100%"></div><div class="skel" style="width:88%"></div><div class="skel" style="width:64%"></div>'}
+      <p class="sub" style="margin-top:4px">Yükleniyor…</p></div></div>`;
+  if (durum === 'bos')
+    return `<div class="card"><div class="empty">
+      <b>${esc(baslik)}</b><p class="sub" style="max-width:40ch">${esc(ipucu)}</p></div></div>`;
+  if (durum === 'hata')
+    return `<div class="errbox"><b>Veri alınamadı</b>
+      <p>Sunucuya ulaşılamıyor. Bağlantını kontrol edip tekrar dene; sorun sürerse yöneticine bildir.</p>
+      <div class="btnrow"><button class="btn sm">Tekrar dene</button></div></div>`;
+  return null;
+}
+
+function girisEkrani(r){
+  const k = ROL[r];
+  return `<div class="login"><form class="loginbox" onsubmit="event.preventDefault()">
+    <h2>${esc(k.ad)} girişi</h2>
+    <p class="sub">RouteWise — Bandırma dağıtım sistemi</p>
+    <div class="field"><label for="e-${r}">E-posta</label>
+      <input id="e-${r}" type="email" value="${r}@routewise.local" autocomplete="username"></div>
+    <div class="field"><label for="p-${r}">Parola</label>
+      <input id="p-${r}" type="password" value="••••••••" autocomplete="current-password"></div>
+    <button class="btn" type="submit">Giriş yap</button>
+    <p class="note">Rolü soldaki listeden değiştirebilirsin.</p>
+  </form></div>`;
+}
+
+function harita(opts = {}){
+  const { rota = true, vurgu = null, ikinci = false } = opts;
+  const P1 = 'M58,150 L112,96 L170,74 L236,104 L300,88';
+  const P2 = 'M58,150 L104,196 L178,214 L252,196';
+  return `<div class="map"><svg viewBox="0 0 360 225" role="img"
+      aria-label="Bandırma üzerinde örnek dağıtım rotası">
+    <rect width="360" height="225" fill="var(--surface-2)"/>
+    <g stroke="var(--line)" stroke-width="1">
+      <path d="M0 60 H360 M0 120 H360 M0 180 H360 M90 0 V225 M180 0 V225 M270 0 V225"/>
+    </g>
+    ${rota ? `<path d="${P1}" fill="none" stroke="var(--accent)" stroke-width="3"
+        stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+    ${ikinci ? `<path d="${P2}" fill="none" stroke="var(--firma)" stroke-width="3"
+        stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+    <rect x="48" y="140" width="20" height="20" rx="4" fill="var(--ink)"/>
+    <text x="58" y="175" font-size="9" fill="var(--muted)" text-anchor="middle"
+      font-family="IBM Plex Sans">Depo</text>
+    ${[[112,96],[170,74],[236,104],[300,88]].map(([x,y],i)=>`
+      <circle cx="${x}" cy="${y}" r="${vurgu===i?7:5}" fill="var(--surface)"
+        stroke="${vurgu===i?'var(--accent)':'var(--muted)'}" stroke-width="${vurgu===i?3:2}"/>`).join('')}
+    ${ikinci ? [[104,196],[178,214],[252,196]].map(([x,y])=>`
+      <circle cx="${x}" cy="${y}" r="5" fill="var(--surface)" stroke="var(--firma)" stroke-width="2"/>`).join('') : ''}
+  </svg></div>`;
+}
+
+/* ============ FİRMA ============ */
+const EKRAN = {};
+
+EKRAN.F1 = () => girisEkrani('firma');
+
+EKRAN.F2 = () => {
+  const d = durumBloku('Bugün için kayıt yok','Gün başladığında kargolar burada özetlenir.');
+  if (d) return d;
+  return `
+  <div class="cards">
+    <div class="stat"><div class="k">Bugünkü kargo</div><div class="v">24</div>
+      <div class="d" style="color:var(--muted)">3 ertelendi</div></div>
+    <div class="stat"><div class="k">Planlanan mesafe</div><div class="v">103,5<span style="font-size:13px"> km</span></div>
+      <div class="d" style="color:var(--ok)">naive planın %27 altında</div></div>
+    <div class="stat"><div class="k">Tahmini maliyet</div><div class="v">1.548<span style="font-size:13px"> ₺</span></div>
+      <div class="d" style="color:var(--ok)">648 ₺ tasarruf</div></div>
+    <div class="stat"><div class="k">Doğrulama bekleyen</div><div class="v">3</div>
+      <div class="d" style="color:var(--warn)">1'i incelenmeli</div></div>
+  </div>
+
+  <div class="split">
+    <div class="card"><header><h2>Bugünün rotaları</h2>
+      <div class="tools"><button class="btn sm ghost" onclick="git('F6')">Planlamayı aç</button></div></header>
+      ${harita({ikinci:true})}
+      <div class="body" style="display:grid;gap:9px">
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i>10 ABC 001 · Mehmet Y. · 14 durak</span>
+          <span><i style="background:var(--firma)"></i>10 ABC 003 · Ayşe K. · 10 durak</span>
+        </div>
+        <p class="sub">Araç 2 bugün kullanılmıyor: yük iki araca sığdı.</p>
+      </div>
+    </div>
+
+    <div class="card"><header><h2>Dikkat gerektirenler</h2></header>
+      <div class="list">
+        <div class="row"><span class="pill bad">Hata</span><div class="main">
+          <b>Okan Deniz</b><span>Nokta yola 142 m uzakta</span></div>
+          <div class="right"><button class="btn sm ghost" onclick="git('F5')">Aç</button></div></div>
+        <div class="row"><span class="pill warn">Uyarı</span><div class="main">
+          <b>Serkan Bulut</b><span>Diğer teslimatlardan 11 km uzakta</span></div>
+          <div class="right"><button class="btn sm ghost" onclick="git('F5')">Aç</button></div></div>
+        <div class="row"><span class="pill info">Bilgi</span><div class="main">
+          <b>Fatma Toprak</b><span>Alıcı başka güne erteledi</span></div>
+          <div class="right"><button class="btn sm ghost" onclick="git('F3')">Aç</button></div></div>
+      </div>
+    </div>
+  </div>`;
+};
+
+EKRAN.F3 = () => {
+  const d = durumBloku('Kargo listesi boş','Yeni kargo ekleyerek başla. Sipariş numarası otomatik üretilir.');
+  if (d) return d;
+  return `
+  <div class="card"><header><h2>Kargo listesi</h2>
+    <div class="tools">
+      <button class="btn sm ghost">Filtrele</button>
+      <button class="btn sm" onclick="git('F4')">Yeni kargo</button></div></header>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Sipariş no</th><th>Alıcı</th><th>Adres</th>
+        <th class="num">Ağırlık</th><th class="num">Öncelik</th><th>Durum</th></tr></thead>
+      <tbody>${KARGOLAR.map(([no,ad,adr,kg,onc,dur,k])=>`
+        <tr><td class="mono">${esc(no)}</td><td>${esc(ad)}</td>
+          <td style="color:var(--muted)">${esc(adr)}</td>
+          <td class="num">${tl(kg)} kg</td>
+          <td class="num">${onc ? pill('P'+onc,'info') : '<span style="color:var(--muted)">—</span>'}</td>
+          <td>${pill(dur,k)}</td></tr>`).join('')}
+      </tbody></table></div>
+  </div>
+  <p class="sub">Listede değişiklik yapıldığında rota ~500 ms sonra yeniden hesaplanır.</p>`;
+};
+
+EKRAN.F4 = () => `
+  <div class="split">
+    <div class="card"><header><h2>Yeni kargo</h2></header>
+      <form class="body" style="display:grid;gap:13px" onsubmit="event.preventDefault()">
+        <div class="field"><label for="f4no">Sipariş numarası</label>
+          <input id="f4no" class="mono" value="BND-2026-00427" readonly
+            style="color:var(--muted)"></div>
+        <div class="grid2">
+          <div class="field"><label for="f4al">Alıcı</label>
+            <select id="f4al"><option>Elif Demir</option><option>Ahmet Kaya</option>
+              <option>Yeni alıcı ekle…</option></select></div>
+          <div class="field"><label for="f4ad">Teslimat adresi</label>
+            <select id="f4ad"><option>Yeni Mahalle, 1204 Sk. No:7 (doğrulandı)</option>
+              <option>Yeni adres ekle…</option></select></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label for="f4kg">Ağırlık (kg)</label><input id="f4kg" type="number" value="4.2" step="0.1"></div>
+          <div class="field"><label for="f4on">Öncelik</label>
+            <select id="f4on"><option>0 — normal</option><option selected>2 — yüksek</option>
+              <option>5 — acil</option></select></div>
+        </div>
+        <div class="field"><label for="f4sv">Teslim süresi (dk)</label><input id="f4sv" type="number" value="5"></div>
+        <div class="btnrow"><button class="btn" type="submit">Kargoyu oluştur</button>
+          <button class="btn ghost" type="button" onclick="git('F3')">Vazgeç</button></div>
+      </form>
+    </div>
+    <div class="card"><header><h2>Sipariş numarası</h2></header>
+      <div class="body" style="display:grid;gap:10px">
+        <p class="sub">Numara sistem tarafından üretilir, elle girilmez. Yanlış yazma ihtimali yoktur.</p>
+        <div class="callout"><b>Biçim</b>BND-YYYY-NNNNN<br>
+          <span style="color:var(--muted)">BND: Bandırma şubesi · YYYY: yıl · NNNNN: sıra</span></div>
+      </div>
+    </div>
+  </div>`;
+
+EKRAN.F5 = () => {
+  const d = durumBloku('Bekleyen adres yok','Alıcılar adres girdiğinde doğrulama için burada listelenir.');
+  if (d) return d;
+  const ikon = {ok:['ok','Geçti'], uyari:['warn','Uyarı'], hata:['bad','Engel']};
+  return `
+  <div class="callout"><b>Beş katmanlı kontrol</b>
+    Sınır içinde mi · yola uzaklık · adres metni onayı · aykırı değer · firma onayı.
+    İlk dördü otomatik; son kapı sensin.</div>
+
+  <div class="card"><header><h2>Doğrulama kuyruğu</h2>
+    <div class="tools">${pill(DOGRULAMA.length+' bekliyor','warn')}</div></header>
+    <div class="list">${DOGRULAMA.map(([no,ad,adr,snap,k,uyari])=>{
+      const [cls,et] = ikon[k];
+      return `<div class="row" style="align-items:flex-start">
+        <div class="main"><b>${esc(ad)} ${pill(et,cls)}</b>
+          <span style="white-space:normal">${esc(adr)}</span>
+          <span class="mono" style="margin-top:3px">${esc(no)} · yola ${snap} m</span>
+          ${uyari?`<span style="color:var(--${k==='hata'?'bad':'warn'});white-space:normal;margin-top:3px">${esc(uyari)}</span>`:''}
+        </div>
+        <div class="right" style="display:grid;gap:6px">
+          ${k==='hata'
+            ? `<button class="btn sm bad">Reddet</button><button class="btn sm ghost">Konumu düzelt</button>`
+            : `<button class="btn sm ok">Onayla</button><button class="btn sm ghost">Reddet</button>`}
+        </div></div>`;}).join('')}
+    </div>
+  </div>
+
+  <div class="split">
+    ${harita({rota:false, vurgu:1})}
+    <div class="card"><header><h2>Seçili nokta</h2></header><div class="body" style="display:grid;gap:9px">
+      <div><b>Nalan Yüce</b><div class="sub">Çınarlı Mah., 290 Sk. No:6</div></div>
+      <table><tbody>
+        <tr><td>Bandırma sınırı içinde</td><td class="num">${pill('Evet','ok')}</td></tr>
+        <tr><td>En yakın yola uzaklık</td><td class="num">7 m</td></tr>
+        <tr><td>Diğer teslimatlara uzaklık</td><td class="num">1,8 km</td></tr>
+      </tbody></table>
+      <div class="btnrow"><button class="btn ok">Onayla</button><button class="btn ghost">Reddet</button></div>
+    </div></div>
+  </div>`;
+};
+
+EKRAN.F6 = () => {
+  const d = durumBloku('Planlanacak kargo yok','Doğrulanmış adresi olan kargolar planlamaya girer.');
+  if (d) return d;
+  return `
+  <div class="split">
+    <div class="card"><header><h2>Rota planlama · 12 Ekim</h2>
+      <div class="tools"><button class="btn sm">Optimize et</button></div></header>
+      ${harita({ikinci:true})}
+      <div class="body" style="display:grid;gap:10px">
+        <div><div class="sub" style="margin-bottom:5px">Simulated annealing · 1.840 ms</div>
+          <div class="bar"><i style="width:100%"></i></div></div>
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i>10 ABC 001 — 14 durak · 61,2 km</span>
+          <span><i style="background:var(--firma)"></i>10 ABC 003 — 10 durak · 42,3 km</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;gap:14px;align-content:start">
+      <div class="card"><header><h2>Sonuç</h2></header><div class="body">
+        <table><tbody>
+          <tr><td>Toplam mesafe</td><td class="num">103,5 km</td></tr>
+          <tr><td>Toplam süre</td><td class="num">7 sa 12 dk</td></tr>
+          <tr><td>Yakıt</td><td class="num">9,5 L</td></tr>
+          <tr><td>Kullanılan araç</td><td class="num">2 / 3</td></tr>
+          <tr><td><b>Toplam maliyet</b></td><td class="num"><b>1.548 ₺</b></td></tr>
+          <tr><td>Naive plana göre</td><td class="num" style="color:var(--ok)"><b>−%29,5</b></td></tr>
+        </tbody></table></div></div>
+      <div class="callout warn"><b>Kapasite sınırda</b>
+        10 ABC 001 yükü 1.180 / 1.200 kg. Yeni kargo bu araca sığmayabilir.</div>
+      <div class="btnrow"><button class="btn" onclick="git('F7')">Rota detayı</button>
+        <button class="btn ghost">Kuryelere sevk et</button></div>
+    </div>
+  </div>`;
+};
+
+EKRAN.F7 = () => {
+  const d = durumBloku('Rota bulunamadı','Önce planlama ekranından bir rota oluştur.');
+  if (d) return d;
+  return `
+  <div class="card"><header><h2>10 ABC 001 · Mehmet Yılmaz</h2>
+    <div class="tools">${pill('Yolda','info')}</div></header>
+    <div class="body"><div class="cards">
+      <div class="stat"><div class="k">Mesafe</div><div class="v">61,2<span style="font-size:13px"> km</span></div></div>
+      <div class="stat"><div class="k">Süre</div><div class="v">4:05</div></div>
+      <div class="stat"><div class="k">Yük</div><div class="v">1.180<span style="font-size:13px"> kg</span></div>
+        <div class="d" style="color:var(--warn)">kapasitenin %98'i</div></div>
+      <div class="stat"><div class="k">Maliyet</div><div class="v">892<span style="font-size:13px"> ₺</span></div></div>
+    </div></div>
+  </div>
+  <div class="card"><header><h2>Duraklar</h2></header>
+    <div class="list">${DURAKLAR.map(([n,ad,adr,eta,st])=>`
+      <div class="row">
+        <span class="seq ${st==='teslim'?'done':st==='simdi'?'now':''}">${n}</span>
+        <div class="main"><b>${esc(ad)}</b><span>${esc(adr)}</span></div>
+        <div class="right"><div class="mono">${eta}</div>
+          <div style="color:var(--muted);font-size:11px">${st==='teslim'?'teslim edildi':st==='simdi'?'sıradaki':'bekliyor'}</div></div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+};
+
+EKRAN.F8 = () => {
+  const d = durumBloku('Karşılaştırma koşusu yok','Bir kargo listesi seçip koşu başlat.');
+  if (d) return d;
+  return `
+  <div class="callout"><b>İki ayrı karar seviyesi</b>
+    Yol bulma "A'dan B'ye hangi yoldan", tur sırası "hangi teslimat hangi sırayla".
+    Farklı metrikler ölçülür, ayrı tutulur.</div>
+
+  <div class="card"><header><h2>Seviye 2 — tur sırası</h2>
+    <div class="tools"><button class="btn sm ghost">Koşuyu tekrarla</button></div></header>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Algoritma</th><th class="num">km</th><th class="num">Yakıt L</th>
+        <th class="num">Maliyet ₺</th><th class="num">Araç</th><th class="num">Süre ms</th>
+        <th class="num">Tasarruf</th></tr></thead>
+      <tbody>${ALGO.map(([ad,km,l,try_,ar,ms,ts,k])=>`
+        <tr><td${k==='ok'?' style="font-weight:600"':''}>${esc(ad)}</td>
+          <td class="num">${tl(km)}</td><td class="num">${tl(l)}</td>
+          <td class="num">${tl(try_)}</td><td class="num">${ar}</td>
+          <td class="num">${tl(ms)}</td>
+          <td class="num">${ts ? pill('%'+tl(ts),k) : '<span style="color:var(--muted)">taban</span>'}</td></tr>`).join('')}
+      </tbody></table></div>
+  </div>
+
+  <div class="card"><header><h2>Seviye 1 — yol bulma</h2></header>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Algoritma</th><th class="num">Yol m</th><th class="num">Süre ms</th>
+        <th class="num">Düğüm</th><th class="num">Sapma</th><th>Not</th></tr></thead>
+      <tbody>${YOLBULMA.map(([ad,m,ms,dg,sp,k,not])=>`
+        <tr><td>${esc(ad)}</td><td class="num">${tl(m)}</td><td class="num">${tl(ms)}</td>
+          <td class="num">${tl(dg)}</td>
+          <td class="num">${sp ? pill('+%'+tl(sp),k) : pill('0','ok')}</td>
+          <td style="color:var(--muted)">${esc(not)}</td></tr>`).join('')}
+      </tbody></table></div>
+  </div>
+  <p class="sub">Hesaplama süreleri aynı girdide 10 koşunun medyanıdır.</p>`;
+};
+
+EKRAN.F9 = () => {
+  const d = durumBloku('Yeterli geçmiş yok','Tasarruf analizi için en az bir haftalık dağıtım verisi gerekir.');
+  if (d) return d;
+  const hafta = [18.2, 21.4, 24.0, 22.8, 26.6, 28.1, 29.5];
+  const mx = Math.max(...hafta);
+  return `
+  <div class="cards">
+    <div class="stat"><div class="k">Bu hafta tasarruf</div><div class="v">%29,5</div>
+      <div class="d" style="color:var(--ok)">geçen haftaya göre +1,4 puan</div></div>
+    <div class="stat"><div class="k">Yakıt tasarrufu</div><div class="v">38,4<span style="font-size:13px"> L</span></div></div>
+    <div class="stat"><div class="k">Maliyet tasarrufu</div><div class="v">4.536<span style="font-size:13px"> ₺</span></div></div>
+    <div class="stat"><div class="k">Araç-gün</div><div class="v">14</div>
+      <div class="d" style="color:var(--muted)">21 yerine</div></div>
+  </div>
+
+  <div class="card"><header><h2>Haftalık tasarruf oranı</h2>
+    <div class="tools"><button class="btn sm ghost">Excel</button><button class="btn sm ghost">PDF</button></div></header>
+    <div class="body">
+      <svg viewBox="0 0 560 190" style="width:100%;height:auto" role="img"
+        aria-label="Son yedi haftanın tasarruf oranı, %18,2'den %29,5'e yükseliyor">
+        <g stroke="var(--line)" stroke-width="1">
+          <path d="M44 20 H548 M44 62 H548 M44 104 H548 M44 146 H548"/></g>
+        <g font-size="10" fill="var(--muted)" font-family="IBM Plex Sans">
+          <text x="38" y="24" text-anchor="end">%40</text>
+          <text x="38" y="108" text-anchor="end">%20</text>
+          <text x="38" y="150" text-anchor="end">%0</text>
+        </g>
+        ${hafta.map((v,i)=>{
+          const x = 62 + i*70, h = (v/40)*126, y = 146-h;
+          return `<rect x="${x}" y="${y}" width="40" height="${h}" rx="3"
+            fill="${i===hafta.length-1?'var(--accent)':'var(--surface-2)'}"
+            stroke="${i===hafta.length-1?'var(--accent)':'var(--line)'}"/>
+            <text x="${x+20}" y="${y-6}" font-size="10.5" fill="var(--ink)" text-anchor="middle"
+              font-family="IBM Plex Sans" font-weight="600">%${tl(v)}</text>
+            <text x="${x+20}" y="164" font-size="10" fill="var(--muted)" text-anchor="middle"
+              font-family="IBM Plex Sans">H${i+1}</text>`;}).join('')}
+        <line x1="44" y1="146" x2="548" y2="146" stroke="var(--muted)" stroke-width="1.2"/>
+      </svg>
+      <p class="sub" style="margin-top:8px">Her koşuda naive baseline da kaydedildiği için tasarruf geçmişe dönük hesaplanabiliyor.</p>
+    </div>
+  </div>`;
+};
+
+/* ============ KURYE ============ */
+EKRAN.K1 = () => girisEkrani('kurye');
+
+EKRAN.K2 = () => {
+  const d = durumBloku('Bugün için rota yok','Firma rotayı sevk ettiğinde duraklar burada görünür.');
+  if (d) return d;
+  return `
+  <div class="cards">
+    <div class="stat"><div class="k">Kalan durak</div><div class="v">4</div>
+      <div class="d" style="color:var(--muted)">6 duraktan</div></div>
+    <div class="stat"><div class="k">Kalan mesafe</div><div class="v">38,7<span style="font-size:13px"> km</span></div></div>
+    <div class="stat"><div class="k">Tahmini bitiş</div><div class="v">11:44</div></div>
+    <div class="stat"><div class="k">Araç</div><div class="v" style="font-size:17px">10 ABC 001</div>
+      <div class="d" style="color:var(--muted)">1.180 kg yüklü</div></div>
+  </div>
+
+  <div class="card"><header><h2>Duraklar</h2>
+    <div class="tools"><button class="btn sm ghost" onclick="git('K4')">Haritada gör</button></div></header>
+    <div class="list">${DURAKLAR.map(([n,ad,adr,eta,st])=>`
+      <div class="row">
+        <span class="seq ${st==='teslim'?'done':st==='simdi'?'now':''}">${n}</span>
+        <div class="main"><b>${esc(ad)}</b><span>${esc(adr)}</span></div>
+        <div class="right">
+          <div class="mono">${eta}</div>
+          ${st==='simdi'
+            ? `<button class="btn sm" style="margin-top:4px" onclick="git('K3')">Aç</button>`
+            : `<div style="color:var(--muted);font-size:11px">${st==='teslim'?'teslim edildi':'bekliyor'}</div>`}
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+};
+
+EKRAN.K3 = () => `
+  <div class="split">
+    <div class="card"><header><h2>Durak 3 · Elif Demir</h2>
+      <div class="tools">${pill('Sıradaki','info')}</div></header>
+      <div class="body" style="display:grid;gap:13px">
+        <div><div class="sub">Adres</div><b>Yeni Mahalle, 1204 Sk. No:7</b>
+          <div class="sub" style="margin-top:2px">Bandırma / Balıkesir</div></div>
+        <div class="grid2">
+          <div><div class="sub">Sipariş no</div><b class="mono">BND-2026-00417</b></div>
+          <div><div class="sub">Ağırlık</div><b>4,2 kg</b></div>
+          <div><div class="sub">Tahmini varış</div><b>10:05</b></div>
+          <div><div class="sub">Öncelik</div>${pill('P2 — yüksek','info')}</div>
+        </div>
+        <div class="callout"><b>Teslimat notu</b>Kapıcıya bırakılabilir.</div>
+        <div class="btnrow">
+          <button class="btn ok">Teslim edildi</button>
+          <button class="btn ghost">Ulaşılamadı</button>
+          <button class="btn ghost">Telefonu göster</button>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;gap:14px;align-content:start">
+      ${harita({vurgu:0})}
+      <div class="card"><header><h2>Sonraki durak</h2></header>
+        <div class="row" style="border:0"><span class="seq">4</span>
+          <div class="main"><b>Ahmet Kaya</b><span>Çınarlı Mah., 318 Sk. No:12</span></div>
+          <div class="right"><div class="mono">10:32</div>
+            <div style="color:var(--muted);font-size:11px">3,4 km</div></div></div>
+      </div>
+    </div>
+  </div>`;
+
+EKRAN.K4 = () => {
+  const d = durumBloku('Gösterilecek rota yok','Rota sevk edildiğinde haritada çizilir.');
+  if (d) return d;
+  return `
+  ${harita({vurgu:0})}
+  <div class="legend">
+    <span><i style="background:var(--accent)"></i>Bugünkü rotan</span>
+    <span>Dolu daire: sıradaki durak</span>
+    <span>Kare: depo</span>
+  </div>
+  <div class="card"><header><h2>Özet</h2></header><div class="body">
+    <table><tbody>
+      <tr><td>Tamamlanan</td><td class="num">2 durak · 22,5 km</td></tr>
+      <tr><td>Kalan</td><td class="num">4 durak · 38,7 km</td></tr>
+      <tr><td>Depoya dönüş</td><td class="num">12:20</td></tr>
+    </tbody></table></div></div>`;
+};
+
+EKRAN.K5 = () => `
+  <div class="errbox" style="border-color:var(--warn);background:var(--warn-soft);color:var(--warn)">
+    <b>Rotan değişti</b>
+    <p>Bir teslimat ertelendi. Kalan duraklar yeniden sıralandı; bulunduğun noktadan devam et.</p>
+  </div>
+
+  <div class="card"><header><h2>Ne değişti</h2></header>
+    <div class="list">
+      <div class="row"><span class="pill bad">Çıkarıldı</span>
+        <div class="main"><b>Fatma Toprak</b><span>Günaydın Mah., 9 Sk. No:5 — alıcı başka güne erteledi</span></div></div>
+      <div class="row"><span class="pill info">Sıra değişti</span>
+        <div class="main"><b>Can Özkan</b><span>6. sıradan 4. sıraya alındı</span></div></div>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="stat"><div class="k">Yeni kalan mesafe</div><div class="v">31,2<span style="font-size:13px"> km</span></div>
+      <div class="d" style="color:var(--ok)">7,5 km kısaldı</div></div>
+    <div class="stat"><div class="k">Yeni tahmini bitiş</div><div class="v">11:16</div>
+      <div class="d" style="color:var(--ok)">28 dk erken</div></div>
+  </div>
+  <div class="btnrow"><button class="btn" onclick="git('K2')">Yeni rotayı aç</button></div>`;
+
+/* ============ ALICI ============ */
+EKRAN.A1 = () => girisEkrani('alici');
+
+EKRAN.A2 = () => {
+  const d = durumBloku('Kargon yok','Sana bir kargo gönderildiğinde burada görünür.');
+  if (d) return d;
+  return `
+  <div class="card"><header><h2>Kargolarım</h2></header>
+    <div class="list">
+      <div class="row"><div class="main"><b>BND-2026-00417</b>
+        <span>Yeni Mahalle, 1204 Sk. No:7</span></div>
+        <div class="right">${pill('Bugün 10:05','info')}
+          <div style="margin-top:4px"><button class="btn sm ghost" onclick="git('A3')">Detay</button></div></div></div>
+      <div class="row"><div class="main"><b>BND-2026-00411</b>
+        <span>Yeni Mahalle, 1204 Sk. No:7</span></div>
+        <div class="right">${pill('Teslim edildi','ok')}
+          <div style="color:var(--muted);font-size:11px;margin-top:3px">9 Ekim 14:22</div></div></div>
+      <div class="row"><div class="main"><b>BND-2026-00402</b>
+        <span>Çınarlı Mah., 290 Sk. No:6</span></div>
+        <div class="right">${pill('Teslim edildi','ok')}
+          <div style="color:var(--muted);font-size:11px;margin-top:3px">2 Ekim 11:40</div></div></div>
+    </div>
+  </div>`;
+};
+
+EKRAN.A3 = () => `
+  <div class="split">
+    <div class="card"><header><h2>BND-2026-00417</h2>
+      <div class="tools">${pill('Yolda','info')}</div></header>
+      <div class="body" style="display:grid;gap:14px">
+        <div style="display:grid;gap:5px">
+          <div class="sub">Tahmini teslim saati</div>
+          <div style="font-family:var(--f-display);font-size:30px;font-weight:700">10:05</div>
+          <div class="sub">Kurye Mehmet Y. · önünde 2 durak var</div>
+        </div>
+        <div class="bar"><i style="width:42%"></i></div>
+        <div class="grid2">
+          <div><div class="sub">Adres</div><b>Yeni Mahalle, 1204 Sk. No:7</b></div>
+          <div><div class="sub">Ağırlık</div><b>4,2 kg</b></div>
+        </div>
+        <div class="btnrow">
+          <button class="btn ghost">Başka gün gelsin</button>
+          <button class="btn ghost" onclick="git('A4')">Adresi değiştir</button>
+        </div>
+      </div>
+    </div>
+    <div class="card"><header><h2>Durum geçmişi</h2></header>
+      <div class="list">
+        <div class="row"><span class="seq done">✓</span><div class="main"><b>Yola çıktı</b>
+          <span>12 Ekim 08:12</span></div></div>
+        <div class="row"><span class="seq done">✓</span><div class="main"><b>Planlandı</b>
+          <span>12 Ekim 07:40</span></div></div>
+        <div class="row"><span class="seq done">✓</span><div class="main"><b>Adres doğrulandı</b>
+          <span>11 Ekim 16:05</span></div></div>
+      </div>
+    </div>
+  </div>`;
+
+EKRAN.A4 = () => `
+  <div class="split">
+    <div style="display:grid;gap:12px">
+      ${harita({rota:false, vurgu:1})}
+      <p class="sub">Haritaya tıklayarak konumunu işaretle. İşaret en yakın yola otomatik çekilir.</p>
+    </div>
+    <div class="card"><header><h2>Adresim</h2>
+      <div class="tools">${pill('Doğrulandı','ok')}</div></header>
+      <form class="body" style="display:grid;gap:12px" onsubmit="event.preventDefault()">
+        <div class="field"><label for="a4t">Açık adres</label>
+          <textarea id="a4t" rows="2">Yeni Mahalle, 1204 Sk. No:7</textarea></div>
+        <div class="grid2">
+          <div class="field"><label for="a4m">Mahalle</label><input id="a4m" value="Yeni Mahalle"></div>
+          <div class="field"><label for="a4n">Teslimat notu</label><input id="a4n" value="Kapıcıya bırakılabilir"></div>
+        </div>
+        <div class="callout warn"><b>Adresi değiştirirsen</b>
+          Yeni konum firma tarafından yeniden doğrulanana kadar kargon rotaya girmez.
+          Kurye yola çıktıysa adres değiştirilemez.</div>
+        <div class="btnrow"><button class="btn" type="submit">Kaydet</button>
+          <button class="btn ghost" type="button" onclick="git('A2')">Vazgeç</button></div>
+      </form>
+    </div>
+  </div>`;
+
+EKRAN.A5 = () => {
+  const d = durumBloku('Bildirimin yok','Kargon yola çıktığında ve teslim saati belirlendiğinde haber veririz.');
+  if (d) return d;
+  return `
+  <div class="card"><header><h2>Bildirimler</h2>
+    <div class="tools"><button class="btn sm ghost">Tümünü okundu işaretle</button></div></header>
+    <div class="list">
+      <div class="row"><span class="pill info">ETA</span><div class="main">
+        <b>Kargon bugün 10:05'te teslim edilecek</b><span>BND-2026-00417 · 12 Ekim 08:12</span></div>
+        <div class="right"><button class="btn sm ghost" onclick="git('A3')">Aç</button></div></div>
+      <div class="row"><span class="pill ok">Doğrulama</span><div class="main">
+        <b>Adresin onaylandı</b><span>Yeni Mahalle, 1204 Sk. No:7 · 11 Ekim 16:05</span></div></div>
+      <div class="row"><span class="pill mute">ETA</span><div class="main">
+        <b>Kargon teslim edildi</b><span>BND-2026-00411 · 9 Ekim 14:22</span></div></div>
+    </div>
+  </div>
+  <p class="sub">Bildirimler uygulama içinde ve e-posta ile gönderilir.</p>`;
+};
+
+
+
+const NOT = {"F1":"Üç rol aynı giriş ekranını paylaşır; rol JWT içindeki yetkiden çözülür.","F2":"Özet önce, detay sonra. \"Dikkat gerektirenler\" doğrudan ilgili ekrana götürür.","F3":"Listede değişiklik rota yeniden hesaplamasını tetikler (~500 ms debounce).","F4":"Sipariş numarası salt okunur: sistem üretir, elle girilmez.","F5":"Beş katmanlı kontrolün insan onayı adımı. Yola 142 m uzaktaki nokta onaylanamaz.","F6":"Optimizasyon asenkron koşar; ilerleme göstergesi arayüzü kilitlemez.","F7":"Durak sırası, ETA ve kapasite kullanımı bir arada.","F8":"İki karar seviyesi ayrı tablolarda — metrikleri farklıdır.","F9":"Excel ve PDF dışa aktarma. Grafik haftalık kırılım; aylık/yıllık da aynı veriden.","K1":"Kurye girişi.","K2":"Kuryenin ana ekranı. Sıradaki durak vurgulu, tamamlananlar işaretli.","K3":"Teslim/ulaşılamadı işaretlemesi burada yapılır; sistem konumu buradan bilir.","K4":"Harita görünümü — rota ve sıradaki durak.","K5":"Rota değişince neyin değiştiği açıkça yazılır; sessiz değişiklik yapılmaz.","A1":"Alıcı girişi.","A2":"Alıcının kargo listesi ve tahmini teslim saatleri.","A3":"\"Başka gün gelsin\" ve adres değiştirme buradan.","A4":"Adres değişikliğinin sonucu açıkça uyarılır: yeniden doğrulama gerekir.","A5":"Uygulama içi ve e-posta bildirimleri."};
+const page = (rolAd, renk, kod, ad, govde, not) => `
+<section class="wf">
+  <header class="wfhead">
+    <span class="wfrole" style="--r:${renk}">${rolAd}</span>
+    <span class="wfcode">${kod}</span>
+    <h2>${ad}</h2>
+  </header>
+  <div class="wfbox"><div class="wfinner"><div class="screen">${govde}</div></div></div>
+  <p class="wfnote">${not ?? ''}</p>
+</section>`;
+const sayfalar = [];
+for (const [, r] of Object.entries(ROL)) {
+  for (const [kod, ad] of r.ekranlar) {
+    const fn = EKRAN[kod];
+    sayfalar.push(page(r.ad, r.renk, kod, ad, fn ? fn() : '', NOT[kod]));
+  }
+}
+document.body.insertAdjacentHTML('beforeend', sayfalar.join(''));
+
+/* Her sayfayı kendi içeriğine göre ölçekle — uzun tablolar taşmasın. */
+for (const box of document.querySelectorAll('.wfbox')) {
+  const inner = box.querySelector('.wfinner');
+  const sw = box.clientWidth / inner.scrollWidth;
+  const sh = box.clientHeight / inner.scrollHeight;
+  const s = Math.min(sw, sh, 1);
+  /* zoom, transform'un aksine düzeni ölçekler: PDF'te metin metin kalır,
+     kontura dönüşmez ve aranabilirliğini korur. */
+  inner.style.zoom = s;
+}
+</script>
+</body></html>

@@ -285,11 +285,18 @@ Frontend ve backend'in anlaştığı, yazılı ve değişmez bir arayüz.
 5. OpenAPI/Swagger üretimini aç
 6. Frontend tiplerini zod şemalarıyla eşle
 
-### Biten iş tanımı
-- [ ] Her ekranın ihtiyacı bir endpoint'le karşılanıyor, karşılıksız endpoint yok
-- [ ] Yetki matrisi (sayfa 10) her endpoint'e uygulanmış
-- [ ] Swagger arayüzü açılıyor
-- [ ] Postman collection `~/Docs/2. Postman Collections/` altına çıkarıldı
+### Biten iş tanımı  ✅ TAMAMLANDI (15.10.2026)
+- [x] Her ekranın ihtiyacı bir uçla karşılanıyor, karşılıksız uç yok —
+      izlenebilirlik tablosu: [api-contract.md](api-contract.md) §7
+- [x] Yetki matrisi her uca uygulanmış (§6); "kendi" kısıtı 404 ile döner, 403 ile değil
+- [x] Swagger arayüzü açılıyor — `http://localhost:8090/swagger-ui.html`
+- [x] Ortak hata biçimi uygulandı: `ApiError` + `GlobalExceptionHandler` + 14 kodluk katalog
+- [x] Postman collection üretildi — 44 istek, 8 klasör, değişkenler gömülü,
+      environment dosyası yok (`node docs/api/build-postman.mjs`)
+- [x] Taban yol `/api/v1` koda uygulandı (`WebMvcConfig`); actuator ve Swagger kökte kaldı
+
+**Sözleşme ile kod örtüşmesi:** `/api/v1/system/status` 200, eski `/system/status` 404.
+Uçların gövdeleri Faz 2'den itibaren yazılır; bu faz sözleşmeyi ve altyapıyı teslim eder.
 
 ---
 

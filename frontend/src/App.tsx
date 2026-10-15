@@ -31,13 +31,13 @@ export function App() {
   const [python, setPython] = useState<ServisDurumu>(BASLANGIC);
 
   useEffect(() => {
-    void kontrolEt('/api/actuator/health', (v) => {
+    void kontrolEt('/actuator/health', (v) => {
       const d = v as { status?: string };
       return `durum: ${d.status ?? '?'}`;
     }).then(setBackend);
 
     // Python servisine backend üzerinden ulaşılır — frontend doğrudan çağırmaz.
-    void kontrolEt('/api/system/status', (v) => {
+    void kontrolEt('/api/v1/system/status', (v) => {
       const d = v as { optimizer?: { graph?: { node_count?: number; road_km?: number } } };
       const g = d.optimizer?.graph;
       if (!g) return 'graf yüklenmedi';

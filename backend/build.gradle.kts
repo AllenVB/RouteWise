@@ -26,6 +26,9 @@ dependencies {
     // Şema yönetimi — changelog db/changelog/db.changelog-master.yaml
     implementation("org.liquibase:liquibase-core")
 
+    // OpenAPI / Swagger UI — /swagger-ui.html
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3")
+
     // PostGIS geometri tipleri (addresses.location, depots.location)
     implementation("org.hibernate.orm:hibernate-spatial")
 

@@ -105,9 +105,13 @@ docker compose up -d
 | Servis | Adres | İçerik |
 |---|---|---|
 | Frontend | http://localhost:5173 | React + Vite |
-| Backend | http://localhost:8090 | Spring Boot — `/actuator/health`, `/system/status` |
+| Backend | http://localhost:8090 | Spring Boot — API taban yolu `/api/v1` |
+| Swagger | http://localhost:8090/swagger-ui.html | OpenAPI arayüzü |
 | Python | http://localhost:8000 | FastAPI — `/health` |
-| Veritabanı | localhost:5432 | PostgreSQL + PostGIS + pgRouting |
+| Veritabanı | localhost:5440 | PostgreSQL + PostGIS + pgRouting |
+
+> Portlar bu makinedeki diğer projelerle çakışmayacak şekilde seçildi
+> (8080–8086 VTS'te, 5432 başka bir projede). `infra/.env` ile değiştirilebilir.
 
 > Backend 8080 yerine **8090**'da yayınlanır; container içi port 8080'dir.
 > Sebebi bu makinede 8080–8086 aralığının başka bir projeye ait olmasıdır.
@@ -116,7 +120,7 @@ docker compose up -d
 ### Doğrulama
 
 ```bash
-curl http://localhost:8090/system/status
+curl http://localhost:8090/api/v1/system/status
 ```
 
 Yanıt hem backend'i hem Python servisini ve yüklenen yol grafını göstermelidir:
@@ -144,6 +148,8 @@ docs/         mimari, yol planı, analiz dokümanları
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Sistem mimarisi — 15 bölüm |
 | [docs/roadmap.md](docs/roadmap.md) | Geliştirme yol planı — 8 faz, 14–18 hafta |
+| [docs/api-contract.md](docs/api-contract.md) | API sözleşmesi — uçlar, hata kodları, yetki matrisi |
+| [docs/RouteWise-Ekran-Wireframe.pdf](docs/RouteWise-Ekran-Wireframe.pdf) | 19 ekranlık arayüz wireframe |
 | [docs/RouteWise-Detayli-Sistem-Analizi.pdf](docs/RouteWise-Detayli-Sistem-Analizi.pdf) | Görsel sistem analizi — 25 sayfa, ER diyagramı dahil |
 | [docs/proposal.md](docs/proposal.md) | Orijinal proje önerisi |
 | [infra/dataprep/README.md](infra/dataprep/README.md) | Veri hattı ve sınır poligonunun kaynağı |

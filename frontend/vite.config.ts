@@ -15,10 +15,15 @@ export default defineConfig({
     },
     proxy: {
       // Tarayıcı aynı kaynaktan istek atsın; CORS yapılandırmasına gerek kalmaz.
-      '/api': {
+      // Yol yeniden yazılmaz: sözleşmedeki /api/v1 öneki backend'de de aynıdır.
+      '/api/v1': {
         target: process.env.BACKEND_ORIGIN ?? 'http://backend:8080',
         changeOrigin: true,
-        rewrite: (p) => p.replace(/^\/api/, ''),
+      },
+      // Actuator ve Swagger kökte durur — sağlık kontrolü oraya bakar.
+      '/actuator': {
+        target: process.env.BACKEND_ORIGIN ?? 'http://backend:8080',
+        changeOrigin: true,
       },
     },
   },
