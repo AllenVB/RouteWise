@@ -320,9 +320,10 @@ firma doğruluyor; tek araç için rota hesaplanıp haritada çiziliyor.
 4. `DistanceMatrixProvider` + kendi Dijkstra'mız + `distance_matrix_cache`
 
 **Python**
-5. Graf yükleyici + `dijkstra.py`
+5. ✅ Graf yükleyici + `dijkstra.py` — **pgRouting ile doğrulandı, 125 çiftte tam mutabakat**
 6. Basit TSP: tek araç, durak sıralama (nearest neighbor ile başla)
 7. `POST /optimize` ilk sürüm
+8. Matris üretimi: `single_source` ile N kez tek-kaynak koşusu (Python üretir, backend cache'ler)
 
 **Frontend**
 8. F1, F3, F4, F5 ekranları + harita ile konum seçimi

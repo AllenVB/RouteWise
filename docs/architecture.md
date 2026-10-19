@@ -203,6 +203,16 @@ olarak modellenir; sadece CRUD arayüzü ertelenir. Koda gömülürse proje öne
 Bandırma OSM verisi `osm2pgrouting` ile PostGIS'e yüklenir; mesafe/süre matrisi **kendi
 Dijkstra implementasyonumuzla** bu graf üzerinden hesaplanır ve DB'de cache'lenir.
 
+### Matrisi kim hesaplar
+
+Graf **Python servisinin belleğindedir**; dolayısıyla Dijkstra da oradadır. Backend
+matrisi kendisi hesaplamaz, Python servisinden ister ve sonucu `distance_matrix_cache`
+tablosunda saklar. Böylece graf tek bir yerde durur ve algoritmaların tamamı aynı
+serviste toplanır.
+
+> Bu, dokümanın ilk sürümündeki "backend matrisi Dijkstra ile hesaplar" ifadesinin
+> düzeltilmiş hâlidir (19.10.2026). Backend'in grafa erişimi yoktur.
+
 Sonuç: API kotası yok, konum sayısı sınırı yok, API key yok, internet bağımlılığı yok.
 Bunu mümkün kılan şey kapsamın Bandırma'ya daralmasıdır. Ayrıca **Seviye 1 algoritma
 karşılaştırması ancak gerçek grafla mümkündür** — hazır bir matris API'si ham grafı vermez.
@@ -387,7 +397,7 @@ baseline'a göre tasarruf (%) — haftalık, aylık ve yıllık kırılımda.
 
 1. Kargo listesi değişir (paket eklenir/çıkarılır, ertelenir, adres değişir)
 2. Backend: **doğrulanmış** teslimatları, araçları ve depoyu yükler
-3. Backend: matrisi cache'ten okur; yoksa yol grafı üzerinde Dijkstra ile hesaplar ve cache'ler
+3. Backend: matrisi cache'ten okur; yoksa **Python servisinden ister** ve cache'ler
 4. Backend: matrisler + kısıtlar + maliyet parametrelerini Optimizer'a POST eder
 5. Optimizer: RouteWise ile optimize rotayı **ve** naive baseline'ı hesaplar
 6. Backend: rotayı, metrikleri ve karşılaştırmayı kalıcılaştırır
