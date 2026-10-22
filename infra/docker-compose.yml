@@ -43,6 +43,7 @@ services:
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       OPTIMIZER_URL: http://python:8000
+      JWT_SECRET: ${JWT_SECRET}
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
       interval: 10s

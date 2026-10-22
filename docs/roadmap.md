@@ -309,7 +309,7 @@ firma doğruluyor; tek araç için rota hesaplanıp haritada çiziliyor.
 ### Görevler
 
 **Backend**
-1. Auth + JWT + üç rol
+1. ✅ Auth + JWT + üç rol — giriş, yenileme (dönüşümlü), çıkış (gerçekten geçersizler), /auth/me
 2. Kargo CRUD + sipariş numarası üretimi (`BND-YYYY-NNNNN`)
 3. Adres kaydı + **beş katmanlı doğrulama**:
    - geofence (`ST_Contains` Bandırma poligonu)

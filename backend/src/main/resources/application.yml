@@ -29,6 +29,14 @@ routewise:
   optimizer:
     base-url: ${OPTIMIZER_URL:http://localhost:8000}
 
+  jwt:
+    # En az 32 bayt. Ortam değişkeniyle verilir; varsayılan YALNIZCA yerel
+    # geliştirme içindir ve gerçek kurulumda mutlaka değiştirilmelidir.
+    secret: ${JWT_SECRET:yerel-gelistirme-icin-anahtar-degistir-32+}
+    access-ttl: 15m
+    refresh-ttl: 14d
+    issuer: routewise
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

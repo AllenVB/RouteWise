@@ -18,7 +18,7 @@ const J = (o) => ({ mode: 'raw', raw: JSON.stringify(o, null, 2),
 /** [metot, yol, ad, gövde?, sorgu?] */
 const GRUPLAR = [
   ['Kimlik', [
-    ['POST', '/auth/login', 'Giriş', { email: 'firma@routewise.local', password: 'degistir' }],
+    ['POST', '/auth/login', 'Giriş', { email: 'firma@routewise.local', password: '{{parola}}' }],
     ['POST', '/auth/refresh', 'Token yenile', { refreshToken: '{{refreshToken}}' }],
     ['POST', '/auth/logout', 'Çıkış'],
     ['GET', '/auth/me', 'Oturum sahibi'],
@@ -146,6 +146,7 @@ const collection = {
     { key: 'baseUrl', value: 'http://localhost:8090/api/v1', type: 'string' },
     { key: 'accessToken', value: '', type: 'string' },
     { key: 'refreshToken', value: '', type: 'string' },
+    { key: 'parola', value: 'RouteWise!Dev2026', type: 'string' },
     { key: 'tarih', value: '2026-10-15', type: 'string' },
     { key: 'kargoId', value: '417', type: 'string' },
     { key: 'aliciId', value: '12', type: 'string' },

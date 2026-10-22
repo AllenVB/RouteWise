@@ -2,6 +2,7 @@ package com.routewise;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 /**
  * RouteWise backend.
@@ -10,6 +11,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * business data and is called over REST; it never touches the database.
  */
 @SpringBootApplication
+@ConfigurationPropertiesScan
 public class RouteWiseApplication {
 
     public static void main(String[] args) {
