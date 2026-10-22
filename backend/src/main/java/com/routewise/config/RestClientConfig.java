@@ -18,6 +18,12 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class RestClientConfig {
 
+    /** Zaman kaynağı tek yerden gelsin ki testte sabitlenebilsin. */
+    @Bean
+    java.time.Clock clock() {
+        return java.time.Clock.systemDefaultZone();
+    }
+
     @Bean
     RestClient optimizerClient(RestClient.Builder builder,
                                @Value("${routewise.optimizer.base-url}") String baseUrl) {
