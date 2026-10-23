@@ -17,3 +17,5 @@ databaseChangeLog:
       file: db/changelog/changes/900-seed.sql
   - include:
       file: db/changelog/changes/010-auth.sql
+  - include:
+      file: db/changelog/changes/020-service-area.sql

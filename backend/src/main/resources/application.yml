@@ -29,6 +29,14 @@ routewise:
   optimizer:
     base-url: ${OPTIMIZER_URL:http://localhost:8000}
 
+  address:
+    # Bu eşiğin ötesindeki nokta reddedilir: araç oraya ulaşamaz.
+    max-snap-distance-m: 50
+    # Diğer teslimatlardan bu kadar uzak nokta uyarı üretir, engellemez.
+    outlier-distance-m: 5000
+    # Alıcının günlük adres değiştirme hakkı — rota titreşimini önler.
+    max-changes-per-day: 2
+
   jwt:
     # En az 32 bayt. Ortam değişkeniyle verilir; varsayılan YALNIZCA yerel
     # geliştirme içindir ve gerçek kurulumda mutlaka değiştirilmelidir.

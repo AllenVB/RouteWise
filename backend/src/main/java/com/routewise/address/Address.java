@@ -66,6 +66,62 @@ public class Address {
 
     protected Address() {}
 
+    public Address(Long recipientId, String addressText, String district,
+                   String neighbourhood, Point location,
+                   Long snappedNodeId, BigDecimal snapDistanceM) {
+        this.recipientId = recipientId;
+        this.addressText = addressText;
+        this.district = district;
+        this.neighbourhood = neighbourhood;
+        this.location = location;
+        this.snappedNodeId = snappedNodeId;
+        this.snapDistanceM = snapDistanceM;
+        // Yeni adres doğrudan kuyruğa girer: firma onaylamadan rotaya giremez.
+        this.verificationStatus = VerificationStatus.DOGRULAMA_BEKLIYOR;
+    }
+
+    /** Firma onayı — beşinci katman. */
+    public void verify(Long verifierUserId) {
+        this.verificationStatus = VerificationStatus.DOGRULANDI;
+        this.verifiedBy = verifierUserId;
+        this.verifiedAt = Instant.now();
+        this.rejectionReason = null;
+        this.updatedAt = Instant.now();
+    }
+
+    public void reject(Long verifierUserId, String reason) {
+        this.verificationStatus = VerificationStatus.REDDEDILDI;
+        this.verifiedBy = verifierUserId;
+        this.verifiedAt = Instant.now();
+        this.rejectionReason = reason;
+        this.updatedAt = Instant.now();
+    }
+
+    /**
+     * Konum değişti — doğrulama sıfırlanır.
+     *
+     * <p>Bu projedeki en sessiz hata kaynağı burasıdır: doğrulanmış bir adres
+     * değiştirilip durumu korunsaydı, firma onayladığını sanırken rota başka
+     * bir noktaya çizilirdi. Değişiklik onayı geçersiz kılar.
+     */
+    public void relocate(String addressText, String district, String neighbourhood,
+                         Point location, Long snappedNodeId, BigDecimal snapDistanceM) {
+        this.addressText = addressText;
+        this.district = district;
+        this.neighbourhood = neighbourhood;
+        this.location = location;
+        this.snappedNodeId = snappedNodeId;
+        this.snapDistanceM = snapDistanceM;
+        this.verificationStatus = VerificationStatus.DOGRULAMA_BEKLIYOR;
+        this.verifiedBy = null;
+        this.verifiedAt = null;
+        this.rejectionReason = null;
+        this.changeCountToday = (short) (this.changeCountToday + 1);
+        this.updatedAt = Instant.now();
+    }
+
+    public short getChangeCountToday() { return changeCountToday; }
+
     public Long getId() { return id; }
     public Long getRecipientId() { return recipientId; }
     public String getAddressText() { return addressText; }
@@ -76,4 +132,7 @@ public class Address {
     public BigDecimal getSnapDistanceM() { return snapDistanceM; }
     public VerificationStatus getVerificationStatus() { return verificationStatus; }
     public String getRejectionReason() { return rejectionReason; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Long getVerifiedBy() { return verifiedBy; }
+    public Instant getVerifiedAt() { return verifiedAt; }
 }
