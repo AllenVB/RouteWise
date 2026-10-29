@@ -2,7 +2,8 @@
 
 Python 3.12 · FastAPI · uvicorn
 
-**Durum: boş — Faz 1a'da kurulacak.**
+**Durum:** Faz 2 — yol grafı, Dijkstra, matris, tek araç tur sırası (nearest neighbor +
+naive baseline), rota geometrisi.
 
 İş verisi açısından **durumsuz** servis: teslimat, araç ve rota verisi her zaman
 istekle gelir, veritabanına erişilmez. Tek istisna yol grafıdır — değişmeyen
@@ -27,6 +28,32 @@ tests/
 ```
 
 Bağımlılıklar: numpy · pandas · scipy · matplotlib · plotly · openpyxl · pytest
+
+## Servisler arası uçlar
+
+`/internal` önekli uçları yalnızca backend çağırır; `docs/api-contract.md` içindeki
+genel API'nin (frontend ↔ backend) parçası değildir.
+
+| Uç | İş |
+|---|---|
+| `POST /internal/matrix` | `{nodeIds}` → mesafe (m) / süre (s) matrisi, ulaşılamaz hücre `null` |
+| `POST /internal/optimize` | depo + duraklar + araç + **matris** → optimize tur **ve** naive baseline |
+| `POST /internal/route-geometry` | ziyaret sırasıyla `nodeIds` → bacak bacak `[boylam, enlem]` koordinatları |
+
+`/internal/optimize` matrisi yeniden hesaplamaz: backend cache'ten okuyup gönderir.
+Hata ayrımı backend'in kataloğunu izler:
+
+| Durum | Anlamı |
+|---|---|
+| 422 | Biçimsiz girdi — matriste olmayan düğüm, kare olmayan/NaN/negatif matris, tekrar eden kargo, Faz 2'de birden fazla araç |
+| 409 `NO_FEASIBLE_SOLUTION` | Sert kısıt karşılanamıyor — yük kapasiteyi aşıyor, hiçbir durağa yol yok |
+
+Depoyla gidiş-dönüş yolu olmayan duraklar hata değildir: `unassigned` listesinde
+`UNREACHABLE` sebebiyle döner, rotaya ve baseline'a girmez. Baseline her koşuda optimize
+çözümle **aynı durak kümesi** üzerinde hesaplanır; aksi hâlde tasarruf yüzdesi anlamsızdır.
+
+Gerçek grafla duman testi (29.10.2026, 10 rastgele düğüm, tohum 42): nearest neighbor
+86,35 km, naive 100,04 km; geometri uzunluğu optimize toplamıyla birebir aynı.
 
 ## Dijkstra'nın pgRouting ile doğrulanması
 

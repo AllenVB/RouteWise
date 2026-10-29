@@ -17,7 +17,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from .api import geometry as geometry_api
 from .api import matrix as matrix_api
+from .api import optimize as optimize_api
 from .config import settings
 from .graph.loader import load_graph
 from .graph.model import RoadGraph
@@ -64,6 +66,8 @@ app = FastAPI(
 
 
 app.include_router(matrix_api.router)
+app.include_router(optimize_api.router)
+app.include_router(geometry_api.router)
 
 
 @app.get("/health", tags=["sistem"])

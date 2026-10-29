@@ -310,24 +310,32 @@ firma doğruluyor; tek araç için rota hesaplanıp haritada çiziliyor.
 
 **Backend**
 1. ✅ Auth + JWT + üç rol — giriş, yenileme (dönüşümlü), çıkış (gerçekten geçersizler), /auth/me
-2. Kargo CRUD + sipariş numarası üretimi (`BND-YYYY-NNNNN`)
-3. Adres kaydı + **beş katmanlı doğrulama**:
+2. ✅ Kargo CRUD + sipariş numarası üretimi (`BND-YYYY-NNNNN`)
+3. ✅ Adres kaydı + **beş katmanlı doğrulama**:
    - geofence (`ST_Contains` Bandırma poligonu)
    - yola snap (`ways_vertices_pgr`'da en yakın düğüm + eşik kontrolü)
    - ters geocoding ile adres metni onayı
    - aykırı değer uyarısı
    - firma onay/ret akışı + durum makinesi
-4. `DistanceMatrixProvider` + kendi Dijkstra'mız + `distance_matrix_cache`
+4. ✅ `DistanceMatrixProvider` + kendi Dijkstra'mız + `distance_matrix_cache`
+5. Adres günlük değişiklik sayacının gün dönümünde sıfırlanması — `change_count_today`
+   tarih tutmuyor, iki değişiklikten sonra adres kalıcı olarak kilitleniyor (29.10.2026'da bulundu)
+6. Depo düğümü: `depots.snapped_node_id` seed'de boş — rota depodan başlayamaz
+7. `GET /recipients`, `GET /recipients/{id}/addresses` (F4 bunlarsız çalışmaz)
+8. `PythonOptimizerClient` + `POST /plans`, `POST /plans/{id}/optimize` (tek araç),
+   `GET /runs/{id}` — koşu, rota, durak kalıcılaştırma + geometri
 
 **Python**
-5. ✅ Graf yükleyici + `dijkstra.py` — **pgRouting ile doğrulandı, 125 çiftte tam mutabakat**
-6. Basit TSP: tek araç, durak sıralama (nearest neighbor ile başla)
-7. `POST /optimize` ilk sürüm
-8. Matris üretimi: `single_source` ile N kez tek-kaynak koşusu (Python üretir, backend cache'ler)
+9. ✅ Graf yükleyici + `dijkstra.py` — **pgRouting ile doğrulandı, 125 çiftte tam mutabakat**
+10. ✅ Basit TSP: tek araç, nearest neighbor + naive baseline (aynı durak kümesinde)
+11. ✅ `POST /internal/optimize` ilk sürüm — olurluluk testleri algoritmadan önce yazıldı
+12. ✅ Matris üretimi: `single_source` ile N kez tek-kaynak koşusu (Python üretir, backend cache'ler)
+13. ✅ `POST /internal/route-geometry` — haritada gerçek yolu çizmek için bacak koordinatları
 
 **Frontend**
-8. F1, F3, F4, F5 ekranları + harita ile konum seçimi
-9. Rota haritada çizimi
+14. Temel: yönlendirme, TanStack Query, auth store + token yenileme, MapLibre
+15. F1, F3, F4, F5 ekranları + harita ile konum seçimi
+16. Rota haritada çizimi
 
 ### Biten iş tanımı
 - [ ] Haritadan Bandırma dışına tıklanınca **reddediliyor**
