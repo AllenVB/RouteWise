@@ -42,3 +42,6 @@ coverage/
 
 # Figür önizleme çıktıları — kanonik biçim SVG'dir
 docs/diagrams/*.png
+
+# Gradle build onbellegi - repoya girmemeli
+.gradle/
