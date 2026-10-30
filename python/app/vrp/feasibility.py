@@ -5,10 +5,11 @@ Bu modül algoritmalardan önce yazıldı ve onlardan bağımsızdır. Bir çöz
 kapasiteyi aşıp aşmadığını algoritmanın kendisine sormak, sessizce geçersiz rota
 üretmenin en kısa yoludur.
 
-Faz 2 kısıtları:
+Kısıtlar:
   - kapasite: rota yükü araç kapasitesini aşamaz
   - sürülebilirlik: her bacakta yol olmalı (matriste inf yok)
   - kapsama: her durak tam olarak bir kez ziyaret edilir
+  - filo: her araç en fazla bir rota sürer, yalnızca problemdeki araçlar
 Maksimum rota süresi Faz 4'te eklenir.
 """
 
@@ -62,6 +63,13 @@ def violations(problem: Problem, solution: Solution, expected: Iterable[int]) ->
                          f"> kapasite {r.vehicle.capacity_kg:.2f} kg")
         if not drivable(problem, r):
             found.append(f"arac {r.vehicle.id}: yolu olmayan bacak var")
+
+    fleet = {v.id for v in problem.vehicles}
+    used = Counter(r.vehicle.id for r in solution.routes)
+    if twice := sorted(v for v, c in used.items() if c > 1):
+        found.append(f"ayni arac birden fazla rotada: {twice}")
+    if foreign := sorted(used.keys() - fleet):
+        found.append(f"problemde olmayan arac: {foreign}")
 
     visits = Counter(i for r in solution.routes for i in r.stops if i in valid)
     want = set(expected)

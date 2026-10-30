@@ -16,10 +16,15 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from functools import cached_property
 
 import numpy as np
 
 DEPOT = 0
+
+
+class InfeasibleError(Exception):
+    """Sert kısıtlar bu girdiyle karşılanamıyor — istemci akışı değiştirmeli."""
 
 
 @dataclass(frozen=True)
@@ -35,6 +40,22 @@ class Stop:
 class Vehicle:
     id: int
     capacity_kg: float
+    fuel_l_per_100km: float = 0.0
+    fixed_cost_per_day: float = 0.0
+
+
+@dataclass(frozen=True)
+class CostParams:
+    """
+    Maliyet modeli parametreleri — backend'deki `cost_parameters` satırı.
+
+    Kod değişmeden fiyat değişince sonuç değişsin diye her istekte gelir
+    (mimari §9).
+    """
+
+    fuel_price_per_l: float
+    driver_cost_per_hour: float
+    priority_penalty: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -44,6 +65,8 @@ class Problem:
     vehicles: tuple[Vehicle, ...]
     distance: np.ndarray      # float64[n+1, n+1] — metre, inf = yol yok
     duration: np.ndarray      # float64[n+1, n+1] — saniye
+    # None: maliyet modeli yok, amaç toplam mesafedir (Faz 2 davranışı).
+    costs: CostParams | None = None
 
     @property
     def size(self) -> int:
@@ -58,6 +81,30 @@ class Problem:
             raise IndexError(f"durak indeksi 1..{len(self.stops)} olmalı, {index} geldi")
         return self.stops[index - 1]
 
+    # --- sıcak yol: yerel arama ve SA amaç fonksiyonunu çok kez çağırır ---
+    # numpy skalerine Python döngüsünden erişmek düz listeden belirgin yavaştır.
+
+    @cached_property
+    def dist_rows(self) -> list[list[float]]:
+        return self.distance.tolist()
+
+    @cached_property
+    def dur_rows(self) -> list[list[float]]:
+        return self.duration.tolist()
+
+    @cached_property
+    def demand(self) -> list[float]:
+        """Problem indeksiyle; 0 (depo) için 0."""
+        return [0.0, *(s.demand_kg for s in self.stops)]
+
+    @cached_property
+    def service(self) -> list[float]:
+        return [0.0, *(s.service_time_s for s in self.stops)]
+
+    @cached_property
+    def priority(self) -> list[int]:
+        return [0, *(s.priority for s in self.stops)]
+
     def reachable(self, a: int, b: int) -> bool:
         return math.isfinite(self.distance[a, b]) and math.isfinite(self.duration[a, b])
 
@@ -70,6 +117,7 @@ class Problem:
         depot_node_id: int,
         stops: Sequence[Stop],
         vehicles: Sequence[Vehicle],
+        costs: CostParams | None = None,
     ) -> Problem:
         """Düğüm sıralı matristen problem indeksli matrise."""
         pos = {int(n): i for i, n in enumerate(node_ids)}
@@ -81,6 +129,7 @@ class Problem:
             vehicles=tuple(vehicles),
             distance=_to_array(distance_m)[np.ix_(idx, idx)],
             duration=_to_array(duration_s)[np.ix_(idx, idx)],
+            costs=costs,
         )
 
 

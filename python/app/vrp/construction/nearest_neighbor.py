@@ -14,7 +14,9 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 
+from ..localsearch.state import RouteSet
 from ..model import DEPOT, Problem, Route, Vehicle
+from .insertion import insert_cheapest
 
 
 class StuckError(Exception):
@@ -38,3 +40,34 @@ def nearest_neighbor(problem: Problem, stops: Sequence[int], vehicle: Vehicle) -
         current = nxt
 
     return Route(vehicle=vehicle, stops=order)
+
+
+def nearest_neighbor_fleet(problem: Problem, stops: Sequence[int]) -> list[list[int]]:
+    """
+    Filo için açgözlü kurucu: araçlar büyükten küçüğe doldurulur; her araç depodan
+    başlayıp yüküne sığan en yakın durağa gider, sığan kalmayınca sıradaki araç.
+    Hiçbir araca bu şekilde girmeyen durak en ucuz olurlu konuma eklenir.
+    """
+    remaining = list(stops)
+    routes: list[list[int]] = [[] for _ in problem.vehicles]
+    dist, demand = problem.dist_rows, problem.demand
+    order = sorted(range(len(problem.vehicles)), key=lambda k: -problem.vehicles[k].capacity_kg)
+
+    for k in order:
+        cap = problem.vehicles[k].capacity_kg + 1e-6
+        load, current = 0.0, DEPOT
+        while True:
+            fits = [j for j in range(len(remaining))
+                    if load + demand[remaining[j]] <= cap and math.isfinite(dist[current][remaining[j]])]
+            if not fits:
+                break
+            j = min(fits, key=lambda x: dist[current][remaining[x]])
+            nxt = remaining.pop(j)
+            routes[k].append(nxt)
+            load += demand[nxt]
+            current = nxt
+
+    rs = RouteSet(problem, routes)
+    for i in remaining:
+        insert_cheapest(rs, i)
+    return rs.routes

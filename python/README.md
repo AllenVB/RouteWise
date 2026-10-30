@@ -2,8 +2,8 @@
 
 Python 3.12 · FastAPI · uvicorn
 
-**Durum:** Faz 2 — yol grafı, Dijkstra, matris, tek araç tur sırası (nearest neighbor +
-naive baseline), rota geometrisi.
+**Durum:** Faz 3 — CVRP: çok araç, kapasite, maliyet modeli; NAIVE · GREEDY_NN · SAVINGS ·
+ROUTEWISE (savings → yerel arama → simulated annealing); tohum ve sıcak başlangıç.
 
 İş verisi açısından **durumsuz** servis: teslimat, araç ve rota verisi her zaman
 istekle gelir, veritabanına erişilmez. Tek istisna yol grafıdır — değişmeyen
@@ -45,8 +45,21 @@ Hata ayrımı backend'in kataloğunu izler:
 
 | Durum | Anlamı |
 |---|---|
-| 422 | Biçimsiz girdi — matriste olmayan düğüm, kare olmayan/NaN/negatif matris, tekrar eden kargo, Faz 2'de birden fazla araç |
-| 409 `NO_FEASIBLE_SOLUTION` | Sert kısıt karşılanamıyor — yük kapasiteyi aşıyor, hiçbir durağa yol yok |
+| 422 | Biçimsiz girdi — matriste olmayan düğüm, kare olmayan/NaN/negatif matris, tekrar eden kargo veya araç, henüz yazılmamış algoritma |
+| 409 `NO_FEASIBLE_SOLUTION` | Sert kısıt karşılanamıyor — kargo en büyük araca sığmıyor, toplam yük filoyu aşıyor, hiçbir durağa yol yok |
+
+Faz 3 alanları (hepsi isteğe bağlı; verilmezse Faz 2 davranışı):
+
+| İstek alanı | Anlamı |
+|---|---|
+| `vehicles[].fuelLPer100km`, `fixedCostPerDay` | araç bazlı yakıt ve sabit gider |
+| `costParams` | `fuelPricePerL`, `driverCostPerHour`, `priorityPenalty` — yoksa amaç mesafedir |
+| `randomSeed` | yalnızca ROUTEWISE; verilmezse üretilir, yanıtta `randomSeed` olarak döner |
+| `iterations` | SA iterasyon bütçesi (varsayılan 20.000) — süre değil, sonuç tekrarlanabilsin |
+| `warmStart` | `[{vehicleId, stopIds}]` önceki uygulanan koşu; yalnızca etkilenen rotalar değişir |
+
+Yanıtta `totalCostTry` gerçek paradır (yakıt + sürücü + sabit); `priorityPenalty` amaçtaki
+ceza terimidir, para değildir; `objective` ikisinin toplamıdır.
 
 Depoyla gidiş-dönüş yolu olmayan duraklar hata değildir: `unassigned` listesinde
 `UNREACHABLE` sebebiyle döner, rotaya ve baseline'a girmez. Baseline her koşuda optimize

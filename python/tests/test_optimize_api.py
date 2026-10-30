@@ -132,8 +132,9 @@ def test_hicbir_duraga_yol_yoksa_409():
     pytest.param({"stops": [{"id": 1, "nodeId": 11, "demandKg": 0}]}, id="sifir-yuk"),
     pytest.param({"stops": []}, id="bos-durak-listesi"),
     pytest.param({"vehicles": [{"id": 1, "capacityKg": 50.0},
-                               {"id": 2, "capacityKg": 50.0}]}, id="iki-arac-faz2-disi"),
-    pytest.param({"algorithm": "ROUTEWISE"}, id="henuz-yazilmamis-algoritma"),
+                               {"id": 1, "capacityKg": 50.0}]}, id="tekrar-eden-arac"),
+    pytest.param({"algorithm": "DFS_EXHAUSTIVE"}, id="henuz-yazilmamis-algoritma"),
+    pytest.param({"randomSeed": -1}, id="negatif-tohum"),
 ])
 def test_bicimsiz_girdi_422(degisen):
     assert post(istek(**degisen)).status_code == 422
@@ -169,3 +170,36 @@ def test_matris_dogrulayicisi_nan_ve_sonsuzu_reddeder(deger):
     m["durationS"][1][2] = deger
     with pytest.raises(ValidationError, match="sonlu"):
         MatrixIn.model_validate(m)
+
+
+# --- Faz 3 sözleşmesi ---
+
+def test_vehicle_fuel_field_name_matches_backend_and_counts_in_cost():
+    """
+    Backend `fuelLPer100km` gönderir. Alias uyuşmazsaydı alan atılır, yakıt 0
+    sayılırdı — bu gerçekten oldu; test aynı adla gönderip yakıtın maliyete
+    girdiğini sınar.
+    """
+    govde = istek(
+        vehicles=[{"id": 1, "capacityKg": 100.0, "fuelLPer100km": 10.0, "fixedCostPerDay": 0.0}],
+        costParams={"fuelPricePerL": 50.0, "driverCostPerHour": 0.0, "priorityPenalty": 0.0},
+    )
+    sonuc = post(govde).json()["result"]
+    # 1000 m (NN turu) × 10 L/100 km = 0,1 L × 50 TL = 5 TL
+    assert sonuc["totalFuelL"] == pytest.approx(0.1)
+    assert sonuc["totalCostTry"] == pytest.approx(5.0)
+
+
+@pytest.mark.parametrize("degisen", [
+    pytest.param({"vehicles": [{"id": 1, "capacityKg": 100.0, "fuelLPer100Km": 10.0}]}, id="yanlis-buyuk-harf"),
+    pytest.param({"bilinmeyenAlan": 1}, id="ust-duzey-bilinmeyen"),
+])
+def test_unknown_field_is_rejected_not_silently_dropped(degisen):
+    assert post(istek(**degisen)).status_code == 422
+
+
+def test_routewise_returns_seed_and_reproduces_it():
+    ilk = post(istek(algorithm="ROUTEWISE", iterations=500)).json()
+    assert ilk["randomSeed"] is not None
+    tekrar = post(istek(algorithm="ROUTEWISE", iterations=500, randomSeed=ilk["randomSeed"])).json()
+    assert tekrar["result"]["routes"] == ilk["result"]["routes"]

@@ -12,7 +12,8 @@ import math
 from pydantic import Field, model_validator
 
 from ..matrix.builder import MAX_NODES
-from ..vrp.model import Problem, Stop, Vehicle
+from ..vrp.metaheuristic.simulated_annealing import AnnealParams
+from ..vrp.model import CostParams, Problem, Stop, Vehicle
 from ..vrp.solve import Algorithm
 from .base import CamelModel
 
@@ -26,9 +27,28 @@ class StopIn(CamelModel):
                           description="Faz 3 amaç fonksiyonunda ceza katsayısıyla kullanılır.")
 
 
+MAX_VEHICLES = 50
+
+
 class VehicleIn(CamelModel):
     id: int
     capacity_kg: float = Field(..., gt=0)
+    # Açık alias: otomatik üretici rakamdan sonraki harfi büyütür ("fuelLPer100Km").
+    fuel_l_per_100km: float = Field(0.0, ge=0, alias="fuelLPer100km")
+    fixed_cost_per_day: float = Field(0.0, ge=0)
+
+
+class CostParamsIn(CamelModel):
+    """Verilmezse amaç toplam mesafedir (Faz 2 davranışı)."""
+
+    fuel_price_per_l: float = Field(..., gt=0)
+    driver_cost_per_hour: float = Field(..., ge=0)
+    priority_penalty: float = Field(0.0, ge=0, description="TL / (öncelik × varış saati).")
+
+
+class WarmRouteIn(CamelModel):
+    vehicle_id: int
+    stop_ids: list[int] = Field(..., description="Önceki koşudaki sırasıyla kargo kimlikleri.")
 
 
 class MatrixIn(CamelModel):
@@ -59,15 +79,24 @@ class OptimizeRequest(CamelModel):
     stops: list[StopIn] = Field(
         ..., min_length=1, max_length=MAX_NODES - 1,
         description="Liste sırası naive baseline'ın ziyaret sırasıdır (oluşturulma sırası).")
-    vehicles: list[VehicleIn] = Field(..., min_length=1, max_length=1,
-                                      description="Faz 2: tek araç.")
+    vehicles: list[VehicleIn] = Field(..., min_length=1, max_length=MAX_VEHICLES)
     matrix: MatrixIn
+    cost_params: CostParamsIn | None = None
+    random_seed: int | None = Field(
+        None, ge=0, lt=2**31,
+        description="Yalnızca ROUTEWISE kullanır; verilmezse üretilir ve yanıtta döner.")
+    iterations: int = Field(20_000, ge=0, le=500_000, description="SA iterasyon bütçesi.")
+    warm_start: list[WarmRouteIn] | None = Field(
+        None, description="Önceki uygulanan koşu; yalnızca ROUTEWISE. Bilinmeyen kargolar yok sayılır.")
 
     @model_validator(mode="after")
     def _tutarli(self) -> OptimizeRequest:
         ids = [s.id for s in self.stops]
         if len(set(ids)) != len(ids):
             raise ValueError("stops tekrar eden kargo kimliği içeriyor")
+        vids = [v.id for v in self.vehicles]
+        if len(set(vids)) != len(vids):
+            raise ValueError("vehicles tekrar eden araç kimliği içeriyor")
         bilinen = set(self.matrix.node_ids)
         eksik = sorted({self.depot_node_id, *(s.node_id for s in self.stops)} - bilinen)
         if eksik:
@@ -83,8 +112,25 @@ class OptimizeRequest(CamelModel):
             stops=[Stop(id=s.id, node_id=s.node_id, demand_kg=s.demand_kg,
                         service_time_s=s.service_time_s, priority=s.priority)
                    for s in self.stops],
-            vehicles=[Vehicle(id=v.id, capacity_kg=v.capacity_kg) for v in self.vehicles],
+            vehicles=[Vehicle(id=v.id, capacity_kg=v.capacity_kg, fuel_l_per_100km=v.fuel_l_per_100km,
+                              fixed_cost_per_day=v.fixed_cost_per_day) for v in self.vehicles],
+            costs=None if self.cost_params is None else CostParams(
+                fuel_price_per_l=self.cost_params.fuel_price_per_l,
+                driver_cost_per_hour=self.cost_params.driver_cost_per_hour,
+                priority_penalty=self.cost_params.priority_penalty),
         )
+
+    def anneal_params(self) -> AnnealParams:
+        return AnnealParams(iterations=self.iterations)
+
+    def warm_routes(self) -> list[list[int]] | None:
+        """Araç sırasıyla hizalı, problem indeksli önceki rotalar."""
+        if self.warm_start is None:
+            return None
+        index_of = {s.id: i for i, s in enumerate(self.stops, start=1)}
+        by_vehicle = {w.vehicle_id: w.stop_ids for w in self.warm_start}
+        return [[index_of[sid] for sid in by_vehicle.get(v.id, []) if sid in index_of]
+                for v in self.vehicles]
 
 
 class StopOut(CamelModel):
@@ -105,6 +151,8 @@ class RouteOut(CamelModel):
     service_time_s: float
     total_duration_s: float = Field(..., description="Yol süresi + servis süreleri.")
     total_load_kg: float
+    fuel_l: float
+    cost_try: float | None = Field(..., description="Yakıt + sürücü + sabit gider; maliyet modeli yoksa null.")
 
 
 class SolutionOut(CamelModel):
@@ -114,6 +162,10 @@ class SolutionOut(CamelModel):
     total_duration_s: float
     vehicle_count: int = Field(..., description="En az bir durağı olan araç sayısı.")
     computation_time_ms: float
+    total_fuel_l: float
+    total_cost_try: float | None = Field(..., description="Gerçek para: yakıt + sürücü + sabit gider.")
+    priority_penalty: float | None = Field(..., description="Amaçtaki ceza terimi; para değildir.")
+    objective: float = Field(..., description="Küçültülen değer: maliyet + ceza; maliyet yoksa mesafe.")
 
 
 class UnassignedOut(CamelModel):
@@ -122,6 +174,7 @@ class UnassignedOut(CamelModel):
 
 
 class OptimizeResponse(CamelModel):
+    random_seed: int | None = Field(..., description="Sonucu tekrar üretmek için; tohumsuz algoritmada null.")
     result: SolutionOut
     baseline: SolutionOut = Field(..., description="Naive — aynı durak kümesiyle, her koşuda.")
     unassigned: list[UnassignedOut] = Field(

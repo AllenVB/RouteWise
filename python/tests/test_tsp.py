@@ -215,8 +215,10 @@ def test_solve_tutarsiz_matris_acik_hata_verir():
         solve(p, Algorithm.GREEDY_NN)
 
 
-def test_solve_iki_arac_faz2_disinda():
-    p = line(DOGRU)
+def test_solve_tek_araca_sigmayan_yuk_ikinci_araca_dagitilir():
+    """Faz 3: Faz 2'de reddedilen durum artık filoya dağıtılır."""
+    p = line(DOGRU, demands=[50.0, 50.0, 0.5], capacity=100.0)
     p2 = dataclasses.replace(p, vehicles=(*p.vehicles, Vehicle(id=2, capacity_kg=50)))
-    with pytest.raises(ValueError, match="tek araç"):
-        solve(p2, Algorithm.GREEDY_NN)
+    out = solve(p2, Algorithm.GREEDY_NN)
+    assert sorted(i for r in out.result.routes for i in r.stops) == [1, 2, 3]
+    assert sum(1 for r in out.result.routes if r.stops) == 2

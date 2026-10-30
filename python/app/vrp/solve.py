@@ -1,9 +1,10 @@
 """
-Faz 2 çözücü — tek araç, tur sırası (TSP).
+Çözücü — çok araç, kapasite, maliyet modeli (CVRP).
 
 Akış:
   1. Depoyla gidiş-dönüş yolu olmayan durakları ayır (rapor edilir, rotaya girmez)
-  2. Kalan yük araç kapasitesini aşıyorsa açıkça reddet — sessizce aşan rota yok
+  2. Açıkça imkânsız girdiyi erken reddet: en büyük araca sığmayan kargo, filoyu
+     aşan toplam yük — sessizce aşan rota yok
   3. İstenen algoritmayı ve naive baseline'ı AYNI durak kümesiyle koş
   4. İkisini de olurluluk kontrolünden geçir; ihlal programlama hatasıdır
 
@@ -11,22 +12,30 @@ Neden 1. adım yeter: matris gerçek yol grafında en kısa yollardan oluşur. D
 gidip dönülebilen her durak çifti arasında depo üzerinden geçen bir yol vardır,
 dolayısıyla süzgeçten geçen duraklar birbirine de ulaşabilir.
 
-Çok araç ve kapasiteye göre bölme Faz 3'ün işidir (CVRP).
+Tohum: rastgelelik kullanan algoritma tohumsuz çağrılırsa tohum burada üretilir
+ve sonuçla birlikte döner. Tohum olmadan sonuç tekrar üretilemez.
 """
 
 from __future__ import annotations
 
+import random
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import Enum
 
 from ..pathfinding.base import Timer
-from .construction.naive import naive
-from .construction.nearest_neighbor import StuckError, nearest_neighbor
-from .feasibility import capacity_ok, route_load, violations
-from .model import DEPOT, Problem, Route, Solution, Vehicle
+from .construction.naive import naive_fleet
+from .construction.nearest_neighbor import nearest_neighbor_fleet
+from .construction.savings import savings
+from .feasibility import violations
+from .localsearch.state import RouteSet
+from .metaheuristic.simulated_annealing import AnnealParams
+from .model import DEPOT, InfeasibleError, Problem, Solution
+from .routewise import routewise
 
 UNREACHABLE = "UNREACHABLE"
+
+__all__ = ["Algorithm", "InfeasibleError", "Outcome", "UNREACHABLE", "solve"]
 
 
 class Algorithm(str, Enum):
@@ -34,18 +43,12 @@ class Algorithm(str, Enum):
 
     NAIVE = "NAIVE"
     GREEDY_NN = "GREEDY_NN"
+    SAVINGS = "SAVINGS"
+    ROUTEWISE = "ROUTEWISE"
 
-
-Builder = Callable[[Problem, Sequence[int], Vehicle], Route]
-
-_BUILDERS: dict[Algorithm, Builder] = {
-    Algorithm.NAIVE: naive,
-    Algorithm.GREEDY_NN: nearest_neighbor,
-}
-
-
-class InfeasibleError(Exception):
-    """Sert kısıtlar bu girdiyle karşılanamıyor — istemci akışı değiştirmeli."""
+    @property
+    def seeded(self) -> bool:
+        return self is Algorithm.ROUTEWISE
 
 
 @dataclass
@@ -53,33 +56,46 @@ class Outcome:
     result: Solution
     baseline: Solution
     unassigned: dict[int, str]       # problem indeksi -> sebep
+    seed: int | None                 # yalnızca tohumlu algoritmalarda
 
 
-def solve(problem: Problem, algorithm: Algorithm) -> Outcome:
-    if len(problem.vehicles) != 1:
-        raise ValueError("Faz 2 çözücüsü tek araç destekler")
-    vehicle = problem.vehicles[0]
+def solve(
+    problem: Problem,
+    algorithm: Algorithm,
+    seed: int | None = None,
+    anneal: AnnealParams = AnnealParams(),
+    warm_start: Sequence[Sequence[int]] | None = None,
+) -> Outcome:
+    """`warm_start`: araç sırasıyla hizalı önceki rotalar (problem indeksleri)."""
+    if not problem.vehicles:
+        raise InfeasibleError("Aktif araç yok.")
 
     routable, unassigned = _split_reachable(problem)
     if not routable:
         raise InfeasibleError("Depodan hiçbir teslimat noktasına gidiş-dönüş yolu yok.")
+    _precheck_capacity(problem, routable)
 
-    everything = Route(vehicle=vehicle, stops=routable)
-    if not capacity_ok(problem, everything):
-        raise InfeasibleError(
-            f"Toplam yük {route_load(problem, everything):.2f} kg, "
-            f"araç kapasitesi {vehicle.capacity_kg:.2f} kg. "
-            "Tek araçlı planlamada yük kapasiteyi aşamaz.")
+    if algorithm.seeded and seed is None:
+        seed = random.SystemRandom().randrange(2**31)
+    if not algorithm.seeded:
+        seed = None
 
-    baseline = _run(problem, Algorithm.NAIVE, routable, vehicle)
-    result = baseline if algorithm is Algorithm.NAIVE else _run(problem, algorithm, routable, vehicle)
+    builders: dict[Algorithm, Callable[[], list[list[int]]]] = {
+        Algorithm.NAIVE: lambda: naive_fleet(problem, routable),
+        Algorithm.GREEDY_NN: lambda: nearest_neighbor_fleet(problem, routable),
+        Algorithm.SAVINGS: lambda: savings(problem, routable),
+        Algorithm.ROUTEWISE: lambda: routewise(problem, routable, seed or 0, anneal, warm_start).routes,
+    }
+
+    baseline = _run(problem, Algorithm.NAIVE, builders[Algorithm.NAIVE])
+    result = baseline if algorithm is Algorithm.NAIVE else _run(problem, algorithm, builders[algorithm])
 
     for sol in (result, baseline):
         if found := violations(problem, sol, routable):
             # Girdi süzüldükten sonra ihlal kalıyorsa hata algoritmadadır.
             raise RuntimeError(f"{sol.algorithm} olursuz çözüm üretti: {found}")
 
-    return Outcome(result=result, baseline=baseline, unassigned=unassigned)
+    return Outcome(result=result, baseline=baseline, unassigned=unassigned, seed=seed)
 
 
 def _split_reachable(problem: Problem) -> tuple[list[int], dict[int, str]]:
@@ -93,12 +109,23 @@ def _split_reachable(problem: Problem) -> tuple[list[int], dict[int, str]]:
     return routable, unassigned
 
 
-def _run(problem: Problem, algorithm: Algorithm, stops: list[int], vehicle: Vehicle) -> Solution:
+def _precheck_capacity(problem: Problem, stops: list[int]) -> None:
+    biggest = max(v.capacity_kg for v in problem.vehicles)
+    for i in stops:
+        if problem.demand[i] > biggest + 1e-6:
+            s = problem.stop(i)
+            raise InfeasibleError(
+                f"Kargo {s.id} ({s.demand_kg:.2f} kg) en büyük aracın kapasitesini "
+                f"({biggest:.2f} kg) aşıyor.")
+    total = sum(problem.demand[i] for i in stops)
+    fleet = sum(v.capacity_kg for v in problem.vehicles)
+    if total > fleet + 1e-6:
+        raise InfeasibleError(
+            f"Toplam yük {total:.2f} kg, filonun toplam kapasitesi {fleet:.2f} kg. "
+            "Bazı kargoların ertelenmesi gerekiyor.")
+
+
+def _run(problem: Problem, algorithm: Algorithm, build: Callable[[], list[list[int]]]) -> Solution:
     with Timer() as t:
-        try:
-            route = _BUILDERS[algorithm](problem, stops, vehicle)
-        except StuckError as e:
-            # En kısa yol matrisinde süzgeçten sonra olamaz; elle kurulmuş
-            # tutarsız bir matrisin işaretidir.
-            raise InfeasibleError(f"Rota kurulamadı: {e}") from e
-    return Solution(algorithm=algorithm.value, routes=[route], computation_time_ms=t.ms)
+        routes = build()
+    return RouteSet(problem, routes).to_solution(algorithm.value, t.ms)
