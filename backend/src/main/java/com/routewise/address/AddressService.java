@@ -2,6 +2,8 @@ package com.routewise.address;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.List;
 
 import com.routewise.address.AddressDtos.CreateAddressRequest;
@@ -23,12 +25,14 @@ public class AddressService {
     private final AddressRepository addresses;
     private final AddressValidator validator;
     private final AddressValidationProperties props;
+    private final Clock clock;
 
     public AddressService(AddressRepository addresses, AddressValidator validator,
-                          AddressValidationProperties props) {
+                          AddressValidationProperties props, Clock clock) {
         this.addresses = addresses;
         this.validator = validator;
         this.props = props;
+        this.clock = clock;
     }
 
     /** Kaydetmeden değerlendirme — haritaya tıklandığı anda geri bildirim için. */
@@ -73,8 +77,9 @@ public class AddressService {
     @Transactional
     public Address relocate(Long addressId, CreateAddressRequest req) {
         Address address = get(addressId);
+        LocalDate today = LocalDate.now(clock);
 
-        if (address.getChangeCountToday() >= props.maxChangesPerDay()) {
+        if (address.changesOn(today) >= props.maxChangesPerDay()) {
             throw new ApiException(ErrorCode.CHANGE_LIMIT_REACHED,
                     "Bugün için adres değiştirme hakkın doldu. Yarın tekrar deneyebilirsin.");
         }
@@ -86,7 +91,7 @@ public class AddressService {
         address.relocate(
                 req.addressText(), req.district(), req.neighbourhood(),
                 Points.of(loc.lat(), loc.lon()),
-                result.snappedNodeId(), round(result.snapDistanceM()));
+                result.snappedNodeId(), round(result.snapDistanceM()), today);
 
         log.info("adres {} tasindi — dogrulama durumu sifirlandi", addressId);
         return address;

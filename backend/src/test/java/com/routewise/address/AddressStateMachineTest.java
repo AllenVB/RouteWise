@@ -1,6 +1,7 @@
 package com.routewise.address;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -13,6 +14,8 @@ import org.junit.jupiter.api.Test;
  * The address state machine — the rule the whole verification feature exists for.
  */
 class AddressStateMachineTest {
+
+    private static final LocalDate DAY = LocalDate.of(2026, 10, 30);
 
     private static Address newAddress() {
         return new Address(12L, "Yeni Mahalle, 1204 Sk. No:7", "Bandırma", "Yeni Mahalle",
@@ -66,7 +69,7 @@ class AddressStateMachineTest {
         assertThat(a.getVerificationStatus()).isEqualTo(VerificationStatus.DOGRULANDI);
 
         a.relocate("Çınarlı Mah., 290 Sk. No:6", "Bandırma", "Çınarlı",
-                Points.of(40.3488, 27.9712), 51004L, new BigDecimal("12.00"));
+                Points.of(40.3488, 27.9712), 51004L, new BigDecimal("12.00"), DAY);
 
         // Bu sıfırlama olmazsa firma onayladığını sanırken rota başka noktaya çizilir.
         assertThat(a.getVerificationStatus()).isEqualTo(VerificationStatus.DOGRULAMA_BEKLIYOR);
@@ -79,12 +82,29 @@ class AddressStateMachineTest {
     @DisplayName("Taşıma günlük sayacı artırır — limit kontrolü buna dayanır")
     void relocateIncrementsDailyCounter() {
         Address a = newAddress();
-        assertThat(a.getChangeCountToday()).isZero();
+        assertThat(a.changesOn(DAY)).isZero();
 
-        a.relocate("A", null, null, Points.of(40.35, 27.97), 1L, BigDecimal.ONE);
-        a.relocate("B", null, null, Points.of(40.36, 27.98), 2L, BigDecimal.ONE);
+        a.relocate("A", null, null, Points.of(40.35, 27.97), 1L, BigDecimal.ONE, DAY);
+        a.relocate("B", null, null, Points.of(40.36, 27.98), 2L, BigDecimal.ONE, DAY);
 
-        assertThat(a.getChangeCountToday()).isEqualTo((short) 2);
+        assertThat(a.changesOn(DAY)).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Dünkü değişiklikler bugünün limitinden düşmez — sayaç gün dönümünde sıfırlanır")
+    void dailyCounterResetsOnNewDay() {
+        Address a = newAddress();
+        a.relocate("A", null, null, Points.of(40.35, 27.97), 1L, BigDecimal.ONE, DAY);
+        a.relocate("B", null, null, Points.of(40.36, 27.98), 2L, BigDecimal.ONE, DAY);
+
+        LocalDate tomorrow = DAY.plusDays(1);
+        assertThat(a.changesOn(tomorrow)).isZero();
+
+        a.relocate("C", null, null, Points.of(40.37, 27.99), 3L, BigDecimal.ONE, tomorrow);
+
+        // 3 değil 1: dünkü iki değişiklik bugüne taşınmaz.
+        assertThat(a.changesOn(tomorrow)).isEqualTo(1);
+        assertThat(a.changesOn(DAY)).isZero();
     }
 
     @Test
@@ -93,7 +113,7 @@ class AddressStateMachineTest {
         Address a = newAddress();
         a.reject(1L, "Yanlış mahalle.");
 
-        a.relocate("Düzeltildi", null, null, Points.of(40.35, 27.97), 1L, BigDecimal.ONE);
+        a.relocate("Düzeltildi", null, null, Points.of(40.35, 27.97), 1L, BigDecimal.ONE, DAY);
 
         assertThat(a.getRejectionReason()).isNull();
         assertThat(a.getVerificationStatus()).isEqualTo(VerificationStatus.DOGRULAMA_BEKLIYOR);

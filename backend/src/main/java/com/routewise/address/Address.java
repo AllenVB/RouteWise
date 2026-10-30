@@ -2,6 +2,7 @@ package com.routewise.address;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -58,6 +59,10 @@ public class Address {
     @Column(name = "change_count_today", nullable = false)
     private short changeCountToday = 0;
 
+    /** Sayacın ait olduğu gün; başka bir günse sayaç sıfır sayılır. */
+    @Column(name = "change_count_date")
+    private LocalDate changeCountDate;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -105,7 +110,8 @@ public class Address {
      * bir noktaya çizilirdi. Değişiklik onayı geçersiz kılar.
      */
     public void relocate(String addressText, String district, String neighbourhood,
-                         Point location, Long snappedNodeId, BigDecimal snapDistanceM) {
+                         Point location, Long snappedNodeId, BigDecimal snapDistanceM,
+                         LocalDate today) {
         this.addressText = addressText;
         this.district = district;
         this.neighbourhood = neighbourhood;
@@ -116,11 +122,20 @@ public class Address {
         this.verifiedBy = null;
         this.verifiedAt = null;
         this.rejectionReason = null;
-        this.changeCountToday = (short) (this.changeCountToday + 1);
+        this.changeCountToday = (short) (changesOn(today) + 1);
+        this.changeCountDate = today;
         this.updatedAt = Instant.now();
     }
 
-    public short getChangeCountToday() { return changeCountToday; }
+    /**
+     * Verilen gün yapılmış değişiklik sayısı.
+     *
+     * <p>Ham sayaç dışarı açılmaz: tarihine bakmadan okunursa dünkü değişiklikler
+     * bugünün limitinden düşer ve adres kalıcı olarak kilitlenir.
+     */
+    public int changesOn(LocalDate day) {
+        return day.equals(changeCountDate) ? changeCountToday : 0;
+    }
 
     public Long getId() { return id; }
     public Long getRecipientId() { return recipientId; }

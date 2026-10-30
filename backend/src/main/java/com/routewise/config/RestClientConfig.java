@@ -18,14 +18,13 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class RestClientConfig {
 
-    /** Zaman kaynağı tek yerden gelsin ki testte sabitlenebilsin. */
+    /**
+     * Named {@code optimizerRestClient}, not {@code optimizerClient}: that name
+     * belongs to the {@link com.routewise.optimization.client.OptimizerClient}
+     * component, and a clash stops the application from starting.
+     */
     @Bean
-    java.time.Clock clock() {
-        return java.time.Clock.systemDefaultZone();
-    }
-
-    @Bean
-    RestClient optimizerClient(RestClient.Builder builder,
+    RestClient optimizerRestClient(RestClient.Builder builder,
                                @Value("${routewise.optimizer.base-url}") String baseUrl) {
         var factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(5));

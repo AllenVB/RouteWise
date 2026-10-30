@@ -17,6 +17,10 @@ repositories {
     mavenCentral()
 }
 
+// Boot 3.4.1'in getirdiği 1.20.4, Docker Engine 29'un en düşük API sürümünün
+// altında kalıyor ve "Could not find a valid Docker environment" ile düşüyor.
+extra["testcontainers.version"] = "1.21.4"
+
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-security")

@@ -20,11 +20,20 @@ spring:
         jdbc:
           time_zone: UTC
 
+  # api-contract.md §3: size en fazla 100. Spring'in varsayılan sınırı 2000'dir.
+  data:
+    web:
+      pageable:
+        max-page-size: 100
+
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
     enabled: true
 
 routewise:
+  # İş günü depo saatine göre döner (günlük limitler, sipariş no yılı).
+  time-zone: Europe/Istanbul
+
   # Python servisinin adresi — compose ağında servis adıyla erişilir.
   optimizer:
     base-url: ${OPTIMIZER_URL:http://localhost:8000}
