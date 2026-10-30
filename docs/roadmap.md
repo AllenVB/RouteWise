@@ -318,12 +318,15 @@ firma doğruluyor; tek araç için rota hesaplanıp haritada çiziliyor.
    - aykırı değer uyarısı
    - firma onay/ret akışı + durum makinesi
 4. ✅ `DistanceMatrixProvider` + kendi Dijkstra'mız + `distance_matrix_cache`
-5. Adres günlük değişiklik sayacının gün dönümünde sıfırlanması — `change_count_today`
-   tarih tutmuyor, iki değişiklikten sonra adres kalıcı olarak kilitleniyor (29.10.2026'da bulundu)
-6. Depo düğümü: `depots.snapped_node_id` seed'de boş — rota depodan başlayamaz
-7. `GET /recipients`, `GET /recipients/{id}/addresses` (F4 bunlarsız çalışmaz)
-8. `PythonOptimizerClient` + `POST /plans`, `POST /plans/{id}/optimize` (tek araç),
-   `GET /runs/{id}` — koşu, rota, durak kalıcılaştırma + geometri
+5. ✅ Adres günlük değişiklik sayacı gün dönümünde sıfırlanıyor — `change_count_date` (030);
+   gün Europe/Istanbul'a göre döner (`routewise.time-zone`)
+6. ✅ Depo düğümü: ilk kullanımda adreslerle **aynı** snap sorgusuyla grafa bağlanıyor
+7. ✅ `GET /recipients?q=`, `GET /recipients/{id}/addresses` — `usableForRouting` sunucuda
+8. ✅ `OptimizerClient` + `POST /plans`, `POST /plans/{id}/optimize` (tek araç),
+   `GET /plans/{id}/runs`, `GET /runs/{id}` (GeoJSON geometri), `GET /vehicles`;
+   duraklar koşu anındaki graf düğümüyle saklanıyor (031)
+8a. ✅ `/me/addresses` GET/POST/PUT öne alındı — adres oluşturan başka uç yoktu
+8b. ✅ Testcontainers altyapısı (projenin kendi PostGIS+pgRouting imajı) — ilk repository testleri
 
 **Python**
 9. ✅ Graf yükleyici + `dijkstra.py` — **pgRouting ile doğrulandı, 125 çiftte tam mutabakat**
@@ -333,9 +336,18 @@ firma doğruluyor; tek araç için rota hesaplanıp haritada çiziliyor.
 13. ✅ `POST /internal/route-geometry` — haritada gerçek yolu çizmek için bacak koordinatları
 
 **Frontend**
-14. Temel: yönlendirme, TanStack Query, auth store + token yenileme, MapLibre
-15. F1, F3, F4, F5 ekranları + harita ile konum seçimi
-16. Rota haritada çizimi
+14. ✅ Temel: yönlendirme, TanStack Query, auth store + paylaşılan token yenileme, MapLibre
+    (harita ekranları tembel yüklenir; ana paket ~470 KB)
+15. ✅ F1, F3, F4, F5 + A4 (alıcı haritadan konum seçer, kaydetmeden doğrulanır)
+16. ✅ F6 (Faz 2 sürümü): plan aç, optimize et, naive'e göre mesafe tasarrufu, dışlanan
+    kargolar sebebiyle, rota gerçek yol geometrisiyle haritada
+17. ✅ Testler: Python 102 · backend 114 (Testcontainers dahil) · frontend 22 (vitest + MSW)
+
+**Faz 2 DoD durumu (30.10.2026, gerçek yığında uçtan uca):**
+Bandırma dışı nokta reddediliyor ✅ · doğrulanmamış/taşınmış adresli kargo rotaya
+girmiyor ✅ · adres taşınınca DOGRULAMA_BEKLIYOR ✅ · Dijkstra = pgr_dijkstra ✅ ·
+matris cache ikinci koşuda isabet ✅ · 9–10 duraklı liste haritada sıralı rota ✅ ·
+**açık:** snap eşiğinin 20–30 gerçek Bandırma adresiyle elle sınanması
 
 ### Biten iş tanımı
 - [ ] Haritadan Bandırma dışına tıklanınca **reddediliyor**
@@ -360,16 +372,45 @@ firma doğruluyor; tek araç için rota hesaplanıp haritada çiziliyor.
 Çok araç, kapasite sert kısıtı, tam maliyet modeli, RouteWise algoritması çalışıyor.
 
 ### Görevler
-1. `vrp/model.py` — Solution, Route, Stop veri yapıları
-2. `objective.py` — amaç fonksiyonu (mesafe + yakıt + sürücü + öncelik cezası + araç sabit)
-3. `feasibility.py` — kapasite ve (sonraki fazda) süre kontrolleri
-4. `construction/savings.py` — Clarke-Wright, kapasite farkında
-5. `localsearch/` — 2-opt, relocate, exchange, Or-opt
-6. `metaheuristic/simulated_annealing.py` — tohumlanmış, sıcak başlangıçlı
-7. `routewise.py` — aşamaları birleştir
-8. `construction/naive.py` — baseline, her koşuda birlikte hesaplanır
-9. Backend: `optimization_runs` + `routes` + `route_stops` kalıcılaştırma
-10. Frontend: F6, F7 — planlama ekranı, maliyet kırılımı
+1. ✅ `vrp/model.py` — Solution, Route, Stop, Vehicle (yakıt, sabit gider), CostParams
+2. ✅ `objective.py` — yakıt + sürücü + araç sabit = **TL maliyet**; + öncelik cezası = **amaç**.
+   Ceza tanımı: `katsayı × Σ öncelik × varış_saati` (zaman penceresi olmadığı için "ihlal" yok)
+3. ✅ `feasibility.py` — kapasite, sürülebilirlik, kapsama, filo; tek kontrol noktası `RouteSet.delta`
+4. ✅ `construction/savings.py` — Clarke-Wright; asimetrik matris + farklı kapasiteli filo
+5. ✅ `localsearch/` — 2-opt, relocate, exchange, Or-opt (round-robin ilk iyileştirme)
+6. ✅ `metaheuristic/simulated_annealing.py` — tohumlanmış, iterasyon bütçeli, sıcaklık veriden
+7. ✅ `routewise.py` — savings → LS → SA → LS; sıcak başlangıç yalnızca etkilenen rotalarda
+8. ✅ `construction/naive.py` — ilk sığan araç, geliş sırası; her koşuda aynı kümede
+9. ✅ Backend: plan gününün maliyet parametreleri + tüm aktif filo + tohum + sıcak başlangıç
+   (`warmStartFromRunId`) → `/internal/optimize`; koşu ve rota bazında `total_cost_try`,
+   `total_fuel_l`, `random_seed` kalıcılaştırma; TL bazlı `savingsPct` (032)
+10. ✅ Frontend: F6 araç başına renkli rota + "mevcut rotadan devam et", F7 rota maliyet kırılımı
+11. Granüler komşuluk (en yakın k komşu) — n=100'de yerel arama ~3 sn; ölçerek karar verilecek
+
+**Python DoD durumu (31.10.2026):** olurluluk özellik testleri (her operatörün her adayı,
+kontrol bozulunca 55 test düşüyor) ✅ · aynı tohum aynı rota ✅ · sıcak başlangıç önceki
+ardışık çiftlerin ≥%80'ini koruyor ✅ · naive her koşuda ✅ · n=7 iki araçta tam aramaya
+sapma ≤%2 ✅ · gerçek grafta ceza=0 iken RouteWise ≤ SAVINGS ≤ NN ≤ NAIVE ✅
+
+**Karar (30.10.2026) — öncelik cezası 25 → 2,5 TL/(öncelik·saat)** (032): 25 ile ceza TL
+maliyetin 2–3 katına çıkıyor, RouteWise öncelikli kargoyu erkene çekmek için ek araç açıyordu.
+
+**Düzeltme (30.10.2026):** Python'un otomatik camelCase alias'ı `fuelLPer100Km` üretiyor,
+backend `fuelLPer100km` gönderiyordu; alan sessizce atıldı ve **yakıt maliyeti hiç hesaba
+girmedi**. Alias açıkça verildi ve istek modelleri artık bilinmeyen alanı 422 ile reddediyor.
+Yukarıdaki 25'e karşı ölçüm yakıtsızdı; karar düzeltilmiş modelle yeniden ölçüldü.
+
+Gerçek grafta, seed filo (3 araç), ceza 2,5, yakıt dahil — TL maliyet (öncelik cezası hariç):
+
+| n | NAIVE | GREEDY_NN | SAVINGS | ROUTEWISE | RouteWise süre |
+|---|---|---|---|---|---|
+| 20 | 1.345 | 1.041 | 1.248 | **1.015** | 0,3 sn |
+| 50 | 2.572 | 1.634 | 1.500 | **1.495** | 1,2 sn |
+| 100 | 4.811 | **2.478** | 2.658 | 2.561 | 15,7 sn |
+
+n=100'de RouteWise parada NN'in 82 TL gerisinde ama gecikme cezası 147'ye karşı 549:
+ceza büyük planlarda hâlâ tercihleri yönlendiriyor. Tezde "para–öncelik dengesi" olarak
+raporlanmalı ya da katsayı yeniden ayarlanmalı. n=100 süresi granüler komşulukla düşürülmeli.
 
 ### Biten iş tanımı
 - [ ] **Hiçbir yerel arama hamlesi kapasite ihlali üretmiyor** (olurluluk testleri yeşil)

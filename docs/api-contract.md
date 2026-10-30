@@ -281,6 +281,35 @@ POST /api/v1/plans/88/optimize
 `randomSeed` yanıtta **her zaman** döner: tohum olmadan sonuç tekrar üretilemez ve
 tez ölçümü savunulamaz.
 
+**Faz 3 sürümü (30.10.2026)** — Faz 2 notlarının yerini alır:
+
+- gövde isteğe bağlı: `{ "algorithm": "ROUTEWISE" | "SAVINGS" | "GREEDY_NN" | "NAIVE",
+  "vehicleId": 3, "randomSeed": 42, "warmStartFromRunId": 311 }`; varsayılan ROUTEWISE ve
+  tüm aktif filo. `vehicleId` yalnızca o araçla planlar (tek araç senaryosu).
+  `randomSeed` / `warmStartFromRunId` yalnızca ROUTEWISE ile; başkasıyla 400
+- maliyet plan gününde geçerli `cost_parameters` satırıyla hesaplanır
+- `totalCostTry` gerçek paradır: yakıt + sürücü + araç sabit gideri. `priorityPenalty`
+  amaçtaki gecikme cezasıdır, para değildir ve maliyete eklenmez
+- `savingsPct` TL maliyet üzerinden naive baseline'a göre; `distanceSavingsPct` korunur
+- `randomSeed` ROUTEWISE koşusunda her zaman döner (verilmediyse üretilen); diğerlerinde null
+- `GET /runs/{id}` rotalarında `totalFuelL`, `totalCostTry` vardır
+
+**Faz 2 sürümü (30.10.2026)** — tarihçe için:
+
+- gövde isteğe bağlıdır: `{ "algorithm": "GREEDY_NN" | "NAIVE", "vehicleId": 2 }` —
+  varsayılan `GREEDY_NN` ve en büyük kapasiteli aktif araç; diğer algoritmalar 400
+- `totalCostTry`, `totalFuelL`, `randomSeed` **null** döner
+- tasarruf **mesafe** üzerinden `distanceSavingsPct` adıyla döner. Maliyet bazlı
+  `savingsPct` Faz 3'te eklenir; aynı adı şimdi mesafe için kullanmak anlamını sonradan
+  sessizce değiştirirdi
+- `excluded[]` — rotaya alınmayan kargolar: `{shipmentId, orderNumber, reason}`,
+  `reason` = `ADDRESS_NOT_VERIFIED` (adres onaysız ya da onaydan sonra taşınmış),
+  `NO_ROAD_NODE` (onaylı ama yol grafına hiç bağlanmamış — doğrulama akışı dışında
+  yazılmış kayıt) veya `UNREACHABLE` (depoyla gidiş-dönüş yolu yok)
+- `GET /runs/{id}` araç başına sıralı duraklar + GeoJSON `LineString` geometri döner;
+  rota servisi erişilemezse duraklar yine gelir, `geometryAvailable: false` olur
+- `POST /plans` aynı gün için idempotenttir: yeni plan 201, mevcut plan 200
+
 ## 9. Faz 1c kapsamı
 
 Bu belge **sözleşmedir**; uçların gövdeleri Faz 2'den itibaren yazılır.
@@ -291,7 +320,9 @@ Bu belge **sözleşmedir**; uçların gövdeleri Faz 2'den itibaren yazılır.
 | ✅ | Ortak hata biçimi ve kod kataloğu |
 | ✅ | Swagger/OpenAPI arayüzü açıldı |
 | ✅ | Postman collection üretildi |
-| Faz 2 | `/auth/**`, `/shipments/**`, `/addresses/**` |
-| Faz 3 | `/plans/**`, `/runs/**`, `/routes/**` |
-| Faz 4 | `/courier/**`, `/me/**` |
+| ✅ Faz 2 | `/auth/**`, `/shipments/**`, `/addresses/**`, `/recipients/**`, `/vehicles` |
+| ✅ Faz 2 (öne alındı) | `/plans` (aç/getir), `/plans/{id}/optimize` tek araç, `/plans/{id}/runs`, `/runs/{id}` |
+| ✅ Faz 2 (öne alındı) | `/me/addresses` GET/POST/PUT — adres oluşturan başka uç yok, Faz 2 DoD'si bunu gerektiriyor |
+| Faz 3 | `/plans/{id}/dispatch`, `/routes/**`, çok araç + maliyet |
+| Faz 4 | `/courier/**`, `/me/**` (kalanlar) |
 | Faz 6 | `/compare/**`, `/analytics/**` |
