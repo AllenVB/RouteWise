@@ -3,8 +3,9 @@ FROM node:22-slim
 
 WORKDIR /srv
 
-COPY package.json ./
-RUN npm install
+# Kilit dosyasıyla birebir kurulum: her derleme aynı sürümleri alsın.
+COPY package.json package-lock.json ./
+RUN npm ci
 
 COPY . .
 

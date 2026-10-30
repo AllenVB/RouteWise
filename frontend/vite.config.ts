@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -26,5 +27,16 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  build: {
+    // Tek büyük parça MapLibre'nin kendisidir (~1,06 MB, bölünemez) ve yalnızca
+    // harita ekranlarında tembel yüklenir. Uygulama ana paketi ~470 KB'tır;
+    // sınır ondan büyüdüğünde değil, MapLibre'yi kapsayacak kadar yükseltildi.
+    chunkSizeWarningLimit: 1100,
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    css: false,
   },
 });

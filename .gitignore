@@ -45,3 +45,6 @@ docs/diagrams/*.png
 
 # Gradle build onbellegi - repoya girmemeli
 .gradle/
+
+# TypeScript artımlı derleme önbelleği
+*.tsbuildinfo

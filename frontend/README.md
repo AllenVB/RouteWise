@@ -2,7 +2,12 @@
 
 React 19 · TypeScript (strict) · Vite · MapLibre GL
 
-**Durum: boş — Faz 1a'da kurulacak.**
+**Durum:** Faz 2 — giriş, kargo listesi/oluşturma, adres doğrulama kuyruğu, alıcı adres seçimi, tek araç rota planlama.
+
+```bash
+npm test          # vitest + MSW
+npm run build     # tsc + vite
+```
 
 ```
 src/
