@@ -103,6 +103,13 @@ public class ShipmentService {
             throw new ApiException(ErrorCode.PLAN_ALREADY_DISPATCHED,
                     "Planlanmış kargo silinemez. Önce planlamadan çıkar.");
         }
+        // Koşular ölçüm verisidir ve değiştirilmez; içinde geçen kargo silinirse
+        // route_stops'un yabancı anahtarı patlar ve kullanıcı anlamsız bir 500 görürdü.
+        if (shipments.appearsInAnyRun(id)) {
+            throw new ApiException(ErrorCode.SHIPMENT_IN_RUN_HISTORY,
+                    "Bu kargo kayıtlı bir optimizasyon koşusunda yer aldığı için silinemez. "
+                            + "Gönderilmeyecekse başka bir güne ertele.");
+        }
         shipments.delete(shipment);
         log.info("kargo silindi: {}", shipment.getOrderNumber());
     }

@@ -95,6 +95,13 @@ public class Shipment {
         this.updatedAt = Instant.now();
     }
 
+    /** Sevk: kargo bir kuryenin rotasına girdi. */
+    public void markPlanned() {
+        this.status = ShipmentStatus.PLANLANDI;
+        this.postponedTo = null;
+        this.updatedAt = Instant.now();
+    }
+
     public void postponeTo(LocalDate date) {
         this.status = ShipmentStatus.ERTELENDI;
         this.postponedTo = date;

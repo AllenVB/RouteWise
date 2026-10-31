@@ -82,8 +82,22 @@ public class RunService {
      */
     public RunDetail detail(Long runId) {
         OptimizationRun run = runs.findById(runId).orElseThrow(() -> ApiException.notFound("Koşu"));
+        return build(run, routes.findByRunIdOrderByIdAsc(runId));
+    }
+
+    /**
+     * One route of a run (F7), in the same shape as the run detail with a single
+     * route — the screen reuses one renderer for both.
+     */
+    public RunDetail route(Long routeId) {
+        PlannedRoute route = routes.findById(routeId).orElseThrow(() -> ApiException.notFound("Rota"));
+        OptimizationRun run = runs.findById(route.getRunId()).orElseThrow(() -> ApiException.notFound("Koşu"));
+        return build(run, List.of(route));
+    }
+
+    private RunDetail build(OptimizationRun run, List<PlannedRoute> runRoutes) {
+        Long runId = run.getId();
         Depot depot = depots.primary();
-        List<PlannedRoute> runRoutes = routes.findByRunIdOrderByIdAsc(runId);
 
         Map<Long, List<RouteStop>> stopsByRoute = stops
                 .findByRouteIdInOrderByRouteIdAscSequenceNoAsc(

@@ -134,6 +134,24 @@ class PlanningRepositoriesTest extends PostgisRepositoryTest {
                 .isEmpty();
     }
 
+    @Test
+    @DisplayName("Koşu geçmişi sorgusu: route_stops'ta geçen kargo true, geçmeyen false")
+    void appearsInAnyRun() {
+        Shipment inRun = shipment("BND-2026-00010");
+        Shipment free = shipment("BND-2026-00011");
+        DeliveryPlan plan = plans.saveAndFlush(new DeliveryPlan(depotId, DAY, null));
+        OptimizationRun r = runs.saveAndFlush(run(plan, true));
+        jdbc.update("INSERT INTO vehicles (depot_id, plate, capacity_kg, fuel_l_per_100km) VALUES (?, '10 T 1', 100, 9)", depotId);
+        Long vehicleId = jdbc.queryForObject("SELECT id FROM vehicles", Long.class);
+        Long routeId = jdbc.queryForObject("INSERT INTO routes (run_id, vehicle_id) VALUES (?, ?) RETURNING id",
+                Long.class, r.getId(), vehicleId);
+        jdbc.update("INSERT INTO route_stops (route_id, shipment_id, sequence_no) VALUES (?, ?, 1)", routeId, inRun.getId());
+
+        assertThat(shipments.appearsInAnyRun(inRun.getId())).isTrue();
+        assertThat(shipments.appearsInAnyRun(free.getId())).isFalse();
+        assertThat(runs.findByPlanIdAndAppliedTrue(plan.getId())).isPresent();
+    }
+
     private static OptimizationRun run(DeliveryPlan plan, boolean applied) {
         return new OptimizationRun(plan.getId(), Algorithm.GREEDY_NN, applied, false,
                 new BigDecimal("1000.00"), 600, (short) 1, 3);

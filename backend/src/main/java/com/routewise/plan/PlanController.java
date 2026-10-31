@@ -37,11 +37,14 @@ public class PlanController {
     private final PlanService plans;
     private final OptimizationService optimization;
     private final RunService runs;
+    private final DispatchService dispatch;
 
-    public PlanController(PlanService plans, OptimizationService optimization, RunService runs) {
+    public PlanController(PlanService plans, OptimizationService optimization, RunService runs,
+                          DispatchService dispatch) {
         this.plans = plans;
         this.optimization = optimization;
         this.runs = runs;
+        this.dispatch = dispatch;
     }
 
     public record OpenPlanRequest(@NotNull(message = "Tarih gerekli.") LocalDate date) {}
@@ -80,6 +83,18 @@ public class PlanController {
     public OptimizeResponse optimize(@PathVariable Long id,
                                      @RequestBody(required = false) OptimizeRequest body) {
         return optimization.optimize(id, body);
+    }
+
+    @PostMapping("/{id}/dispatch")
+    @Operation(summary = "Planı kuryelere sevk et",
+            description = """
+                    Uygulanan koşunun her rotasına müsait bir kurye atanır (id sırasıyla),
+                    kargolar PLANLANDI olur, plan yeniden optimize edilemez hale gelir.
+                    Optimize edilmemiş plan 409 PLAN_NOT_OPTIMIZED; rota sayısı kadar müsait
+                    kurye yoksa 409 NOT_ENOUGH_COURIERS.
+                    """)
+    public DispatchService.DispatchResult dispatch(@PathVariable Long id) {
+        return dispatch.dispatch(id);
     }
 
     @GetMapping("/{id}/runs")

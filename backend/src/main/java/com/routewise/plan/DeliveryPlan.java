@@ -45,6 +45,11 @@ public class DeliveryPlan {
         this.createdBy = createdBy;
     }
 
+    /** Uygulanan koşu kuryelere verildi; plan artık yeniden optimize edilemez. */
+    public void markDispatched() {
+        this.status = PlanStatus.SEVK_EDILDI;
+    }
+
     public Long getId() { return id; }
     public Long getDepotId() { return depotId; }
     public LocalDate getPlanDate() { return planDate; }

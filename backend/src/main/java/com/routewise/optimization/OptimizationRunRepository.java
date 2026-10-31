@@ -1,6 +1,7 @@
 package com.routewise.optimization;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -10,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 public interface OptimizationRunRepository extends JpaRepository<OptimizationRun, Long> {
 
     List<OptimizationRun> findByPlanIdOrderByIdDesc(Long planId);
+
+    Optional<OptimizationRun> findByPlanIdAndAppliedTrue(Long planId);
 
     /**
      * Withdraws the plan's applied run before a new one is written.

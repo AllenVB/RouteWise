@@ -64,6 +64,10 @@ public class PlannedRoute {
         this.totalCostTry = totalCostTry;
     }
 
+    public void assignCourier(Long courierId) {
+        this.courierId = courierId;
+    }
+
     public Long getId() { return id; }
     public Long getRunId() { return runId; }
     public Long getVehicleId() { return vehicleId; }

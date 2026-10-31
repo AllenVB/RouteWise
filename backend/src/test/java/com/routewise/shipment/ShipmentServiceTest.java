@@ -15,6 +15,7 @@ import com.routewise.address.Address;
 import com.routewise.address.AddressRepository;
 import com.routewise.address.VerificationStatus;
 import com.routewise.common.error.ApiException;
+import com.routewise.common.error.ErrorCode;
 import com.routewise.recipient.RecipientRepository;
 import com.routewise.shipment.ShipmentDtos.CreateRequest;
 import com.routewise.shipment.ShipmentDtos.UpdateRequest;
@@ -182,6 +183,19 @@ class ShipmentServiceTest {
             service.delete(1L);
 
             verify(shipments).delete(s);
+        }
+
+        @Test
+        @DisplayName("Bir koşuda yer almış kargo silinmez: 409, ölçüm geçmişi korunur (eskiden FK ile 500)")
+        void shouldRejectShipmentInRunHistory() {
+            Shipment s = new Shipment("BND-2026-1", 12L, 31L, new BigDecimal("1"), (short) 0, 5);
+            when(shipments.findById(1L)).thenReturn(Optional.of(s));
+            when(shipments.appearsInAnyRun(1L)).thenReturn(true);
+
+            assertThatThrownBy(() -> service.delete(1L))
+                    .isInstanceOf(ApiException.class)
+                    .extracting(e -> ((ApiException) e).code()).isEqualTo(ErrorCode.SHIPMENT_IN_RUN_HISTORY);
+            verify(shipments, never()).delete(any(Shipment.class));
         }
 
         @Test

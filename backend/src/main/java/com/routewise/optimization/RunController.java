@@ -7,11 +7,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/runs")
 @Tag(name = "Koşu", description = "Optimizasyon koşuları — metrikler, rotalar, geometri (F6)")
 public class RunController {
 
@@ -21,7 +19,14 @@ public class RunController {
         this.service = service;
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/routes/{id}")
+    @Operation(summary = "Rota detayı (F7)",
+            description = "Tek rotanın sıralı durakları, yük, maliyet ve geometrisi; koşu detayıyla aynı biçimde.")
+    public RunDetail route(@PathVariable Long id) {
+        return service.route(id);
+    }
+
+    @GetMapping("/runs/{id}")
     @Operation(summary = "Koşu detayı",
             description = """
                     Metrikler, araç bazlı sıralı duraklar ve haritada çizilecek yol

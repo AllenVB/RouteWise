@@ -17,6 +17,15 @@ public interface ShipmentRepository
     boolean existsByAddressId(Long addressId);
 
     /**
+     * Whether the shipment appears in any stored optimization run.
+     *
+     * <p>Native on purpose: the shipment package does not depend on the
+     * optimization package, which already depends on it.
+     */
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM route_stops WHERE shipment_id = :id)", nativeQuery = true)
+    boolean appearsInAnyRun(@Param("id") Long id);
+
+    /**
      * Shipments a plan for {@code date} may route: every waiting one, plus those
      * postponed to that day or earlier.
      *
