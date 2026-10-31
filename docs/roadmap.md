@@ -385,7 +385,14 @@ matris cache ikinci koşuda isabet ✅ · 9–10 duraklı liste haritada sıral�
    (`warmStartFromRunId`) → `/internal/optimize`; koşu ve rota bazında `total_cost_try`,
    `total_fuel_l`, `random_seed` kalıcılaştırma; TL bazlı `savingsPct` (032)
 10. ✅ Frontend: F6 araç başına renkli rota + "mevcut rotadan devam et", F7 rota maliyet kırılımı
-11. Granüler komşuluk (en yakın k komşu) — n=100'de yerel arama ~3 sn; ölçerek karar verilecek
+11. ✅ Granüler komşuluk — relocate/exchange/Or-opt yalnızca en yakın K=12 durağın yanına
+    dener. Gerçek grafta 3'er örnek: n=100 10,8–15,7 sn → 3,4–4,5 sn (~3,4×), amaçta ortalama
+    +%0,35 (en kötü +%1,36, bir örnekte −%0,76). K=8 ek hız getirmedi, K=20 yavaş ve daha iyi değil.
+12. ✅ Sevk: `POST /plans/{id}/dispatch` — uygulanan koşunun rotalarına müsait kuryeler id sırasıyla
+    atanır, kargolar PLANLANDI, plan kilitlenir; kurye yetmezse ya da koşudan sonra kargo
+    değiştiyse açık 409. `GET /routes/{id}` (F7)
+13. ✅ Hata: koşuda geçmiş kargoyu silmek `route_stops` yabancı anahtarına çarpıp 500 veriyordu →
+    409 `SHIPMENT_IN_RUN_HISTORY` (koşular ölçüm verisidir, değiştirilmez)
 
 **Python DoD durumu (31.10.2026):** olurluluk özellik testleri (her operatörün her adayı,
 kontrol bozulunca 55 test düşüyor) ✅ · aynı tohum aynı rota ✅ · sıcak başlangıç önceki
@@ -410,7 +417,7 @@ Gerçek grafta, seed filo (3 araç), ceza 2,5, yakıt dahil — TL maliyet (önc
 
 n=100'de RouteWise parada NN'in 82 TL gerisinde ama gecikme cezası 147'ye karşı 549:
 ceza büyük planlarda hâlâ tercihleri yönlendiriyor. Tezde "para–öncelik dengesi" olarak
-raporlanmalı ya da katsayı yeniden ayarlanmalı. n=100 süresi granüler komşulukla düşürülmeli.
+raporlanmalı ya da katsayı yeniden ayarlanmalı. (Süre granüler komşulukla düşürüldü — madde 11.)
 
 ### Biten iş tanımı
 - [ ] **Hiçbir yerel arama hamlesi kapasite ihlali üretmiyor** (olurluluk testleri yeşil)

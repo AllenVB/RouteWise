@@ -54,6 +54,9 @@ söyler, özür dilemez.
 | 409 | `CHANGE_LIMIT_REACHED` | Günlük adres değişikliği limiti aşıldı |
 | 409 | `PLAN_ALREADY_DISPATCHED` | Sevk edilmiş plan yeniden optimize edilmek istendi |
 | 409 | `NO_FEASIBLE_SOLUTION` | Kapasite/süre kısıtlarıyla olurlu çözüm yok |
+| 409 | `PLAN_NOT_OPTIMIZED` | Sevk için uygulanan koşu yok ya da koşudan sonra kargolar değişti |
+| 409 | `NOT_ENOUGH_COURIERS` | Rota sayısı kadar müsait kurye yok |
+| 409 | `SHIPMENT_IN_RUN_HISTORY` | Kargo kayıtlı bir koşuda geçiyor; ölçüm geçmişi korunur, silinemez |
 | 422 | `OUTSIDE_SERVICE_AREA` | Nokta Bandırma sınırı dışında |
 | 422 | `TOO_FAR_FROM_ROAD` | Nokta en yakın yola eşikten uzak |
 | 502 | `OPTIMIZER_UNAVAILABLE` | Python servisine ulaşılamıyor |
@@ -323,6 +326,6 @@ Bu belge **sözleşmedir**; uçların gövdeleri Faz 2'den itibaren yazılır.
 | ✅ Faz 2 | `/auth/**`, `/shipments/**`, `/addresses/**`, `/recipients/**`, `/vehicles` |
 | ✅ Faz 2 (öne alındı) | `/plans` (aç/getir), `/plans/{id}/optimize` tek araç, `/plans/{id}/runs`, `/runs/{id}` |
 | ✅ Faz 2 (öne alındı) | `/me/addresses` GET/POST/PUT — adres oluşturan başka uç yok, Faz 2 DoD'si bunu gerektiriyor |
-| Faz 3 | `/plans/{id}/dispatch`, `/routes/**`, çok araç + maliyet |
+| ✅ Faz 3 | çok araç + maliyet, `/plans/{id}/dispatch` (otomatik kurye ataması), `GET /routes/{id}` |
 | Faz 4 | `/courier/**`, `/me/**` (kalanlar) |
 | Faz 6 | `/compare/**`, `/analytics/**` |
