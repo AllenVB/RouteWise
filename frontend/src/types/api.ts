@@ -212,3 +212,17 @@ export const runDetailSchema = z.object({
   geometryAvailable: z.boolean(),
 });
 export type RunDetail = z.infer<typeof runDetailSchema>;
+
+export const dispatchResultSchema = z.object({
+  planId: z.number(),
+  status: z.enum(['TASLAK', 'SEVK_EDILDI', 'TAMAMLANDI']),
+  runId: z.number(),
+  routes: z.array(z.object({
+    routeId: z.number(),
+    vehicleId: z.number(),
+    courierId: z.number(),
+    courierName: z.string().nullable(),
+    stopCount: z.number(),
+  })),
+});
+export type DispatchResult = z.infer<typeof dispatchResultSchema>;

@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderAt, signedInAs } from '../../test/render';
 import { apiError, server } from '../../test/server';
 import { PlanningPage } from './PlanningPage';
@@ -121,5 +121,57 @@ describe('PlanningPage', () => {
     await user.click(screen.getByRole('button', { name: 'Optimize et' }));
 
     await expect.poll(() => sent).toEqual({ algorithm: 'ROUTEWISE', warmStartFromRunId: 41 });
+  });
+
+  describe('dispatch', () => {
+    function withAppliedRun() {
+      server.use(
+        http.get('/api/v1/plans', () => HttpResponse.json(plan)),
+        http.get('/api/v1/plans/3/runs', () => HttpResponse.json([{ runId: 41, isApplied: true }])),
+        http.get('/api/v1/runs/41', () => HttpResponse.json(detail)),
+      );
+    }
+
+    it('should dispatch after confirmation and show which courier got each route', async () => {
+      withAppliedRun();
+      let dispatched = false;
+      server.use(http.post('/api/v1/plans/3/dispatch', () => {
+        dispatched = true;
+        return HttpResponse.json({
+          planId: 3, status: 'SEVK_EDILDI', runId: 41,
+          routes: [{ routeId: 7, vehicleId: 2, courierId: 1, courierName: 'Test Kurye', stopCount: 1 }],
+        });
+      }));
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderAt('/firma/planlama', <PlanningPage />);
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: 'Kuryelere sevk et' }));
+
+      expect(await screen.findByRole('status')).toHaveTextContent('1 durak → Test Kurye');
+      expect(dispatched).toBe(true);
+    });
+
+    it('should not dispatch when the user cancels', async () => {
+      withAppliedRun();
+      vi.spyOn(window, 'confirm').mockReturnValue(false);
+      renderAt('/firma/planlama', <PlanningPage />);
+
+      // Tanımsız uç çağrılırsa MSW testi düşürür.
+      await userEvent.setup().click(await screen.findByRole('button', { name: 'Kuryelere sevk et' }));
+
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    it('should explain when there are not enough couriers', async () => {
+      withAppliedRun();
+      server.use(http.post('/api/v1/plans/3/dispatch', () => HttpResponse.json(
+        apiError('NOT_ENOUGH_COURIERS', '2 rota için 1 müsait kurye var.'), { status: 409 })));
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      renderAt('/firma/planlama', <PlanningPage />);
+
+      await userEvent.setup().click(await screen.findByRole('button', { name: 'Kuryelere sevk et' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('2 rota için 1 müsait kurye var.');
+    });
   });
 });

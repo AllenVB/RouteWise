@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { api, ApiError } from '../../lib/apiClient';
-import { optimizeResponseSchema, planSchema, runDetailSchema, type Algorithm } from '../../types/api';
+import { dispatchResultSchema, optimizeResponseSchema, planSchema, runDetailSchema, type Algorithm } from '../../types/api';
 
 const runSummarySchema = z.object({ runId: z.number(), isApplied: z.boolean() });
 
@@ -24,7 +24,10 @@ export function useOpenPlan() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (date: string) => api('/plans', { method: 'POST', body: { date }, schema: planSchema }),
-    onSuccess: (plan) => qc.setQueryData(['plan', plan.date], plan),
+    // Ekranın dinlediği anahtar istenen tarihtir; yanıttaki tarihe güvenmek
+    // ikisi bir gün bile ayrışırsa (saat dilimi, test verisi) ekranı günceller gibi
+    // görünüp güncellemez.
+    onSuccess: (plan, date) => qc.setQueryData(['plan', date], plan),
   });
 }
 
@@ -59,5 +62,14 @@ export function useRunDetail(runId: number | null | undefined) {
     queryFn: () => api(`/runs/${runId}`, { schema: runDetailSchema }),
     enabled: typeof runId === 'number',
     staleTime: Infinity,   // koşular yazıldıktan sonra değişmez
+  });
+}
+
+/** Geri alınamaz: plan kilitlenir, kargolar PLANLANDI olur. */
+export function useDispatch(planId: number | undefined, date: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api(`/plans/${planId}/dispatch`, { method: 'POST', schema: dispatchResultSchema }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['plan', date] }),
   });
 }

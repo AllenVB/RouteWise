@@ -12,7 +12,7 @@ import {
   todayLocal,
 } from '../../lib/format';
 import type { Algorithm, OptimizeResponse, RunDetail } from '../../types/api';
-import { useAppliedRunId, useOpenPlan, useOptimize, usePlanForDate, useRunDetail } from './api';
+import { useAppliedRunId, useDispatch, useOpenPlan, useOptimize, usePlanForDate, useRunDetail } from './api';
 
 /**
  * F6 — rota planlama, F7 — rota maliyet kırılımı.
@@ -33,10 +33,12 @@ export function PlanningPage() {
   const open = useOpenPlan();
   const applied = useAppliedRunId(plan.data?.id);
   const optimize = useOptimize(plan.data?.id);
+  const dispatch = useDispatch(plan.data?.id, date);
   const run = useRunDetail(lastResult?.runId ?? applied.data);
 
   const { markers, lines } = useMemo(() => drawing(run.data, focus), [run.data, focus]);
-  const error = open.error ?? optimize.error;
+  const error = open.error ?? optimize.error ?? dispatch.error;
+  const canDispatch = plan.data?.status === 'TASLAK' && typeof applied.data === 'number' && !optimize.isPending;
   const canWarm = algorithm === 'ROUTEWISE' && typeof applied.data === 'number';
 
   function runOptimize() {
@@ -95,8 +97,28 @@ export function PlanningPage() {
                     Mevcut rotadan devam et
                   </label>
                 )}
+                {canDispatch && (
+                  <button type="button" disabled={dispatch.isPending}
+                    onClick={() => {
+                      if (confirm('Uygulanan rota kuryelere sevk edilsin mi? Bu işlemden sonra plan yeniden optimize edilemez.')) {
+                        dispatch.mutate();
+                      }
+                    }}>
+                    {dispatch.isPending ? 'Sevk ediliyor…' : 'Kuryelere sevk et'}
+                  </button>
+                )}
                 {plan.data.status !== 'TASLAK' && <span className="muted">Plan sevk edildi; yeniden optimize edilemez.</span>}
               </div>
+              {dispatch.data && (
+                <div role="status" className="alert ok">
+                  Sevk edildi:
+                  <ul>
+                    {dispatch.data.routes.map((r) => (
+                      <li key={r.routeId}>{r.stopCount} durak → {r.courierName ?? `kurye #${r.courierId}`}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {lastResult && <ResultSummary r={lastResult} />}
             </>
           )}
