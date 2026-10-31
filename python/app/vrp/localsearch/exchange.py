@@ -3,6 +3,8 @@ Exchange — iki durağın yerini değiştir (aynı rota içinde ya da iki rota 
 
 Rotalar arası takas, relocate'in kapasite yüzünden yapamadığı hamleyi yapar:
 dolu bir araçtan durak çıkarmak için karşılığında daha hafif bir durak alır.
+
+Tam tarama granülerdir: yalnızca birbirinin yakın komşusu olan duraklar takas edilir.
 """
 
 from __future__ import annotations
@@ -26,13 +28,18 @@ def swap(rs: RouteSet, k: int, i: int, m: int, j: int) -> Changes:
 
 def neighbors(rs: RouteSet) -> Iterator[Changes]:
     routes = rs.routes
+    near = rs.p.near
     for k, a in enumerate(routes):
         for i in range(len(a)):
+            close = near[a[i]]
             for j in range(i + 1, len(a)):
-                yield swap(rs, k, i, k, j)
+                if a[j] in close:
+                    yield swap(rs, k, i, k, j)
             for m in range(k + 1, len(routes)):
-                for j in range(len(routes[m])):
-                    yield swap(rs, k, i, m, j)
+                b = routes[m]
+                for j in range(len(b)):
+                    if b[j] in close:
+                        yield swap(rs, k, i, m, j)
 
 
 def random_neighbor(rs: RouteSet, rng: random.Random) -> Changes | None:

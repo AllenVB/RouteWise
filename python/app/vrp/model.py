@@ -16,6 +16,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import ClassVar
 from functools import cached_property
 
 import numpy as np
@@ -104,6 +105,22 @@ class Problem:
     @cached_property
     def priority(self) -> list[int]:
         return [0, *(s.priority for s in self.stops)]
+
+    # Granüler komşuluk: yerel arama bir durağı yalnızca en yakın K durağın (ve
+    # deponun) yanına taşımayı dener. Uzak bir noktanın yanına taşımak neredeyse
+    # hiç iyileştirme getirmez ama aday sayısını n² mertebesinde büyütür.
+    granular_k: ClassVar[int] = 12
+
+    @cached_property
+    def near(self) -> list[frozenset[int]]:
+        """Problem indeksiyle: i -> en yakın K durak + depo. Ölçü iki yönün toplamı (asimetrik matris)."""
+        d = self.dist_rows
+        n = self.size
+        out: list[frozenset[int]] = [frozenset(range(n + 1))]          # depo için kısıt yok
+        for i in range(1, n + 1):
+            others = sorted((j for j in range(1, n + 1) if j != i), key=lambda j: (d[i][j] + d[j][i], j))
+            out.append(frozenset([DEPOT, *others[:self.granular_k]]))
+        return out
 
     def reachable(self, a: int, b: int) -> bool:
         return math.isfinite(self.distance[a, b]) and math.isfinite(self.duration[a, b])

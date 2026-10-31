@@ -3,6 +3,9 @@ Or-opt — ardışık 2–3 duraklık bir segmenti başka bir konuma taşı.
 
 Aynı sokaktaki komşu teslimatlar birlikte hareket eder; relocate bunları tek
 tek taşırken ara adımda maliyet artar ve yerel arama oraya hiç gidemez.
+
+Tam tarama granülerdir: segment yalnızca başının önüne ya da sonunun arkasına
+yakın komşusu gelecek konumlara denenir.
 """
 
 from __future__ import annotations
@@ -10,6 +13,7 @@ from __future__ import annotations
 import random
 from collections.abc import Iterator
 
+from ..model import DEPOT
 from .state import Changes, RouteSet
 
 SEGMENT_LENGTHS = (2, 3)
@@ -28,12 +32,18 @@ def move(rs: RouteSet, k: int, i: int, length: int, m: int, j: int) -> Changes |
 
 def neighbors(rs: RouteSet) -> Iterator[Changes]:
     routes = rs.routes
+    near = rs.p.near
     for length in SEGMENT_LENGTHS:
         for k, src in enumerate(routes):
             for i in range(len(src) - length + 1):
+                head, tail = near[src[i]], near[src[i + length - 1]]
                 for m, dst in enumerate(routes):
-                    limit = len(src) - length if m == k else len(dst)
-                    for j in range(limit + 1):
+                    seq = src[:i] + src[i + length:] if m == k else dst
+                    for j in range(len(seq) + 1):
+                        prev = seq[j - 1] if j > 0 else DEPOT
+                        nxt = seq[j] if j < len(seq) else DEPOT
+                        if prev not in head and nxt not in tail:
+                            continue
                         ch = move(rs, k, i, length, m, j)
                         if ch is not None:
                             yield ch

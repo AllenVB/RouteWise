@@ -3,6 +3,9 @@ Relocate — bir durağı başka bir konuma taşı (aynı rota içinde ya da ba�
 
 Boş bir araca taşımak da adaydır: sabit gider artar ama yük dağılabilir.
 Bir rotanın son durağını taşımak aracı boşa çıkarır ve sabit giderini kazandırır.
+
+Tam tarama granülerdir: durak yalnızca önceki ya da sonraki komşusu kendi yakın
+komşularından (`Problem.near`) biri olacak konumlara denenir.
 """
 
 from __future__ import annotations
@@ -10,6 +13,7 @@ from __future__ import annotations
 import random
 from collections.abc import Iterator
 
+from ..model import DEPOT
 from .state import Changes, RouteSet
 
 
@@ -27,11 +31,18 @@ def move(rs: RouteSet, k: int, i: int, m: int, j: int) -> Changes | None:
 
 def neighbors(rs: RouteSet) -> Iterator[Changes]:
     routes = rs.routes
+    near = rs.p.near
     for k, src in enumerate(routes):
         for i in range(len(src)):
+            close = near[src[i]]
             for m, dst in enumerate(routes):
-                limit = len(src) - 1 if m == k else len(dst)
-                for j in range(limit + 1):
+                # Aynı rotada konumlar durak çıkarıldıktan sonraki listeye göredir.
+                seq = src[:i] + src[i + 1:] if m == k else dst
+                for j in range(len(seq) + 1):
+                    prev = seq[j - 1] if j > 0 else DEPOT
+                    nxt = seq[j] if j < len(seq) else DEPOT
+                    if prev not in close and nxt not in close:
+                        continue
                     ch = move(rs, k, i, m, j)
                     if ch is not None:
                         yield ch
