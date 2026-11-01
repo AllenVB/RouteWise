@@ -57,6 +57,7 @@ söyler, özür dilemez.
 | 409 | `PLAN_NOT_OPTIMIZED` | Sevk için uygulanan koşu yok ya da koşudan sonra kargolar değişti |
 | 409 | `NOT_ENOUGH_COURIERS` | Rota sayısı kadar müsait kurye yok |
 | 409 | `SHIPMENT_IN_RUN_HISTORY` | Kargo kayıtlı bir koşuda geçiyor; ölçüm geçmişi korunur, silinemez |
+| 409 | `STOP_ALREADY_CLOSED` | Durak zaten teslim edildi ya da ulaşılamadı olarak kapatıldı |
 | 422 | `OUTSIDE_SERVICE_AREA` | Nokta Bandırma sınırı dışında |
 | 422 | `TOO_FAR_FROM_ROAD` | Nokta en yakın yola eşikten uzak |
 | 502 | `OPTIMIZER_UNAVAILABLE` | Python servisine ulaşılamıyor |
@@ -336,5 +337,6 @@ Bu belge **sözleşmedir**; uçların gövdeleri Faz 2'den itibaren yazılır.
 | ✅ Faz 2 (öne alındı) | `/plans` (aç/getir), `/plans/{id}/optimize` tek araç, `/plans/{id}/runs`, `/runs/{id}` |
 | ✅ Faz 2 (öne alındı) | `/me/addresses` GET/POST/PUT — adres oluşturan başka uç yok, Faz 2 DoD'si bunu gerektiriyor |
 | ✅ Faz 3 | çok araç + maliyet, `/plans/{id}/dispatch` (otomatik kurye ataması), `GET /routes/{id}` |
-| Faz 4 | `/courier/**`, `/me/**` (kalanlar) |
+| ✅ Faz 4 | `/courier/route?date=&courierId=` (firma courierId ile okur), `/courier/stops/{id}`, `.../deliver`, `.../fail` `{reason}` |
+| Faz 4 | `/me/**` (kalanlar), `/courier/route/changes` (Faz 5) |
 | Faz 6 | `/compare/**`, `/analytics/**` |

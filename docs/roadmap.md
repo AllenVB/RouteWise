@@ -453,7 +453,11 @@ Gün sınırı sert kısıt olarak devrede; alıcı ETA bildirimi alıyor; üç 
      çözüm yine döner, `baseline: null` + `baselineError` raporlanır
 4. Bildirim altyapısı: uygulama içi + Spring Mail
 5. Rol bazlı yetkilendirme tüm endpoint'lerde
-6. Kurye ekranları K1–K4
+6. ✅ Kurye ekranları K1–K4 + `/courier/**`: günün sevk edilmiş rotası (yoksa 404 → "bugün rotan yok"),
+   durak detayı (alıcı adı, telefon, ETA), teslim / ulaşılamadı (sebep zorunlu, 033).
+   İlk kapanan durak rotayı YOLDA'ya, açık kargoları YOLDA'ya (adres kilidi) alır; son durak
+   rotayı, son rota planı tamamlar; ulaşılamayan kargo havuza döner. Başkasının durağı 404,
+   firma okur ama kapatamaz (403), çift dokunuş 409 `STOP_ALREADY_CLOSED`
 7. Alıcı ekranları A1–A5
 
 ### Biten iş tanımı
