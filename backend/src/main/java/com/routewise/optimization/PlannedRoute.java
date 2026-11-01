@@ -1,6 +1,7 @@
 package com.routewise.optimization;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -45,6 +46,12 @@ public class PlannedRoute {
     @Column(nullable = false)
     private String status = "PLANLANDI";
 
+    @Column(name = "started_at")
+    private Instant startedAt;
+
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
     protected PlannedRoute() {}
 
     public PlannedRoute(Long runId, Long vehicleId, BigDecimal totalDistanceM,
@@ -64,6 +71,21 @@ public class PlannedRoute {
         this.totalCostTry = totalCostTry;
     }
 
+    /** İlk durak kapandığında: rota yola çıkmış sayılır. */
+    public boolean startIfPlanned(Instant at) {
+        if (!"PLANLANDI".equals(status)) {
+            return false;
+        }
+        this.status = "YOLDA";
+        this.startedAt = at;
+        return true;
+    }
+
+    public void complete(Instant at) {
+        this.status = "TAMAMLANDI";
+        this.completedAt = at;
+    }
+
     public void assignCourier(Long courierId) {
         this.courierId = courierId;
     }
@@ -78,4 +100,6 @@ public class PlannedRoute {
     public BigDecimal getTotalFuelL() { return totalFuelL; }
     public BigDecimal getTotalCostTry() { return totalCostTry; }
     public String getStatus() { return status; }
+    public Instant getStartedAt() { return startedAt; }
+    public Instant getCompletedAt() { return completedAt; }
 }

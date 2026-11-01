@@ -44,6 +44,16 @@ public class RouteStop {
     @Column(nullable = false)
     private String status = "BEKLEMEDE";
 
+    @Column(name = "actual_arrival")
+    private Instant actualArrival;
+
+    @Column(name = "failure_reason")
+    private String failureReason;
+
+    public static final String PENDING = "BEKLEMEDE";
+    public static final String DELIVERED = "TESLIM_EDILDI";
+    public static final String FAILED = "ULASILAMADI";
+
     protected RouteStop() {}
 
     public RouteStop(Long routeId, Long shipmentId, Integer sequenceNo, Long nodeId,
@@ -63,6 +73,21 @@ public class RouteStop {
         this.eta = eta;
     }
 
+    public boolean isOpen() {
+        return PENDING.equals(status);
+    }
+
+    public void deliver(Instant at) {
+        this.status = DELIVERED;
+        this.actualArrival = at;
+    }
+
+    public void fail(Instant at, String reason) {
+        this.status = FAILED;
+        this.actualArrival = at;
+        this.failureReason = reason;
+    }
+
     public Long getId() { return id; }
     public Long getRouteId() { return routeId; }
     public Long getShipmentId() { return shipmentId; }
@@ -72,4 +97,6 @@ public class RouteStop {
     public Integer getDurationFromPrevS() { return durationFromPrevS; }
     public Instant getEta() { return eta; }
     public String getStatus() { return status; }
+    public Instant getActualArrival() { return actualArrival; }
+    public String getFailureReason() { return failureReason; }
 }

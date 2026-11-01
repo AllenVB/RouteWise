@@ -25,3 +25,5 @@ databaseChangeLog:
       file: db/changelog/changes/031-route-stop-node.sql
   - include:
       file: db/changelog/changes/032-phase3-costs.sql
+  - include:
+      file: db/changelog/changes/033-stop-outcome.sql

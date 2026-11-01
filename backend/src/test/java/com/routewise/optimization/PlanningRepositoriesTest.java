@@ -29,6 +29,7 @@ class PlanningRepositoriesTest extends PostgisRepositoryTest {
     @Autowired private ShipmentRepository shipments;
     @Autowired private DeliveryPlanRepository plans;
     @Autowired private OptimizationRunRepository runs;
+    @Autowired private PlannedRouteRepository routeRepo;
     @Autowired private CostParametersRepository costs;
     @Autowired private JdbcTemplate jdbc;
 
@@ -150,6 +151,48 @@ class PlanningRepositoriesTest extends PostgisRepositoryTest {
         assertThat(shipments.appearsInAnyRun(inRun.getId())).isTrue();
         assertThat(shipments.appearsInAnyRun(free.getId())).isFalse();
         assertThat(runs.findByPlanIdAndAppliedTrue(plan.getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("Kuryenin rotası: yalnızca sevk edilmiş planın uygulanan koşusu; taslak ve geri çekilmiş koşu değil")
+    void courierRouteOnlyFromDispatchedAppliedRun() {
+        jdbc.update("INSERT INTO users (email, password_hash, full_name, role) VALUES ('k@ornek.com', 'x', 'Kurye', 'COURIER')");
+        jdbc.update("INSERT INTO couriers (user_id) SELECT id FROM users WHERE email = 'k@ornek.com'");
+        Long courierId = jdbc.queryForObject("SELECT id FROM couriers", Long.class);
+        jdbc.update("INSERT INTO vehicles (depot_id, plate, capacity_kg, fuel_l_per_100km) VALUES (?, '10 K 1', 100, 9)", depotId);
+        Long vehicleId = jdbc.queryForObject("SELECT id FROM vehicles WHERE plate = '10 K 1'", Long.class);
+
+        DeliveryPlan plan = plans.saveAndFlush(new DeliveryPlan(depotId, DAY, null));
+        OptimizationRun old = runs.saveAndFlush(run(plan, false));
+        OptimizationRun applied = runs.saveAndFlush(run(plan, true));
+        String insertRoute = "INSERT INTO routes (run_id, vehicle_id, courier_id) VALUES (?, ?, ?) RETURNING id";
+        jdbc.queryForObject(insertRoute, Long.class, old.getId(), vehicleId, courierId);
+        Long appliedRoute = jdbc.queryForObject(insertRoute, Long.class, applied.getId(), vehicleId, courierId);
+
+        // Plan henüz taslak: kuryenin rotası yok
+        assertThat(routeRepo.findDispatchedFor(courierId, DAY)).isEmpty();
+
+        jdbc.update("UPDATE delivery_plans SET status = 'SEVK_EDILDI' WHERE id = ?", plan.getId());
+        assertThat(routeRepo.findDispatchedFor(courierId, DAY)).get()
+                .extracting(PlannedRoute::getId).isEqualTo(appliedRoute);
+        assertThat(routeRepo.findDispatchedFor(courierId, DAY.plusDays(1))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Şema: ulaşılamayan durak sebepsiz kaydedilemez")
+    void failedStopNeedsReason() {
+        Shipment s = shipment("BND-2026-00020");
+        DeliveryPlan plan = plans.saveAndFlush(new DeliveryPlan(depotId, DAY, null));
+        OptimizationRun r = runs.saveAndFlush(run(plan, true));
+        jdbc.update("INSERT INTO vehicles (depot_id, plate, capacity_kg, fuel_l_per_100km) VALUES (?, '10 K 2', 100, 9)", depotId);
+        Long vehicleId = jdbc.queryForObject("SELECT id FROM vehicles WHERE plate = '10 K 2'", Long.class);
+        Long routeId = jdbc.queryForObject("INSERT INTO routes (run_id, vehicle_id) VALUES (?, ?) RETURNING id",
+                Long.class, r.getId(), vehicleId);
+
+        assertThatThrownBy(() -> jdbc.update(
+                "INSERT INTO route_stops (route_id, shipment_id, sequence_no, status) VALUES (?, ?, 1, 'ULASILAMADI')",
+                routeId, s.getId()))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     private static OptimizationRun run(DeliveryPlan plan, boolean applied) {

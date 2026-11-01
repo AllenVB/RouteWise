@@ -102,6 +102,23 @@ public class Shipment {
         this.updatedAt = Instant.now();
     }
 
+    /** Kurye rotaya çıktı: kargo yolda; bilgileri ve adresi artık kilitli. */
+    public void markOnRoute() {
+        this.status = ShipmentStatus.YOLDA;
+        this.updatedAt = Instant.now();
+    }
+
+    public void markDelivered() {
+        this.status = ShipmentStatus.TESLIM_EDILDI;
+        this.updatedAt = Instant.now();
+    }
+
+    /** Ulaşılamadı: kargo havuza döner, sonraki planlarda yeniden rotalanır. */
+    public void returnToPool() {
+        this.status = ShipmentStatus.BEKLEMEDE;
+        this.updatedAt = Instant.now();
+    }
+
     public void postponeTo(LocalDate date) {
         this.status = ShipmentStatus.ERTELENDI;
         this.postponedTo = date;

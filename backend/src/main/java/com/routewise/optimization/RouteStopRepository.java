@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface RouteStopRepository extends JpaRepository<RouteStop, Long> {
 
     List<RouteStop> findByRouteIdInOrderByRouteIdAscSequenceNoAsc(Collection<Long> routeIds);
+
+    List<RouteStop> findByRouteIdOrderBySequenceNoAsc(Long routeId);
 }

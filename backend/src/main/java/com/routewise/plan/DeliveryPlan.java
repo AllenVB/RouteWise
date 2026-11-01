@@ -50,6 +50,11 @@ public class DeliveryPlan {
         this.status = PlanStatus.SEVK_EDILDI;
     }
 
+    /** Bütün rotalar kapandı. */
+    public void markCompleted() {
+        this.status = PlanStatus.TAMAMLANDI;
+    }
+
     public Long getId() { return id; }
     public Long getDepotId() { return depotId; }
     public LocalDate getPlanDate() { return planDate; }

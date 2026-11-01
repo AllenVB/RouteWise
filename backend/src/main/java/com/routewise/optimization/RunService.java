@@ -1,8 +1,11 @@
 package com.routewise.optimization;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -23,6 +26,9 @@ import com.routewise.optimization.client.OptimizerClient;
 import com.routewise.optimization.client.OptimizerDtos.GeometryResult;
 import com.routewise.optimization.client.OptimizerDtos.LegGeometry;
 import com.routewise.plan.DeliveryPlanRepository;
+import com.routewise.recipient.RecipientRepository;
+import com.routewise.user.User;
+import com.routewise.user.UserRepository;
 import com.routewise.shipment.Shipment;
 import com.routewise.shipment.ShipmentRepository;
 import com.routewise.vehicle.Vehicle;
@@ -48,11 +54,14 @@ public class RunService {
     private final VehicleRepository vehicles;
     private final DepotService depots;
     private final OptimizerClient optimizer;
+    private final RecipientRepository recipients;
+    private final UserRepository users;
 
     public RunService(OptimizationRunRepository runs, PlannedRouteRepository routes,
                       RouteStopRepository stops, DeliveryPlanRepository plans,
                       ShipmentRepository shipments, AddressRepository addresses,
-                      VehicleRepository vehicles, DepotService depots, OptimizerClient optimizer) {
+                      VehicleRepository vehicles, DepotService depots, OptimizerClient optimizer,
+                      RecipientRepository recipients, UserRepository users) {
         this.runs = runs;
         this.routes = routes;
         this.stops = stops;
@@ -62,6 +71,8 @@ public class RunService {
         this.vehicles = vehicles;
         this.depots = depots;
         this.optimizer = optimizer;
+        this.recipients = recipients;
+        this.users = users;
     }
 
     @Transactional(readOnly = true)
@@ -90,12 +101,21 @@ public class RunService {
      * route — the screen reuses one renderer for both.
      */
     public RunDetail route(Long routeId) {
+        return route(routeId, true);
+    }
+
+    /** @param withGeometry false: durak listesi yeterliyse rota servisine gidilmez */
+    public RunDetail route(Long routeId, boolean withGeometry) {
         PlannedRoute route = routes.findById(routeId).orElseThrow(() -> ApiException.notFound("Rota"));
         OptimizationRun run = runs.findById(route.getRunId()).orElseThrow(() -> ApiException.notFound("Koşu"));
-        return build(run, List.of(route));
+        return build(run, List.of(route), withGeometry);
     }
 
     private RunDetail build(OptimizationRun run, List<PlannedRoute> runRoutes) {
+        return build(run, runRoutes, true);
+    }
+
+    private RunDetail build(OptimizationRun run, List<PlannedRoute> runRoutes, boolean withGeometry) {
         Long runId = run.getId();
         Depot depot = depots.primary();
 
@@ -110,10 +130,11 @@ public class RunService {
         Map<Long, Address> addressById = byId(addresses.findAllById(
                 shipmentById.values().stream().map(Shipment::getAddressId).distinct().toList()),
                 Address::getId);
+        Map<Long, User> people = recipientUsers(shipmentById.values());
         Map<Long, Vehicle> vehicleById = byId(vehicles.findAllById(
                 runRoutes.stream().map(PlannedRoute::getVehicleId).distinct().toList()), Vehicle::getId);
 
-        boolean geometryAvailable = true;
+        boolean geometryAvailable = withGeometry;
         List<RouteDetail> details = new ArrayList<>();
         for (PlannedRoute r : runRoutes) {
             List<RouteStop> rs = stopsByRoute.getOrDefault(r.getId(), List.of());
@@ -133,7 +154,7 @@ public class RunService {
             details.add(new RouteDetail(r.getId(), r.getVehicleId(), v == null ? null : v.getPlate(),
                     r.getTotalDistanceM(), r.getTotalDurationS(), r.getTotalLoadKg(),
                     r.getTotalFuelL(), r.getTotalCostTry(),
-                    rs.stream().map(s -> stopDetail(s, shipmentById, addressById)).toList(),
+                    rs.stream().map(s -> stopDetail(s, shipmentById, addressById, people)).toList(),
                     geometry));
         }
 
@@ -161,15 +182,35 @@ public class RunService {
     }
 
     private static StopDetail stopDetail(RouteStop s, Map<Long, Shipment> shipments,
-                                         Map<Long, Address> addresses) {
+                                         Map<Long, Address> addresses, Map<Long, User> recipientUsers) {
         Shipment sh = shipments.get(s.getShipmentId());
         Address a = sh == null ? null : addresses.get(sh.getAddressId());
+        User u = sh == null ? null : recipientUsers.get(sh.getRecipientId());
         return new StopDetail(s.getId(), s.getSequenceNo(), s.getShipmentId(),
                 sh == null ? null : sh.getOrderNumber(),
                 a == null ? null : a.getAddressText(),
                 a == null ? null : Points.latOf(a.getLocation()),
                 a == null ? null : Points.lonOf(a.getLocation()),
-                s.getDistanceFromPrevM(), s.getDurationFromPrevS(), s.getEta(), s.getStatus());
+                s.getDistanceFromPrevM(), s.getDurationFromPrevS(), s.getEta(), s.getStatus(),
+                u == null ? null : u.getFullName(), u == null ? null : u.getPhone(),
+                s.getActualArrival(), s.getFailureReason());
+    }
+
+    /** recipientId -> o alıcının kullanıcı kaydı (ad, telefon); kurye alıcıyı arayabilsin. */
+    private Map<Long, User> recipientUsers(Iterable<Shipment> list) {
+        Map<Long, Long> userOf = new HashMap<>();
+        Set<Long> ids = new HashSet<>();
+        list.forEach(s -> ids.add(s.getRecipientId()));
+        recipients.findAllById(ids).forEach(r -> userOf.put(r.getId(), r.getUserId()));
+        Map<Long, User> byUser = byId(users.findAllById(userOf.values()), User::getId);
+        Map<Long, User> out = new HashMap<>();
+        userOf.forEach((rid, uid) -> {
+            User u = byUser.get(uid);
+            if (u != null) {
+                out.put(rid, u);
+            }
+        });
+        return out;
     }
 
     static RunSummary summary(OptimizationRun r) {

@@ -119,7 +119,11 @@ public final class RunDtos {
             BigDecimal distanceFromPrevM,
             Integer durationFromPrevS,
             Instant eta,
-            String status) {}
+            String status,
+            String recipientName,
+            String recipientPhone,
+            Instant actualArrival,
+            String failureReason) {}
 
     /** GeoJSON geometry — MapLibre draws it as is. Coordinates are {@code [lon, lat]}. */
     public record LineString(String type, List<double[]> coordinates) {
