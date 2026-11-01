@@ -48,12 +48,19 @@ public class RouteStop {
 
     public RouteStop(Long routeId, Long shipmentId, Integer sequenceNo, Long nodeId,
                      BigDecimal distanceFromPrevM, Integer durationFromPrevS) {
+        this(routeId, shipmentId, sequenceNo, nodeId, distanceFromPrevM, durationFromPrevS, null);
+    }
+
+    /** @param eta planned arrival: plan day + depot opening time + travel and earlier service */
+    public RouteStop(Long routeId, Long shipmentId, Integer sequenceNo, Long nodeId,
+                     BigDecimal distanceFromPrevM, Integer durationFromPrevS, Instant eta) {
         this.routeId = routeId;
         this.shipmentId = shipmentId;
         this.sequenceNo = sequenceNo;
         this.nodeId = nodeId;
         this.distanceFromPrevM = distanceFromPrevM;
         this.durationFromPrevS = durationFromPrevS;
+        this.eta = eta;
     }
 
     public Long getId() { return id; }

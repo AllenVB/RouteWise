@@ -44,6 +44,7 @@ public final class RunDtos {
             Long randomSeed,
             BigDecimal priorityPenalty,
             BaselineSummary baseline,
+            String baselineError,
             BigDecimal savingsPct,
             BigDecimal distanceSavingsPct,
             List<RouteSummary> routes,

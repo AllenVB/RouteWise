@@ -39,7 +39,8 @@ public final class OptimizerDtos {
             MatrixIn matrix,
             CostParamsIn costParams,
             Long randomSeed,
-            List<WarmRouteIn> warmStart) {}
+            List<WarmRouteIn> warmStart,
+            Double maxRouteDurationS) {}
 
     /** {@code id} is the shipment id; it comes back unchanged as {@code stopId}. */
     public record StopIn(long id, long nodeId, double demandKg, double serviceTimeS, int priority) {}
@@ -52,10 +53,16 @@ public final class OptimizerDtos {
 
     public record MatrixIn(List<Long> nodeIds, Double[][] distanceM, Double[][] durationS) {}
 
+    /**
+     * @param baseline      null when the naive baseline cannot be built feasibly
+     *                      (e.g. a tight workday); the optimized result still stands
+     * @param baselineError why the baseline is missing
+     */
     public record OptimizeResult(
             Long randomSeed,
             SolutionOut result,
             SolutionOut baseline,
+            String baselineError,
             List<UnassignedOut> unassigned) {}
 
     /**
@@ -92,6 +99,7 @@ public final class OptimizerDtos {
             long stopId,
             long nodeId,
             int sequenceNo,
+            double arrivalS,
             double distanceFromPrevM,
             double durationFromPrevS) {}
 

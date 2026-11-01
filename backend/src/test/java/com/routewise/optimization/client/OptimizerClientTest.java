@@ -40,7 +40,7 @@ class OptimizerClientTest {
             new MatrixIn(List.of(10L, 11L),
                     new Double[][] {{0.0, 100.0}, {null, 0.0}},
                     new Double[][] {{0.0, 10.0}, {null, 0.0}}),
-            new CostParamsIn(44.0, 150.0, 2.5), null, null);
+            new CostParamsIn(44.0, 150.0, 2.5), null, null, 32_400.0);
 
     @BeforeEach
     void setUp() {
@@ -59,6 +59,7 @@ class OptimizerClientTest {
                 .andExpect(jsonPath("$.matrix.distanceM[1][0]").doesNotExist())
                 .andExpect(jsonPath("$.vehicles[0].fuelLPer100km").value(9.5))
                 .andExpect(jsonPath("$.costParams.priorityPenalty").value(2.5))
+                .andExpect(jsonPath("$.maxRouteDurationS").value(32_400.0))
                 .andRespond(withSuccess("""
                         {"randomSeed": null,
                          "result": {"algorithm": "GREEDY_NN", "routes": [], "totalDistanceM": 0,

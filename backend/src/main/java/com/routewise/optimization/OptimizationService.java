@@ -2,6 +2,9 @@ package com.routewise.optimization;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -81,13 +84,14 @@ public class OptimizationService {
     private final PlannedRouteRepository routes;
     private final RouteStopRepository stops;
     private final TransactionTemplate tx;
+    private final Clock clock;
 
     public OptimizationService(DeliveryPlanRepository plans, DepotService depots,
                                VehicleRepository vehicles, ShipmentRepository shipments,
                                AddressRepository addresses, CostParametersRepository costs,
                                DistanceMatrixProvider matrices, OptimizerClient optimizer,
                                OptimizationRunRepository runs, PlannedRouteRepository routes,
-                               RouteStopRepository stops, TransactionTemplate tx) {
+                               RouteStopRepository stops, TransactionTemplate tx, Clock clock) {
         this.plans = plans;
         this.depots = depots;
         this.vehicles = vehicles;
@@ -100,6 +104,7 @@ public class OptimizationService {
         this.routes = routes;
         this.stops = stops;
         this.tx = tx;
+        this.clock = clock;
     }
 
     public OptimizeResponse optimize(Long planId, RunDtos.OptimizeRequest req) {
@@ -153,12 +158,15 @@ public class OptimizationService {
                         price.getDriverCostPerHour().doubleValue(),
                         price.getPriorityPenalty().doubleValue()),
                 r.randomSeed(),
-                warm));
+                warm,
+                depot.getMaxRouteDurationMin() * 60.0));
 
-        OptimizeResponse response = tx.execute(status -> persist(planId, algorithm, result, c));
+        // Rotalar depo açılışında, depo saat diliminde (İstanbul) yola çıkar.
+        Instant departure = ZonedDateTime.of(plan.getPlanDate(), depot.getOpeningTime(), clock.getZone()).toInstant();
+        OptimizeResponse response = tx.execute(status -> persist(planId, algorithm, result, c, departure));
         log.info("plan {} optimize: {} {} TL / {} m, naive {} TL, {} arac, {} kargo disarida, tohum {}",
                 planId, algorithm, response.totalCostTry(), response.totalDistanceM(),
-                response.baseline().totalCostTry(), response.vehicleCount(),
+                response.baseline() == null ? "-" : response.baseline().totalCostTry(), response.vehicleCount(),
                 response.excluded().size(), response.randomSeed());
         return response;
     }
@@ -240,23 +248,29 @@ public class OptimizationService {
 
     record Candidates(List<Shipment> routable, List<ExcludedShipment> excluded, Map<Long, Long> nodeOf) {}
 
-    private OptimizeResponse persist(Long planId, Algorithm algorithm, OptimizeResult r, Candidates c) {
+    private OptimizeResponse persist(Long planId, Algorithm algorithm, OptimizeResult r, Candidates c,
+                                     Instant departure) {
         // Kilit altında yeniden kontrol: optimizasyon sürerken plan sevk edilmiş olabilir.
         DeliveryPlan plan = plans.lockById(planId).orElseThrow(() -> ApiException.notFound("Plan"));
         requireOptimizable(plan);
         runs.withdrawApplied(planId);
 
         // NAIVE istendiyse sonuç zaten baseline'dır: aynı çözüm iki satır olmaz.
+        // Baseline kurulamadıysa (sıkı çalışma günü) yalnızca optimize koşu yazılır.
         boolean naiveOnly = algorithm == Algorithm.NAIVE;
-        OptimizationRun baseline = runs.save(toRun(planId, Algorithm.NAIVE, naiveOnly, true, r.baseline(), null));
-        List<PlannedRoute> baselineRoutes = saveRoutes(baseline, r.baseline());
+        OptimizationRun baseline = null;
+        List<PlannedRoute> baselineRoutes = List.of();
+        if (r.baseline() != null) {
+            baseline = runs.save(toRun(planId, Algorithm.NAIVE, naiveOnly, true, r.baseline(), null));
+            baselineRoutes = saveRoutes(baseline, r.baseline(), departure);
+        }
 
         OptimizationRun applied = baseline;
         List<PlannedRoute> appliedRoutes = baselineRoutes;
         if (!naiveOnly) {
             applied = runs.save(toRun(planId, algorithm, true, false, r.result(),
                     algorithm.isSeeded() ? r.randomSeed() : null));
-            appliedRoutes = saveRoutes(applied, r.result());
+            appliedRoutes = saveRoutes(applied, r.result(), departure);
         }
 
         Map<Long, String> orderNumbers = c.routable().stream()
@@ -274,11 +288,12 @@ public class OptimizationService {
                 applied.getTotalFuelL(), applied.getTotalCostTry(),
                 applied.getVehicleCount(), applied.getComputationTimeMs(), applied.getRandomSeed(),
                 money(r.result().priorityPenalty()),
-                new BaselineSummary(baseline.getId(), baseline.getAlgorithm(),
+                baseline == null ? null : new BaselineSummary(baseline.getId(), baseline.getAlgorithm(),
                         baseline.getTotalDistanceM(), baseline.getTotalDurationS(),
                         baseline.getTotalCostTry()),
-                savingsPct(baseline.getTotalCostTry(), applied.getTotalCostTry()),
-                savingsPct(baseline.getTotalDistanceM(), applied.getTotalDistanceM()),
+                r.baselineError(),
+                baseline == null ? null : savingsPct(baseline.getTotalCostTry(), applied.getTotalCostTry()),
+                baseline == null ? null : savingsPct(baseline.getTotalDistanceM(), applied.getTotalDistanceM()),
                 appliedRoutes.stream().map(rt -> new RouteSummary(rt.getId(), rt.getVehicleId(),
                         rt.getCourierId(), stopCounts.getOrDefault(rt.getVehicleId(), 0))).toList(),
                 excluded);
@@ -297,7 +312,7 @@ public class OptimizationService {
     }
 
     /** Only vehicles that actually leave the depot get a route row. */
-    private List<PlannedRoute> saveRoutes(OptimizationRun run, SolutionOut s) {
+    private List<PlannedRoute> saveRoutes(OptimizationRun run, SolutionOut s, Instant departure) {
         List<PlannedRoute> saved = new ArrayList<>();
         for (RouteOut ro : s.routes()) {
             if (ro.stops().isEmpty()) {
@@ -311,7 +326,8 @@ public class OptimizationService {
             List<RouteStop> rows = new ArrayList<>();
             for (StopOut so : ro.stops()) {
                 rows.add(new RouteStop(route.getId(), so.stopId(), so.sequenceNo(), so.nodeId(),
-                        meters(so.distanceFromPrevM()), (int) Math.round(so.durationFromPrevS())));
+                        meters(so.distanceFromPrevM()), (int) Math.round(so.durationFromPrevS()),
+                        departure.plusSeconds(Math.round(so.arrivalS()))));
             }
             stops.saveAll(rows);
             saved.add(route);

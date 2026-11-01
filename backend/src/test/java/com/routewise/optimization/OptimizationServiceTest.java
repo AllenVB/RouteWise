@@ -12,7 +12,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -93,7 +97,8 @@ class OptimizationServiceTest {
                 inv.<TransactionCallback<?>>getArgument(0).doInTransaction(null));
 
         service = new OptimizationService(plans, depots, vehicles, shipments, addresses, costs,
-                matrices, optimizer, runs, routes, stops, tx);
+                matrices, optimizer, runs, routes, stops, tx,
+                Clock.fixed(Instant.parse("2026-10-30T05:00:00Z"), ZoneId.of("Europe/Istanbul")));
 
         plan = new DeliveryPlan(1L, DAY, 1L);
         ReflectionTestUtils.setField(plan, "id", 88L);
@@ -103,6 +108,8 @@ class OptimizationServiceTest {
         Depot depot = mock(Depot.class);
         when(depot.getId()).thenReturn(1L);
         when(depot.getSnappedNodeId()).thenReturn(DEPOT_NODE);
+        when(depot.getOpeningTime()).thenReturn(LocalTime.of(8, 0));
+        when(depot.getMaxRouteDurationMin()).thenReturn(540);
         when(depots.primary()).thenReturn(depot);
 
         when(vehicles.findByDepotIdAndActiveTrueOrderByIdAsc(1L)).thenReturn(List.of(
@@ -141,7 +148,8 @@ class OptimizationServiceTest {
     private static SolutionOut solution(String algorithm, double distance, long... shipmentIds) {
         List<StopOut> out = new java.util.ArrayList<>();
         for (int i = 0; i < shipmentIds.length; i++) {
-            out.add(new StopOut(shipmentIds[i], 100 + shipmentIds[i], i + 1, 250.0, 25.0));
+            // Varış: her durak bir öncekinden 600 s sonra (teslim dahil)
+            out.add(new StopOut(shipmentIds[i], 100 + shipmentIds[i], i + 1, 600.0 * (i + 1), 250.0, 25.0));
         }
         // Maliyet = mesafe / 10: tasarruf yüzdeleri iki ölçüde de aynı çıksın.
         return new SolutionOut(algorithm, List.of(new RouteOut(2L, out, 300.0, 30.0, distance,
@@ -158,7 +166,7 @@ class OptimizationServiceTest {
     }
 
     private void givenOptimizerReturns(SolutionOut result, SolutionOut baseline, UnassignedOut... unassigned) {
-        when(optimizer.optimize(any())).thenReturn(new OptimizeResult(42L, result, baseline, List.of(unassigned)));
+        when(optimizer.optimize(any())).thenReturn(new OptimizeResult(42L, result, baseline, baseline == null ? "sığmıyor" : null, List.of(unassigned)));
     }
 
     @Nested
@@ -477,6 +485,56 @@ class OptimizationServiceTest {
             verify(routes, times(2)).save(saved.capture());
             assertThat(saved.getAllValues().get(1).getTotalCostTry()).isEqualByComparingTo("80.00");
             assertThat(saved.getAllValues().get(1).getTotalFuelL()).isEqualByComparingTo("0.080");
+        }
+    }
+
+    @Nested
+    @DisplayName("Faz 4 — çalışma günü ve ETA")
+    class Workday {
+
+        @Test
+        @DisplayName("Deponun çalışma günü saniye olarak gider (540 dk = 32.400 s)")
+        void sendsWorkday() {
+            givenDay();
+            givenOptimizerReturns(solution("ROUTEWISE", 800, 2, 1), solution("NAIVE", 1000, 1, 2));
+
+            service.optimize(88L, null);
+
+            var sent = ArgumentCaptor.forClass(OptimizeRequest.class);
+            verify(optimizer).optimize(sent.capture());
+            assertThat(sent.getValue().maxRouteDurationS()).isEqualTo(32_400.0);
+        }
+
+        @Test
+        @DisplayName("ETA = plan günü + depo açılışı (İstanbul) + varış süresi")
+        @SuppressWarnings("unchecked")
+        void etaFromOpeningTimeInIstanbul() {
+            givenDay();
+            givenOptimizerReturns(solution("ROUTEWISE", 800, 2, 1), solution("NAIVE", 1000, 1, 2));
+
+            service.optimize(88L, null);
+
+            var saved = ArgumentCaptor.forClass(List.class);
+            verify(stops, times(2)).saveAll(saved.capture());
+            List<RouteStop> applied = (List<RouteStop>) saved.getAllValues().get(1);
+            // 30.10.2026 08:00 İstanbul = 05:00Z; +600 s ve +1200 s
+            assertThat(applied).extracting(RouteStop::getEta).containsExactly(
+                    Instant.parse("2026-10-30T05:10:00Z"), Instant.parse("2026-10-30T05:20:00Z"));
+        }
+
+        @Test
+        @DisplayName("Baseline kurulamadıysa yalnızca optimize koşu yazılır; tasarruf yok, sebep döner")
+        void missingBaseline() {
+            givenDay();
+            givenOptimizerReturns(solution("ROUTEWISE", 800, 2, 1), null);
+
+            OptimizeResponse r = service.optimize(88L, null);
+
+            verify(runs, times(1)).save(any(OptimizationRun.class));
+            assertThat(r.baseline()).isNull();
+            assertThat(r.savingsPct()).isNull();
+            assertThat(r.baselineError()).isEqualTo("sığmıyor");
+            assertThat(r.isApplied()).isTrue();
         }
     }
 
