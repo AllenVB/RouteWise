@@ -284,6 +284,15 @@ POST /api/v1/plans/88/optimize
 `randomSeed` yanıtta **her zaman** döner: tohum olmadan sonuç tekrar üretilemez ve
 tez ölçümü savunulamaz.
 
+**Faz 4 eki (01.11.2026):**
+
+- rota süresi (yol + teslim + depoya dönüş) deponun çalışma gününü (`max_route_duration_min`) aşamaz
+- `excluded[].reason` için yeni değer: `EXCEEDS_WORKDAY` — depoya gidip dönmek bile güne sığmıyor
+- `baseline` **null olabilir**: geliş sırasıyla olurlu çözüm kurulamazsa (sıkı çalışma günü)
+  optimize koşu yine döner; `baselineError` sebebi, `savingsPct` / `distanceSavingsPct` null
+- `GET /runs/{id}` ve `GET /routes/{id}` duraklarında `eta` dolu: plan günü + depo açılış saati
+  (Europe/Istanbul) + yol ve önceki teslim süreleri
+
 **Faz 3 sürümü (30.10.2026)** — Faz 2 notlarının yerini alır:
 
 - gövde isteğe bağlı: `{ "algorithm": "ROUTEWISE" | "SAVINGS" | "GREEDY_NN" | "NAIVE",

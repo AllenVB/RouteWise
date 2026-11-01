@@ -442,9 +442,15 @@ raporlanmalı ya da katsayı yeniden ayarlanmalı. (Süre granüler komşulukla 
 Gün sınırı sert kısıt olarak devrede; alıcı ETA bildirimi alıyor; üç rol tam çalışıyor.
 
 ### Görevler
-1. `feasibility.py`'ye maksimum rota süresi kısıtını ekle
-2. Süre hesabı: segment uzunluğu / `maxspeed` + servis süresi
-3. ETA hesabı ve `route_stops.eta` doldurma
+1. ✅ Maksimum rota süresi katı kısıt: `max_duration_s` (depo `max_route_duration_min`), tek kontrol
+   noktası `RouteSet.delta`; testler önce yazıldı (süre kontrolü yokken 24 test düşüyordu)
+2. ✅ Süre hesabı: yol süresi (graf, `maxspeed`) + teslim süreleri + depoya dönüş
+3. ✅ ETA: Python durak başına `arrivalS`, backend `plan günü + depo açılışı (İstanbul) + arrivalS`
+   → `route_stops.eta`; F6'da "Varış" sütunu
+   - Tek başına güne sığmayan durak hata değil: `EXCEEDS_WORKDAY` ile dışarıda kalır
+   - **Bulgu:** sıkı günde naive (geliş sırası) zikzak çizdirip kurulamıyor; her koşuda
+     hesaplandığı için asıl optimizasyonu düşürüyordu. Artık baseline kurulamazsa optimize
+     çözüm yine döner, `baseline: null` + `baselineError` raporlanır
 4. Bildirim altyapısı: uygulama içi + Spring Mail
 5. Rol bazlı yetkilendirme tüm endpoint'lerde
 6. Kurye ekranları K1–K4
