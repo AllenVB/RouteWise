@@ -10,7 +10,7 @@ Kısıtlar:
   - sürülebilirlik: her bacakta yol olmalı (matriste inf yok)
   - kapsama: her durak tam olarak bir kez ziyaret edilir
   - filo: her araç en fazla bir rota sürer, yalnızca problemdeki araçlar
-Maksimum rota süresi Faz 4'te eklenir.
+  - çalışma günü: rota süresi (yol + teslim + dönüş) `max_duration_s`'i aşamaz
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from collections.abc import Iterable
 from itertools import pairwise
 
 from .model import DEPOT, Problem, Route, Solution
+from .objective import route_duration
 
 # NUMERIC(8,2) ağırlıkların toplamında kayan nokta hatası kapasiteyi
 # "aşmış" göstermesin.
@@ -32,6 +33,16 @@ def route_load(problem: Problem, route: Route) -> float:
 
 def capacity_ok(problem: Problem, route: Route) -> bool:
     return route_load(problem, route) <= route.vehicle.capacity_kg + _EPS_KG
+
+
+# Saniye toplamlarında kayan nokta gürültüsü sınırı "aşmış" göstermesin.
+_EPS_S = 1e-6
+
+
+def duration_ok(problem: Problem, route: Route) -> bool:
+    if problem.max_duration_s is None:
+        return True
+    return route_duration(problem, route.stops) <= problem.max_duration_s + _EPS_S
 
 
 def drivable(problem: Problem, route: Route) -> bool:
@@ -63,6 +74,9 @@ def violations(problem: Problem, solution: Solution, expected: Iterable[int]) ->
                          f"> kapasite {r.vehicle.capacity_kg:.2f} kg")
         if not drivable(problem, r):
             found.append(f"arac {r.vehicle.id}: yolu olmayan bacak var")
+        elif not duration_ok(problem, r):
+            found.append(f"arac {r.vehicle.id}: sure {route_duration(problem, r.stops):.0f} s "
+                         f"> calisma gunu {problem.max_duration_s:.0f} s")
 
     fleet = {v.id for v in problem.vehicles}
     used = Counter(r.vehicle.id for r in solution.routes)

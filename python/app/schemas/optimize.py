@@ -86,6 +86,8 @@ class OptimizeRequest(CamelModel):
         None, ge=0, lt=2**31,
         description="Yalnızca ROUTEWISE kullanır; verilmezse üretilir ve yanıtta döner.")
     iterations: int = Field(20_000, ge=0, le=500_000, description="SA iterasyon bütçesi.")
+    max_route_duration_s: float | None = Field(
+        None, gt=0, description="Çalışma günü: rota süresi (yol + teslim + dönüş) bunu aşamaz.")
     warm_start: list[WarmRouteIn] | None = Field(
         None, description="Önceki uygulanan koşu; yalnızca ROUTEWISE. Bilinmeyen kargolar yok sayılır.")
 
@@ -118,6 +120,7 @@ class OptimizeRequest(CamelModel):
                 fuel_price_per_l=self.cost_params.fuel_price_per_l,
                 driver_cost_per_hour=self.cost_params.driver_cost_per_hour,
                 priority_penalty=self.cost_params.priority_penalty),
+            max_duration_s=self.max_route_duration_s,
         )
 
     def anneal_params(self) -> AnnealParams:
@@ -137,6 +140,7 @@ class StopOut(CamelModel):
     stop_id: int
     node_id: int
     sequence_no: int = Field(..., description="1'den başlar; depo listede yer almaz.")
+    arrival_s: float = Field(..., description="Depodan çıkıştan bu durağa varışa geçen süre; ETA'nın temeli.")
     distance_from_prev_m: float
     duration_from_prev_s: float
 
@@ -176,6 +180,9 @@ class UnassignedOut(CamelModel):
 class OptimizeResponse(CamelModel):
     random_seed: int | None = Field(..., description="Sonucu tekrar üretmek için; tohumsuz algoritmada null.")
     result: SolutionOut
-    baseline: SolutionOut = Field(..., description="Naive — aynı durak kümesiyle, her koşuda.")
+    baseline: SolutionOut | None = Field(
+        ..., description="Naive — aynı durak kümesiyle, her koşuda. Kurulamazsa null; sebep baselineError'da.")
+    baseline_error: str | None = None
     unassigned: list[UnassignedOut] = Field(
-        ..., description="Rotaya alınamayan duraklar; sebep UNREACHABLE: depoyla gidiş-dönüş yolu yok.")
+        ..., description="Rotaya alınamayan duraklar: UNREACHABLE (depoyla gidiş-dönüş yolu yok) "
+                         "ya da EXCEEDS_WORKDAY (tek başına bile çalışma gününe sığmıyor).")

@@ -6,9 +6,10 @@ aracının durakları (boş olabilir). Her hamle "değişen rotalar" sözlüğü
 {araç indeksi: yeni durak listesi}. Hamle değerlendirmesi yalnızca değişen
 rotaları yeniden hesaplar.
 
-**Olurluluk tek yerde denetlenir: `delta()`.** Kapasiteyi aşan ya da yolu
-olmayan bacak içeren hamle `None` döner ve hiçbir koşulda uygulanmaz. Operatörler
-yalnızca aday üretir; kontrolü unutabilecek bir operatör yoktur.
+**Olurluluk tek yerde denetlenir: `delta()`.** Kapasiteyi ya da çalışma
+gününü aşan veya yolu olmayan bacak içeren hamle `None` döner ve hiçbir koşulda
+uygulanmaz. Operatörler yalnızca aday üretir; kontrolü unutabilecek bir
+operatör yoktur.
 """
 
 from __future__ import annotations
@@ -16,11 +17,12 @@ from __future__ import annotations
 import math
 
 from ..model import Problem, Route, Solution
-from ..objective import route_objective
+from ..objective import route_duration, route_objective
 
 Changes = dict[int, list[int]]
 
 _EPS_KG = 1e-6
+_EPS_S = 1e-6
 
 
 class RouteSet:
@@ -55,6 +57,9 @@ class RouteSet:
             c = route_objective(self.p, vehicle, stops)
             if not math.isfinite(c):
                 return None      # yolu olmayan bacak
+            limit = self.p.max_duration_s
+            if limit is not None and route_duration(self.p, stops) > limit + _EPS_S:
+                return None      # çalışma gününe sığmıyor
             d += c - self.cost[k]
         return d
 

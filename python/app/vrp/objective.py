@@ -8,8 +8,8 @@ hesaplanır ki optimize çözüm ile baseline aynı terazide tartılsın.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Sequence
+from dataclasses import dataclass
 from itertools import pairwise
 
 from .model import DEPOT, Problem, Route, Solution, Vehicle
@@ -118,6 +118,38 @@ def route_cost(problem: Problem, vehicle: Vehicle, stops: Sequence[int]) -> Rout
         fixed_try=vehicle.fixed_cost_per_day,
         penalty=c.priority_penalty * weighted / 3600.0,
     )
+
+
+def route_duration(problem: Problem, stops: Sequence[int]) -> float:
+    """Depodan çıkıştan depoya dönüşe: yol + teslim süreleri. Boş rota 0."""
+    if not stops:
+        return 0.0
+    t, svc = problem.dur_rows, problem.service
+    clock = 0.0
+    prev = DEPOT
+    for i in stops:
+        clock += t[prev][i] + svc[i]
+        prev = i
+    return clock + t[prev][DEPOT]
+
+
+def arrival_offsets(problem: Problem, stops: Sequence[int]) -> list[float]:
+    """
+    Her durağa depodan çıkıştan kaç saniye sonra varılır (teslim süresi öncesi).
+
+    ETA'nın temelidir: backend bunu planın günü ve deponun açılış saatiyle
+    birleştirir. Önceki durakların teslim süreleri dahildir.
+    """
+    t, svc = problem.dur_rows, problem.service
+    clock = 0.0
+    prev = DEPOT
+    out: list[float] = []
+    for i in stops:
+        clock += t[prev][i]
+        out.append(clock)
+        clock += svc[i]
+        prev = i
+    return out
 
 
 def route_objective(problem: Problem, vehicle: Vehicle, stops: Sequence[int]) -> float:

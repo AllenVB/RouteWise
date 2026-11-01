@@ -23,12 +23,14 @@ from collections.abc import Sequence
 
 from ..localsearch.state import RouteSet
 from ..model import DEPOT, Problem
+from ..objective import route_duration
 from .insertion import insert_cheapest
 
 
 def savings(problem: Problem, stops: Sequence[int]) -> list[list[int]]:
     d, demand = problem.dist_rows, problem.demand
     cap_max = max(v.capacity_kg for v in problem.vehicles) + 1e-6
+    limit = problem.max_duration_s
 
     route_of: dict[int, int] = {i: i for i in stops}       # durak -> rota kimliği
     routes: dict[int, list[int]] = {i: [i] for i in stops}
@@ -49,6 +51,8 @@ def savings(problem: Problem, stops: Sequence[int]) -> list[list[int]]:
         if ri == rj or routes[ri][-1] != i or routes[rj][0] != j:
             continue
         if load[ri] + load[rj] > cap_max:
+            continue
+        if limit is not None and route_duration(problem, routes[ri] + routes[rj]) > limit + 1e-6:
             continue
         routes[ri].extend(routes[rj])
         load[ri] += load[rj]

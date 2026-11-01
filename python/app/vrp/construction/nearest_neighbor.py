@@ -50,21 +50,28 @@ def nearest_neighbor_fleet(problem: Problem, stops: Sequence[int]) -> list[list[
     """
     remaining = list(stops)
     routes: list[list[int]] = [[] for _ in problem.vehicles]
-    dist, demand = problem.dist_rows, problem.demand
+    dist, demand, t, svc = problem.dist_rows, problem.demand, problem.dur_rows, problem.service
+    limit = math.inf if problem.max_duration_s is None else problem.max_duration_s + 1e-6
     order = sorted(range(len(problem.vehicles)), key=lambda k: -problem.vehicles[k].capacity_kg)
 
     for k in order:
         cap = problem.vehicles[k].capacity_kg + 1e-6
-        load, current = 0.0, DEPOT
+        load, clock, current = 0.0, 0.0, DEPOT
+
+        def fits(x: int) -> bool:
+            # Kapasite + o durağa gidip teslim edip depoya dönebilecek zaman
+            return (load + demand[x] <= cap and math.isfinite(dist[current][x])
+                    and clock + t[current][x] + svc[x] + t[x][DEPOT] <= limit)
+
         while True:
-            fits = [j for j in range(len(remaining))
-                    if load + demand[remaining[j]] <= cap and math.isfinite(dist[current][remaining[j]])]
-            if not fits:
+            cands = [j for j in range(len(remaining)) if fits(remaining[j])]
+            if not cands:
                 break
-            j = min(fits, key=lambda x: dist[current][remaining[x]])
+            j = min(cands, key=lambda x: dist[current][remaining[x]])
             nxt = remaining.pop(j)
             routes[k].append(nxt)
             load += demand[nxt]
+            clock += t[current][nxt] + svc[nxt]
             current = nxt
 
     rs = RouteSet(problem, routes)

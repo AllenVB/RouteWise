@@ -203,3 +203,37 @@ def test_routewise_returns_seed_and_reproduces_it():
     assert ilk["randomSeed"] is not None
     tekrar = post(istek(algorithm="ROUTEWISE", iterations=500, randomSeed=ilk["randomSeed"])).json()
     assert tekrar["result"]["routes"] == ilk["result"]["routes"]
+
+
+# --- Faz 4: çalışma günü ve varış süreleri ---
+
+def test_arrival_seconds_returned_per_stop():
+    """NN sırası 502 (10 s), 503 (+20 s), 501 (+20 s); teslim süresi 0."""
+    duraklar = post(istek()).json()["result"]["routes"][0]["stops"]
+    assert [d["arrivalS"] for d in duraklar] == [10.0, 30.0, 50.0]
+
+
+def test_stop_beyond_workday_is_excluded_with_reason():
+    """501'e gidip dönmek 100 s; gün 90 s. Diğerleri (60 s) sığar."""
+    b = post(istek(maxRouteDurationS=90)).json()
+    assert b["unassigned"] == [{"stopId": 501, "reason": "EXCEEDS_WORKDAY"}]
+    assert b["result"]["routes"][0]["totalDurationS"] <= 90
+
+
+def test_workday_too_short_for_the_fleet_is_409():
+    """
+    Teslim süresi 10 s. Tek tek gidiş-dönüş: 501 110 s, 502 30 s, 503 70 s — hepsi
+    120 s'lik güne sığar. Üçü birlikte 130 s sürer: tek araçla olurlu çözüm yok.
+    """
+    stops = [{**s, "serviceTimeS": 10.0} for s in istek()["stops"]]
+    r = post(istek(stops=stops, maxRouteDurationS=120))
+    assert r.status_code == 409
+    assert "çalışma süresi" in r.json()["detail"]["message"]
+
+
+def test_baseline_null_reports_reason_instead_of_failing():
+    """Yanıt şeması baseline'ın yokluğunu taşıyabilmeli (gerçek tetikleme test_cvrp'de)."""
+    from app.schemas.optimize import OptimizeResponse
+    ok = post(istek()).json()
+    alt = OptimizeResponse.model_validate({**ok, "baseline": None, "baselineError": "sığmıyor"})
+    assert alt.baseline is None and alt.baseline_error == "sığmıyor"

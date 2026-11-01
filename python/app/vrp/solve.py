@@ -2,7 +2,8 @@
 Çözücü — çok araç, kapasite, maliyet modeli (CVRP).
 
 Akış:
-  1. Depoyla gidiş-dönüş yolu olmayan durakları ayır (rapor edilir, rotaya girmez)
+  1. Depoyla gidiş-dönüş yolu olmayan ya da tek başına bile çalışma gününe
+     sığmayan durakları ayır (rapor edilir, rotaya girmez)
   2. Açıkça imkânsız girdiyi erken reddet: en büyük araca sığmayan kargo, filoyu
      aşan toplam yük — sessizce aşan rota yok
   3. İstenen algoritmayı ve naive baseline'ı AYNI durak kümesiyle koş
@@ -34,8 +35,10 @@ from .model import DEPOT, InfeasibleError, Problem, Solution
 from .routewise import routewise
 
 UNREACHABLE = "UNREACHABLE"
+# Depoya gidip tek başına teslim edip dönmek bile çalışma gününü aşıyor.
+EXCEEDS_WORKDAY = "EXCEEDS_WORKDAY"
 
-__all__ = ["Algorithm", "InfeasibleError", "Outcome", "UNREACHABLE", "solve"]
+__all__ = ["Algorithm", "EXCEEDS_WORKDAY", "InfeasibleError", "Outcome", "UNREACHABLE", "solve"]
 
 
 class Algorithm(str, Enum):
@@ -54,9 +57,12 @@ class Algorithm(str, Enum):
 @dataclass
 class Outcome:
     result: Solution
-    baseline: Solution
+    # None: naive bu girdiyle olurlu kurulamadı (ör. sıkı çalışma gününde geliş
+    # sırası zikzak çizdirir). Optimize çözüm yine döner; karşılaştırma yapılamaz.
+    baseline: Solution | None
     unassigned: dict[int, str]       # problem indeksi -> sebep
     seed: int | None                 # yalnızca tohumlu algoritmalarda
+    baseline_error: str | None = None
 
 
 def solve(
@@ -87,25 +93,40 @@ def solve(
         Algorithm.ROUTEWISE: lambda: routewise(problem, routable, seed or 0, anneal, warm_start).routes,
     }
 
-    baseline = _run(problem, Algorithm.NAIVE, builders[Algorithm.NAIVE])
+    # Baseline yalnızca ölçüttür: kurulamaması asıl optimizasyonu düşürmez.
+    # NAIVE'in kendisi istendiyse ise başarısızlığı sonucun başarısızlığıdır.
+    baseline: Solution | None = None
+    baseline_error: str | None = None
+    try:
+        baseline = _run(problem, Algorithm.NAIVE, builders[Algorithm.NAIVE])
+    except InfeasibleError as e:
+        if algorithm is Algorithm.NAIVE:
+            raise
+        baseline_error = str(e)
     result = baseline if algorithm is Algorithm.NAIVE else _run(problem, algorithm, builders[algorithm])
+    assert result is not None
 
     for sol in (result, baseline):
-        if found := violations(problem, sol, routable):
+        if sol is not None and (found := violations(problem, sol, routable)):
             # Girdi süzüldükten sonra ihlal kalıyorsa hata algoritmadadır.
             raise RuntimeError(f"{sol.algorithm} olursuz çözüm üretti: {found}")
 
-    return Outcome(result=result, baseline=baseline, unassigned=unassigned, seed=seed)
+    return Outcome(result=result, baseline=baseline, unassigned=unassigned, seed=seed,
+                   baseline_error=baseline_error)
 
 
 def _split_reachable(problem: Problem) -> tuple[list[int], dict[int, str]]:
     routable: list[int] = []
     unassigned: dict[int, str] = {}
+    limit = problem.max_duration_s
+    t, svc = problem.dur_rows, problem.service
     for i in range(1, problem.size + 1):
-        if problem.reachable(DEPOT, i) and problem.reachable(i, DEPOT):
-            routable.append(i)
-        else:
+        if not (problem.reachable(DEPOT, i) and problem.reachable(i, DEPOT)):
             unassigned[i] = UNREACHABLE
+        elif limit is not None and t[DEPOT][i] + svc[i] + t[i][DEPOT] > limit + 1e-6:
+            unassigned[i] = EXCEEDS_WORKDAY
+        else:
+            routable.append(i)
     return routable, unassigned
 
 

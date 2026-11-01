@@ -19,6 +19,7 @@ from app.vrp.localsearch import exchange, or_opt, relocate, two_opt
 from app.vrp.localsearch.search import local_search
 from app.vrp.localsearch.state import RouteSet
 from app.vrp.model import CostParams, Problem, Stop, Vehicle
+from app.vrp.objective import route_duration
 
 OPERATORS = {
     "two_opt": two_opt,
@@ -28,8 +29,12 @@ OPERATORS = {
 }
 
 
-def random_problem(seed: int, n: int = 10, vehicles: int = 3, holes: float = 0.05) -> Problem:
-    """Sıkı kapasite: toplam yük filonun ~%85'i; birkaç tek yönlü 'yol yok' hücresi."""
+def random_problem(seed: int, n: int = 10, vehicles: int = 3, holes: float = 0.05,
+                   workday: bool = False) -> Problem:
+    """
+    Sıkı kapasite: toplam yük filonun ~%85'i; birkaç tek yönlü 'yol yok' hücresi.
+    `workday`: çalışma günü sınırı da sıkı — araç başına ortalama işin ~%160'ı.
+    """
     rng = np.random.default_rng(seed)
     d = rng.uniform(100, 5000, size=(n + 1, n + 1))
     np.fill_diagonal(d, 0)
@@ -48,18 +53,27 @@ def random_problem(seed: int, n: int = 10, vehicles: int = 3, holes: float = 0.0
         distance=d,
         duration=d / 10.0,
         costs=CostParams(fuel_price_per_l=44.0, driver_cost_per_hour=150.0, priority_penalty=25.0),
+        max_duration_s=_tight_workday(d, n, vehicles) if workday else None,
     )
 
 
+def _tight_workday(d: np.ndarray, n: int, vehicles: int) -> float:
+    """Gidiş-dönüş + teslim ortalamasıyla kaba iş yükü; sıkı ama çözümü olan bir sınır."""
+    finite = d[np.isfinite(d)]
+    per_stop = float(np.median(finite)) / 10.0 + 300.0
+    return per_stop * n / vehicles * 1.6
+
+
 def feasible_start(p: Problem) -> list[list[int]]:
-    """Kapasiteye ve yollara uyan ilk çözüm (ilk uyan araç, sürülebilir sırayla)."""
+    """Kapasiteye, yollara ve çalışma gününe uyan ilk çözüm (ilk uyan araç)."""
     routes: list[list[int]] = [[] for _ in p.vehicles]
     for i in range(1, p.size + 1):
         for k, v in enumerate(p.vehicles):
             load = sum(p.demand[j] for j in routes[k]) + p.demand[i]
             cand = routes[k] + [i]
             rs_ok = load <= v.capacity_kg and all(
-                np.isfinite(p.distance[a, b]) for a, b in zip([0, *cand], [*cand, 0], strict=True))
+                np.isfinite(p.distance[a, b]) for a, b in zip([0, *cand], [*cand, 0], strict=True)) and (
+                p.max_duration_s is None or route_duration(p, cand) <= p.max_duration_s)
             if rs_ok:
                 routes[k] = cand
                 break
@@ -72,10 +86,11 @@ def is_feasible(p: Problem, routes: list[list[int]]) -> bool:
     return violations(p, RouteSet(p, routes).to_solution("T"), range(1, p.size + 1)) == []
 
 
+@pytest.mark.parametrize("workday", [False, True], ids=["kapasite", "kapasite+gun"])
 @pytest.mark.parametrize("seed", range(8))
 @pytest.mark.parametrize("name", OPERATORS)
-def test_every_accepted_candidate_is_feasible_and_every_rejected_is_not(name, seed):
-    p = random_problem(seed)
+def test_every_accepted_candidate_is_feasible_and_every_rejected_is_not(name, seed, workday):
+    p = random_problem(seed, workday=workday)
     rs = RouteSet(p, feasible_start(p))
     accepted = rejected = 0
     for changes in OPERATORS[name].neighbors(rs):
@@ -90,10 +105,11 @@ def test_every_accepted_candidate_is_feasible_and_every_rejected_is_not(name, se
     assert accepted > 0
 
 
+@pytest.mark.parametrize("workday", [False, True], ids=["kapasite", "kapasite+gun"])
 @pytest.mark.parametrize("seed", range(8))
 @pytest.mark.parametrize("name", OPERATORS)
-def test_random_neighbors_never_break_feasibility_when_applied(name, seed):
-    p = random_problem(seed)
+def test_random_neighbors_never_break_feasibility_when_applied(name, seed, workday):
+    p = random_problem(seed, workday=workday)
     rs = RouteSet(p, feasible_start(p))
     rng = random.Random(seed)
     for _ in range(300):
@@ -103,9 +119,10 @@ def test_random_neighbors_never_break_feasibility_when_applied(name, seed):
             assert is_feasible(p, rs.routes)
 
 
+@pytest.mark.parametrize("workday", [False, True], ids=["kapasite", "kapasite+gun"])
 @pytest.mark.parametrize("seed", range(8))
-def test_local_search_keeps_feasibility_and_never_worsens(seed):
-    p = random_problem(seed, n=12)
+def test_local_search_keeps_feasibility_and_never_worsens(seed, workday):
+    p = random_problem(seed, n=12, workday=workday)
     rs = RouteSet(p, feasible_start(p))
     before = rs.total
 

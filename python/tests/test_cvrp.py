@@ -23,9 +23,9 @@ from app.vrp.feasibility import violations
 from app.vrp.localsearch.state import RouteSet
 from app.vrp.metaheuristic.simulated_annealing import AnnealParams
 from app.vrp.model import CostParams, InfeasibleError, Problem, Stop, Vehicle
-from app.vrp.objective import route_cost, route_objective
+from app.vrp.objective import arrival_offsets, route_cost, route_duration, route_objective
 from app.vrp.routewise import routewise
-from app.vrp.solve import Algorithm, solve
+from app.vrp.solve import EXCEEDS_WORKDAY, Algorithm, solve
 
 COSTS = CostParams(fuel_price_per_l=44.0, driver_cost_per_hour=150.0, priority_penalty=25.0)
 FAST = AnnealParams(iterations=3000)
@@ -259,3 +259,89 @@ def test_total_load_beyond_fleet_is_rejected():
     p = euclid(5, 6, [50.0, 50.0], demand=(20.0, 20.0))
     with pytest.raises(InfeasibleError, match="filonun toplam kapasitesi"):
         solve(p, Algorithm.SAVINGS)
+
+
+# --- Faz 4: çalışma günü sınırı ---
+
+def with_workday(p: Problem, hours: float) -> Problem:
+    import dataclasses
+    return dataclasses.replace(p, max_duration_s=hours * 3600)
+
+
+@pytest.mark.parametrize("seed", range(5))
+@pytest.mark.parametrize("build", [naive_fleet, nearest_neighbor_fleet, savings])
+def test_constructors_respect_workday(build, seed):
+    """
+    DoD: gün sınırını aşan çözüm üretilmez — kapasite gevşek, bağlayan süre.
+    Kurucu ya olurlu çözüm döner ya da açıkça reddeder; aşan rota asla.
+    (Naive geliş sırasıyla zikzak çizdiği için sıkı günde reddedebilir.)
+    """
+    p = with_workday(euclid(seed, 30, [10_000.0, 10_000.0, 10_000.0]), hours=2.0)
+    try:
+        routes = build(p, stops_of(p))
+    except InfeasibleError:
+        assert build is naive_fleet, "akıllı kurucular bu örnekte olurlu çözüm bulmalı"
+        return
+    assert feasible(p, routes)
+    assert sum(1 for r in routes if r) >= 2, "tek araç 2 saate sığmamalıydı; sınır gerçekten bağlıyor mu?"
+
+
+@pytest.mark.parametrize("seed", range(4))
+def test_routewise_respects_workday(seed):
+    p = with_workday(euclid(seed, 30, [10_000.0, 10_000.0, 10_000.0]), hours=2.0)
+    out = solve(p, Algorithm.ROUTEWISE, seed=1, anneal=FAST)
+    for r in out.result.routes + (out.baseline.routes if out.baseline else []):
+        assert route_duration(p, r.stops) <= 2.0 * 3600 + 1e-6
+
+
+def test_baseline_failure_does_not_fail_optimization():
+    """Naive sıkı günde kurulamasa da optimize çözüm döner; sebep raporlanır."""
+    failing = [s for s in range(20)
+               if _naive_fails(with_workday(euclid(s, 30, [10_000.0] * 3), hours=2.0))]
+    assert failing, "testin anlamı için naive'in çöktüğü bir örnek gerekli"
+    p = with_workday(euclid(failing[0], 30, [10_000.0] * 3), hours=2.0)
+
+    out = solve(p, Algorithm.SAVINGS)
+
+    assert out.baseline is None
+    assert "sığmıyor" in (out.baseline_error or "")
+    assert feasible(p, RouteSet.from_solution(p, out.result).routes)
+
+
+def test_naive_failure_is_fatal_when_naive_itself_is_requested():
+    p = next(q for q in (with_workday(euclid(s, 30, [10_000.0] * 3), hours=2.0) for s in range(20))
+             if _naive_fails(q))
+    with pytest.raises(InfeasibleError):
+        solve(p, Algorithm.NAIVE)
+
+
+def _naive_fails(p: Problem) -> bool:
+    try:
+        naive_fleet(p, stops_of(p))
+    except InfeasibleError:
+        return True
+    return False
+
+
+def test_stop_beyond_workday_alone_is_reported_not_failed():
+    """Depoya gidip dönmek bile günü aşıyorsa durak dışarıda kalır, çözüm yine üretilir."""
+    d = np.array([[0.0, 1000.0, 90_000.0], [1000.0, 0.0, 90_000.0], [90_000.0, 90_000.0, 0.0]])
+    p = Problem(0, (Stop(1, 1, 1.0, 300.0), Stop(2, 2, 1.0, 300.0)), (Vehicle(1, 100.0),),
+                d, d / 10.0, max_duration_s=3600.0)          # 2. durağa gidiş tek başına 2,5 sa
+    out = solve(p, Algorithm.GREEDY_NN)
+    assert out.unassigned == {2: EXCEEDS_WORKDAY}
+    assert out.result.routes[0].stops == [1]
+
+
+def test_fleet_short_on_time_is_an_explicit_error():
+    p = with_workday(euclid(3, 30, [10_000.0]), hours=1.0)    # tek araç, 30 durak, 1 saat
+    with pytest.raises(InfeasibleError, match="çalışma süresi"):
+        solve(p, Algorithm.SAVINGS)
+
+
+def test_arrival_offsets_include_previous_service_times():
+    # depo -> 1 (100 s) [servis 300] -> 2 (50 s)
+    d = np.array([[0.0, 100.0, 150.0], [100.0, 0.0, 50.0], [150.0, 50.0, 0.0]])
+    p = Problem(0, (Stop(1, 1, 1.0, 300.0), Stop(2, 2, 1.0, 120.0)), (Vehicle(1, 100.0),), d, d)
+    assert arrival_offsets(p, [1, 2]) == [100.0, 450.0]
+    assert route_duration(p, [1, 2]) == pytest.approx(100 + 300 + 50 + 120 + 150)

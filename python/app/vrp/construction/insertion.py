@@ -21,7 +21,8 @@ def insert_cheapest(rs: RouteSet, stop: int) -> None:
     if best is None:
         s = rs.p.stop(stop)
         raise InfeasibleError(
-            f"Kargo {s.id} ({s.demand_kg:.2f} kg) hiçbir araca sığmıyor; filonun kalan kapasitesi yetersiz.")
+            f"Kargo {s.id} ({s.demand_kg:.2f} kg) hiçbir araca sığmıyor: filonun kalan "
+            "kapasitesi ya da çalışma süresi yetersiz.")
     _, k, j = best
     route = rs.routes[k]
     rs.apply({k: route[:j] + [stop] + route[j:]})

@@ -68,6 +68,8 @@ class Problem:
     duration: np.ndarray      # float64[n+1, n+1] — saniye
     # None: maliyet modeli yok, amaç toplam mesafedir (Faz 2 davranışı).
     costs: CostParams | None = None
+    # Çalışma günü: rota süresi (yol + teslim + depoya dönüş) bunu aşamaz. None: sınır yok.
+    max_duration_s: float | None = None
 
     @property
     def size(self) -> int:
@@ -135,6 +137,7 @@ class Problem:
         stops: Sequence[Stop],
         vehicles: Sequence[Vehicle],
         costs: CostParams | None = None,
+        max_duration_s: float | None = None,
     ) -> Problem:
         """Düğüm sıralı matristen problem indeksli matrise."""
         pos = {int(n): i for i, n in enumerate(node_ids)}
@@ -147,6 +150,7 @@ class Problem:
             distance=_to_array(distance_m)[np.ix_(idx, idx)],
             duration=_to_array(duration_s)[np.ix_(idx, idx)],
             costs=costs,
+            max_duration_s=max_duration_s,
         )
 
 

@@ -23,7 +23,7 @@ from ..schemas.optimize import (
     UnassignedOut,
 )
 from ..vrp.model import Problem, Route, Solution
-from ..vrp.objective import route_cost, route_metrics
+from ..vrp.objective import arrival_offsets, route_cost, route_metrics
 from ..vrp.solve import InfeasibleError, solve
 
 log = logging.getLogger(__name__)
@@ -44,16 +44,17 @@ def optimize(req: OptimizeRequest) -> OptimizeResponse:
         ) from e
 
     result = _solution(problem, outcome.result)
-    baseline = _solution(problem, outcome.baseline)
-    log.info("optimize: %d durak, %s %.0f m / naive %.0f m, %d disarida, %.1f ms",
+    baseline = None if outcome.baseline is None else _solution(problem, outcome.baseline)
+    log.info("optimize: %d durak, %s %.0f m / naive %s, %d disarida, %.1f ms",
              problem.size, result.algorithm, result.total_distance_m,
-             baseline.total_distance_m, len(outcome.unassigned),
-             outcome.result.computation_time_ms)
+             "-" if baseline is None else f"{baseline.total_distance_m:.0f} m",
+             len(outcome.unassigned), outcome.result.computation_time_ms)
 
     return OptimizeResponse(
         random_seed=outcome.seed,
         result=result,
         baseline=baseline,
+        baseline_error=outcome.baseline_error,
         unassigned=[UnassignedOut(stop_id=problem.stop(i).id, reason=sebep)
                     for i, sebep in sorted(outcome.unassigned.items())],
     )
@@ -81,6 +82,7 @@ def _solution(problem: Problem, sol: Solution) -> SolutionOut:
 def _route(problem: Problem, route: Route) -> RouteOut:
     m = route_metrics(problem, route)
     c = route_cost(problem, route.vehicle, route.stops)
+    arrivals = arrival_offsets(problem, route.stops)
     # legs[k] k. durağa varış bacağıdır; son bacak depoya dönüş.
     donus = m.legs[-1] if m.legs else None
     return RouteOut(
@@ -90,6 +92,7 @@ def _route(problem: Problem, route: Route) -> RouteOut:
                 stop_id=problem.stop(i).id,
                 node_id=problem.stop(i).node_id,
                 sequence_no=k,
+                arrival_s=round(arrivals[k - 1], 1),
                 distance_from_prev_m=round(leg.distance_m, 2),
                 duration_from_prev_s=round(leg.duration_s, 1),
             )
