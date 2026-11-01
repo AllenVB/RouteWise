@@ -177,6 +177,29 @@ export type OptimizeResponse = z.infer<typeof optimizeResponseSchema>;
 
 const positionSchema = z.tuple([z.number(), z.number()]);   // [boylam, enlem]
 
+export const stopStatusSchema = z.enum(['BEKLEMEDE', 'TESLIM_EDILDI', 'ULASILAMADI']);
+export type StopStatus = z.infer<typeof stopStatusSchema>;
+
+export const stopDetailSchema = z.object({
+  id: z.number(),
+  sequenceNo: z.number(),
+  shipmentId: z.number(),
+  orderNumber: z.string().nullable(),
+  addressText: z.string().nullable(),
+  lat: z.number().nullable(),
+  lon: z.number().nullable(),
+  distanceFromPrevM: z.number(),
+  durationFromPrevS: z.number(),
+  /** Planlanan varış (ISO-8601, UTC); depo açılışından itibaren. */
+  eta: z.string().nullable(),
+  status: stopStatusSchema,
+  recipientName: z.string().nullable(),
+  recipientPhone: z.string().nullable(),
+  actualArrival: z.string().nullable(),
+  failureReason: z.string().nullable(),
+});
+export type StopDetail = z.infer<typeof stopDetailSchema>;
+
 export const runDetailSchema = z.object({
   run: z.object({
     runId: z.number(),
@@ -198,19 +221,7 @@ export const runDetailSchema = z.object({
     totalLoadKg: z.number(),
     totalFuelL: z.number().nullable(),
     totalCostTry: z.number().nullable(),
-    stops: z.array(z.object({
-      id: z.number(),
-      sequenceNo: z.number(),
-      shipmentId: z.number(),
-      orderNumber: z.string().nullable(),
-      addressText: z.string().nullable(),
-      lat: z.number().nullable(),
-      lon: z.number().nullable(),
-      distanceFromPrevM: z.number(),
-      durationFromPrevS: z.number(),
-      /** Planlanan varış (ISO-8601, UTC); depo açılışından itibaren. */
-      eta: z.string().nullable(),
-    })),
+    stops: z.array(stopDetailSchema),
     geometry: z.object({ type: z.literal('LineString'), coordinates: z.array(positionSchema) }).nullable(),
   })),
   geometryAvailable: z.boolean(),

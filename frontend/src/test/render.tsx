@@ -10,14 +10,16 @@ export function signedInAs(role: Role) {
 }
 
 /**
- * Ekranı gerçek yönlendirici ve sorgu istemcisiyle çizer. `routes` verilirse
- * hedef yollar gözlenebilir (ör. başarılı kayıttan sonra listeye dönüş).
+ * Ekranı gerçek yönlendirici ve sorgu istemcisiyle çizer. `extra` verilirse
+ * hedef yollar gözlenebilir (ör. başarılı kayıttan sonra listeye dönüş);
+ * `url` parametreli yollar için açılış adresidir (ör. `/kurye/durak/2`).
  */
-export function renderAt(path: string, element: ReactElement, extra: { path: string; text: string }[] = []) {
+export function renderAt(path: string, element: ReactElement, extra: { path: string; text: string }[] = [],
+                         url: string = path) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const router = createMemoryRouter(
     [{ path, element }, ...extra.map((r) => ({ path: r.path, element: <p>{r.text}</p> }))],
-    { initialEntries: [path] },
+    { initialEntries: [url] },
   );
   return render(
     <QueryClientProvider client={client}>

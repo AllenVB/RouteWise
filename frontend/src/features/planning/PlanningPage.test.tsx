@@ -23,14 +23,14 @@ const detail = {
     id: 7, vehicleId: 2, plate: '10 ABC 002', totalDistanceM: 14000, totalDurationS: 2400, totalLoadKg: 10,
     totalFuelL: 1.6, totalCostTry: 420.5,
     stops: [
-      { id: 1, sequenceNo: 1, shipmentId: 5, orderNumber: 'BND-2026-00004', addressText: 'A', lat: 40.35, lon: 27.97, distanceFromPrevM: 900, durationFromPrevS: 90, eta: '2026-10-30T05:10:00Z', status: 'BEKLEMEDE' },
+      { id: 1, sequenceNo: 1, shipmentId: 5, orderNumber: 'BND-2026-00004', addressText: 'A', lat: 40.35, lon: 27.97, distanceFromPrevM: 900, durationFromPrevS: 90, eta: '2026-10-30T05:10:00Z', status: 'BEKLEMEDE', recipientName: null, recipientPhone: null, actualArrival: null, failureReason: null },
     ],
     geometry: { type: 'LineString', coordinates: [[27.9767, 40.3521], [27.97, 40.35], [27.9767, 40.3521]] },
   }, {
     id: 8, vehicleId: 3, plate: '10 ABC 003', totalDistanceM: 10911.47, totalDurationS: 1800, totalLoadKg: 6,
     totalFuelL: 1.0, totalCostTry: 291.9,
     stops: [
-      { id: 2, sequenceNo: 1, shipmentId: 6, orderNumber: 'BND-2026-00005', addressText: 'B', lat: 40.36, lon: 27.98, distanceFromPrevM: 1200, durationFromPrevS: 120, eta: null, status: 'BEKLEMEDE' },
+      { id: 2, sequenceNo: 1, shipmentId: 6, orderNumber: 'BND-2026-00005', addressText: 'B', lat: 40.36, lon: 27.98, distanceFromPrevM: 1200, durationFromPrevS: 120, eta: null, status: 'BEKLEMEDE', recipientName: null, recipientPhone: null, actualArrival: null, failureReason: null },
     ],
     geometry: { type: 'LineString', coordinates: [[27.9767, 40.3521], [27.98, 40.36], [27.985, 40.365], [27.9767, 40.3521]] },
   }],

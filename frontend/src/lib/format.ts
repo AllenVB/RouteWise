@@ -52,6 +52,12 @@ export const shipmentLabel: Record<ShipmentStatus, { text: string; tone: string 
   ERTELENDI: { text: 'Ertelendi', tone: 'danger' },
 };
 
+export const stopStatusLabel: Record<string, { text: string; tone: string }> = {
+  BEKLEMEDE: { text: 'Bekliyor', tone: 'info' },
+  TESLIM_EDILDI: { text: 'Teslim edildi', tone: 'ok' },
+  ULASILAMADI: { text: 'Ulaşılamadı', tone: 'danger' },
+};
+
 export const excludedReasonLabel: Record<string, string> = {
   ADDRESS_NOT_VERIFIED: 'Adres onaylı değil ya da onaydan sonra değişti',
   NO_ROAD_NODE: 'Adres onaylı ama yol ağına bağlanmamış',

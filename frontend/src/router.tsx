@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router';
 import { AppShell, type NavItem } from './components/layout/AppShell';
 import { LoginPage } from './features/auth/LoginPage';
 import { RequireRole } from './features/auth/RequireRole';
+import { CourierStopPage } from './features/courier/CourierStopPage';
 import { NewShipmentPage } from './features/shipments/NewShipmentPage';
 import { ShipmentListPage } from './features/shipments/ShipmentListPage';
 
@@ -10,6 +11,7 @@ import { ShipmentListPage } from './features/shipments/ShipmentListPage';
 const verification = () =>
   import('./features/verification/VerificationQueuePage').then((m) => ({ Component: m.VerificationQueuePage }));
 const planning = () => import('./features/planning/PlanningPage').then((m) => ({ Component: m.PlanningPage }));
+const courierRoute = () => import('./features/courier/CourierRoutePage').then((m) => ({ Component: m.CourierRoutePage }));
 const myAddresses = () => import('./features/recipient/MyAddressesPage').then((m) => ({ Component: m.MyAddressesPage }));
 
 // Tembel rota doğrudan açıldığında (sayfa yenileme) modül gelene kadar gösterilir.
@@ -47,7 +49,10 @@ export const router = createBrowserRouter([
   {
     path: '/kurye',
     element: <RequireRole role="COURIER"><AppShell nav={courierNav} /></RequireRole>,
-    children: [{ index: true, element: <p className="muted">Kurye ekranları Faz 4'te gelecek.</p> }],
+    children: [
+      { index: true, lazy: courierRoute, hydrateFallbackElement: loading },
+      { path: 'durak/:id', element: <CourierStopPage /> },
+    ],
   },
   { path: '*', element: <Navigate to="/giris" replace /> },
 ]);
