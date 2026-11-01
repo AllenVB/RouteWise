@@ -27,6 +27,11 @@ export function formatDuration(seconds: number): string {
   return h > 0 ? `${h} sa ${m} dk` : `${m} dk`;
 }
 
+/** Saat:dakika, depo saatiyle — tarayıcı başka dilimde olsa da kurye Bandırma saatini görür. */
+export function formatClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' });
+}
+
 export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' });
 }
@@ -51,6 +56,7 @@ export const excludedReasonLabel: Record<string, string> = {
   ADDRESS_NOT_VERIFIED: 'Adres onaylı değil ya da onaydan sonra değişti',
   NO_ROAD_NODE: 'Adres onaylı ama yol ağına bağlanmamış',
   UNREACHABLE: 'Depodan bu noktaya gidiş-dönüş yolu yok',
+  EXCEEDS_WORKDAY: 'Tek başına bile çalışma gününe sığmıyor',
 };
 
 /** Tarayıcının yerel günü — UTC değil; Bandırma'da gün 03:00'te dönmesin. */

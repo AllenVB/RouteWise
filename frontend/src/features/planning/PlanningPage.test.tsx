@@ -11,7 +11,7 @@ const optimized = {
   runId: 41, algorithm: 'ROUTEWISE', isApplied: true, totalDistanceM: 24911.47, totalDurationS: 4200,
   totalFuelL: 2.6, totalCostTry: 712.4, priorityPenalty: 3.1, vehicleCount: 2, computationTimeMs: 600, randomSeed: 1234,
   baseline: { runId: 40, algorithm: 'NAIVE', totalDistanceM: 40615.97, totalDurationS: 5900, totalCostTry: 1031.0 },
-  savingsPct: 30.9, distanceSavingsPct: 38.7,
+  savingsPct: 30.9, distanceSavingsPct: 38.7, baselineError: null,
   routes: [{ id: 7, vehicleId: 2, courierId: null, stopCount: 1 }, { id: 8, vehicleId: 3, courierId: null, stopCount: 1 }],
   excluded: [{ shipmentId: 13, orderNumber: 'BND-2026-00012', reason: 'ADDRESS_NOT_VERIFIED' }],
 };
@@ -23,7 +23,7 @@ const detail = {
     id: 7, vehicleId: 2, plate: '10 ABC 002', totalDistanceM: 14000, totalDurationS: 2400, totalLoadKg: 10,
     totalFuelL: 1.6, totalCostTry: 420.5,
     stops: [
-      { id: 1, sequenceNo: 1, shipmentId: 5, orderNumber: 'BND-2026-00004', addressText: 'A', lat: 40.35, lon: 27.97, distanceFromPrevM: 900, durationFromPrevS: 90, eta: null, status: 'BEKLEMEDE' },
+      { id: 1, sequenceNo: 1, shipmentId: 5, orderNumber: 'BND-2026-00004', addressText: 'A', lat: 40.35, lon: 27.97, distanceFromPrevM: 900, durationFromPrevS: 90, eta: '2026-10-30T05:10:00Z', status: 'BEKLEMEDE' },
     ],
     geometry: { type: 'LineString', coordinates: [[27.9767, 40.3521], [27.97, 40.35], [27.9767, 40.3521]] },
   }, {
@@ -101,6 +101,38 @@ describe('PlanningPage', () => {
     renderAt('/firma/planlama', <PlanningPage />);
 
     expect(await screen.findByText('10 ABC 002')).toBeInTheDocument();
+  });
+
+  it('should show planned arrival in depot time (Istanbul)', async () => {
+    server.use(
+      http.get('/api/v1/plans', () => HttpResponse.json(plan)),
+      http.get('/api/v1/plans/3/runs', () => HttpResponse.json([{ runId: 41, isApplied: true }])),
+      http.get('/api/v1/runs/41', () => HttpResponse.json(detail)),
+    );
+    renderAt('/firma/planlama', <PlanningPage />);
+
+    await userEvent.setup().click(await screen.findByText('10 ABC 002'));
+
+    // 05:10Z = 08:10 İstanbul
+    expect(await screen.findByText('08:10')).toBeInTheDocument();
+  });
+
+  it('should still show the optimized result when the baseline could not be built', async () => {
+    server.use(
+      http.get('/api/v1/plans', () => HttpResponse.json(plan)),
+      http.get('/api/v1/plans/3/runs', () => HttpResponse.json([])),
+      http.post('/api/v1/plans/3/optimize', () => HttpResponse.json({
+        ...optimized, baseline: null, savingsPct: null, distanceSavingsPct: null,
+        baselineError: 'Kargo 1025 hiçbir araca sığmıyor.',
+      })),
+      http.get('/api/v1/runs/41', () => HttpResponse.json(detail)),
+    );
+    renderAt('/firma/planlama', <PlanningPage />);
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Optimize et' }));
+
+    expect(await screen.findByText(/karşılaştırma yapılamadı: Kargo 1025/)).toBeInTheDocument();
+    expect(screen.getByText('₺712')).toBeInTheDocument();
   });
 
   it('should continue from the applied run when asked (warm start)', async () => {

@@ -4,6 +4,7 @@ import { ApiError } from '../../lib/apiClient';
 import {
   algorithmLabel,
   excludedReasonLabel,
+  formatClock,
   formatDuration,
   formatKm,
   formatNumber,
@@ -166,7 +167,7 @@ function ResultSummary({ r }: { r: OptimizeResponse }) {
           <span>{algorithmLabel[r.algorithm] ?? r.algorithm} maliyeti</span>
         </div>
         <div className="stat">
-          <b>{r.baseline.totalCostTry === null ? '—' : formatTry(r.baseline.totalCostTry)}</b>
+          <b>{r.baseline?.totalCostTry == null ? '—' : formatTry(r.baseline.totalCostTry)}</b>
           <span>geliş sırasıyla</span>
         </div>
         <div className="stat">
@@ -175,6 +176,11 @@ function ResultSummary({ r }: { r: OptimizeResponse }) {
         </div>
         <div className="stat"><b>{formatKm(r.totalDistanceM)}</b><span>{r.vehicleCount} araç, toplam yol</span></div>
       </div>
+      {r.baseline === null && (
+        <div className="alert warn">
+          Geliş sırasıyla karşılaştırma yapılamadı: {r.baselineError ?? 'bilinmeyen sebep'}
+        </div>
+      )}
       <p className="muted">
         Mesafe tasarrufu %{r.distanceSavingsPct === null ? '—' : formatNumber(r.distanceSavingsPct)}
         {r.totalFuelL !== null && <> · {formatNumber(r.totalFuelL)} L yakıt</>}
@@ -221,11 +227,12 @@ function RouteList({ detail, focus, onFocus }: { detail: RunDetail; focus: numbe
           </summary>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>#</th><th>Sipariş</th><th>Adres</th><th>Önceki duraktan</th></tr></thead>
+              <thead><tr><th>#</th><th>Varış</th><th>Sipariş</th><th>Adres</th><th>Önceki duraktan</th></tr></thead>
               <tbody>
                 {route.stops.map((s) => (
                   <tr key={s.id}>
                     <td>{s.sequenceNo}</td>
+                    <td>{s.eta ? formatClock(s.eta) : '—'}</td>
                     <td>{s.orderNumber}</td>
                     <td>{s.addressText}</td>
                     <td className="muted">{formatKm(s.distanceFromPrevM)} · {formatDuration(s.durationFromPrevS)}</td>

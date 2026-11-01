@@ -140,7 +140,7 @@ export type Algorithm = z.infer<typeof algorithmSchema>;
 export const excludedShipmentSchema = z.object({
   shipmentId: z.number(),
   orderNumber: z.string().nullable(),
-  reason: z.enum(['ADDRESS_NOT_VERIFIED', 'NO_ROAD_NODE', 'UNREACHABLE']),
+  reason: z.enum(['ADDRESS_NOT_VERIFIED', 'NO_ROAD_NODE', 'UNREACHABLE', 'EXCEEDS_WORKDAY']),
 });
 export type ExcludedShipment = z.infer<typeof excludedShipmentSchema>;
 
@@ -158,13 +158,15 @@ export const optimizeResponseSchema = z.object({
   /** Amaçtaki gecikme cezası — para değildir, maliyete eklenmez. */
   priorityPenalty: z.number().nullable(),
   randomSeed: z.number().nullable(),
+  /** Geliş sırası çözümü; sıkı çalışma gününde kurulamayabilir — o zaman null. */
   baseline: z.object({
     runId: z.number(),
     algorithm: algorithmSchema,
     totalDistanceM: z.number(),
     totalDurationS: z.number(),
     totalCostTry: z.number().nullable(),
-  }),
+  }).nullable(),
+  baselineError: z.string().nullable(),
   /** TL maliyet üzerinden, naive baseline'a göre. */
   savingsPct: z.number().nullable(),
   distanceSavingsPct: z.number().nullable(),
@@ -206,6 +208,8 @@ export const runDetailSchema = z.object({
       lon: z.number().nullable(),
       distanceFromPrevM: z.number(),
       durationFromPrevS: z.number(),
+      /** Planlanan varış (ISO-8601, UTC); depo açılışından itibaren. */
+      eta: z.string().nullable(),
     })),
     geometry: z.object({ type: z.literal('LineString'), coordinates: z.array(positionSchema) }).nullable(),
   })),
