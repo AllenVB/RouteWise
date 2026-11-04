@@ -4,10 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 
 import com.routewise.cost.CostParameters;
 import com.routewise.cost.CostParametersRepository;
+import com.routewise.notification.Notification;
+import com.routewise.notification.NotificationRepository;
 import com.routewise.plan.DeliveryPlan;
 import com.routewise.plan.DeliveryPlanRepository;
 import com.routewise.shipment.Shipment;
@@ -30,6 +35,8 @@ class PlanningRepositoriesTest extends PostgisRepositoryTest {
     @Autowired private DeliveryPlanRepository plans;
     @Autowired private OptimizationRunRepository runs;
     @Autowired private PlannedRouteRepository routeRepo;
+    @Autowired private RouteStopRepository stopRepo;
+    @Autowired private NotificationRepository notifications;
     @Autowired private CostParametersRepository costs;
     @Autowired private JdbcTemplate jdbc;
 
@@ -193,6 +200,50 @@ class PlanningRepositoriesTest extends PostgisRepositoryTest {
                 "INSERT INTO route_stops (route_id, shipment_id, sequence_no, status) VALUES (?, ?, 1, 'ULASILAMADI')",
                 routeId, s.getId()))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("Alıcıya giden ETA yalnızca sevk edilmiş planın uygulanan koşusundan; yeniden eskiye")
+    void dispatchedStopsForShipments() {
+        Shipment s = shipment("BND-2026-00030");
+        jdbc.update("INSERT INTO vehicles (depot_id, plate, capacity_kg, fuel_l_per_100km) VALUES (?, '10 E 1', 100, 9)", depotId);
+        Long vehicleId = jdbc.queryForObject("SELECT id FROM vehicles WHERE plate = '10 E 1'", Long.class);
+        DeliveryPlan draft = plans.saveAndFlush(new DeliveryPlan(depotId, DAY, null));
+        DeliveryPlan dispatched = plans.saveAndFlush(new DeliveryPlan(depotId, DAY.plusDays(1), null));
+        jdbc.update("UPDATE delivery_plans SET status = 'SEVK_EDILDI' WHERE id = ?", dispatched.getId());
+        OptimizationRun draftRun = runs.saveAndFlush(run(draft, true));
+        OptimizationRun liveRun = runs.saveAndFlush(run(dispatched, true));
+        String route = "INSERT INTO routes (run_id, vehicle_id) VALUES (?, ?) RETURNING id";
+        String stop = "INSERT INTO route_stops (route_id, shipment_id, sequence_no, eta) VALUES (?, ?, 1, now()) RETURNING id";
+        jdbc.queryForObject(stop, Long.class, jdbc.queryForObject(route, Long.class, draftRun.getId(), vehicleId), s.getId());
+        Long live = jdbc.queryForObject(stop, Long.class, jdbc.queryForObject(route, Long.class, liveRun.getId(), vehicleId), s.getId());
+
+        assertThat(stopRepo.findDispatchedForShipments(List.of(s.getId())))
+                .extracting(RouteStop::getId).containsExactly(live);
+    }
+
+    @Test
+    @DisplayName("Bildirim: JSONB içerik gidip gelir; okundu işareti yalnızca sahibinin satırını değiştirir")
+    void notificationsPayloadAndOwnership() {
+        jdbc.update("INSERT INTO users (email, password_hash, full_name, role) VALUES ('b@ornek.com', 'x', 'B', 'RECIPIENT')");
+        Long a = jdbc.queryForObject("SELECT id FROM users WHERE email = 'a@ornek.com'", Long.class);
+        Long b = jdbc.queryForObject("SELECT id FROM users WHERE email = 'b@ornek.com'", Long.class);
+        var at = Instant.parse("2026-11-03T06:00:00Z");
+        var mineN = notifications.saveAndFlush(new Notification(a, null,
+                Notification.Type.ETA, Notification.Channel.IN_APP,
+                Map.of("orderNumber", "BND-2026-00001", "eta", "2026-11-03T05:25:00Z"), at));
+        var theirs = notifications.saveAndFlush(new Notification(b, null,
+                Notification.Type.ETA, Notification.Channel.IN_APP,
+                Map.of("orderNumber", "BND-2026-00002"), at));
+
+        int changed = notifications.markRead(a, List.of(mineN.getId(), theirs.getId()), at);
+
+        assertThat(changed).isEqualTo(1);
+        assertThat(notifications.countByUserIdAndChannelAndReadAtIsNull(b,
+                Notification.Channel.IN_APP)).isEqualTo(1);
+        // Hibernate önbelleğini değil gerçekten veritabanındaki JSONB'yi oku
+        assertThat(jdbc.queryForObject("SELECT payload->>'eta' FROM notifications WHERE id = ?",
+                String.class, mineN.getId())).isEqualTo("2026-11-03T05:25:00Z");
     }
 
     private static OptimizationRun run(DeliveryPlan plan, boolean applied) {

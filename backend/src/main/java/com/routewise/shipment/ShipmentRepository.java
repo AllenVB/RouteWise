@@ -16,6 +16,8 @@ public interface ShipmentRepository
 
     boolean existsByAddressId(Long addressId);
 
+    List<Shipment> findByRecipientIdOrderByCreatedAtDesc(Long recipientId);
+
     /**
      * Whether the shipment appears in any stored optimization run.
      *
