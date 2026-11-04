@@ -338,5 +338,6 @@ Bu belge **sözleşmedir**; uçların gövdeleri Faz 2'den itibaren yazılır.
 | ✅ Faz 2 (öne alındı) | `/me/addresses` GET/POST/PUT — adres oluşturan başka uç yok, Faz 2 DoD'si bunu gerektiriyor |
 | ✅ Faz 3 | çok araç + maliyet, `/plans/{id}/dispatch` (otomatik kurye ataması), `GET /routes/{id}` |
 | ✅ Faz 4 | `/courier/route?date=&courierId=` (firma courierId ile okur), `/courier/stops/{id}`, `.../deliver`, `.../fail` `{reason}` |
-| Faz 4 | `/me/**` (kalanlar), `/courier/route/changes` (Faz 5) |
+| ✅ Faz 4 | `/me/shipments`, `/me/shipments/{id}`, `/me/notifications`, `/me/notifications/read` `{ids}` / `{all:true}` |
+| Faz 5 | `/me/shipments/{id}/postpone`, `/courier/route/changes` |
 | Faz 6 | `/compare/**`, `/analytics/**` |
