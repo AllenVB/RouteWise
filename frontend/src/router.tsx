@@ -3,6 +3,9 @@ import { AppShell, type NavItem } from './components/layout/AppShell';
 import { LoginPage } from './features/auth/LoginPage';
 import { RequireRole } from './features/auth/RequireRole';
 import { CourierStopPage } from './features/courier/CourierStopPage';
+import { MyShipmentDetailPage, MyShipmentsPage } from './features/recipient/MyShipmentsPage';
+import { NotificationsPage } from './features/recipient/NotificationsPage';
+import { RecipientShell } from './features/recipient/RecipientShell';
 import { NewShipmentPage } from './features/shipments/NewShipmentPage';
 import { ShipmentListPage } from './features/shipments/ShipmentListPage';
 
@@ -22,7 +25,6 @@ const companyNav: NavItem[] = [
   { to: '/firma/dogrulama', label: 'Adres doğrulama' },
   { to: '/firma/planlama', label: 'Rota planlama' },
 ];
-const recipientNav: NavItem[] = [{ to: '/alici/adresler', label: 'Adreslerim' }];
 const courierNav: NavItem[] = [{ to: '/kurye', label: 'Bugünkü rotam' }];
 
 export const router = createBrowserRouter([
@@ -40,10 +42,13 @@ export const router = createBrowserRouter([
   },
   {
     path: '/alici',
-    element: <RequireRole role="RECIPIENT"><AppShell nav={recipientNav} /></RequireRole>,
+    element: <RequireRole role="RECIPIENT"><RecipientShell /></RequireRole>,
     children: [
-      { index: true, element: <Navigate to="adresler" replace /> },
+      { index: true, element: <Navigate to="kargolar" replace /> },
+      { path: 'kargolar', element: <MyShipmentsPage /> },
+      { path: 'kargolar/:id', element: <MyShipmentDetailPage /> },
       { path: 'adresler', lazy: myAddresses, hydrateFallbackElement: loading },
+      { path: 'bildirimler', element: <NotificationsPage /> },
     ],
   },
   {

@@ -10,7 +10,7 @@ import { LoginPage } from './LoginPage';
 function renderLogin() {
   return renderAt('/giris', <LoginPage />, [
     { path: '/firma/kargolar', text: 'firma ana sayfası' },
-    { path: '/alici/adresler', text: 'alıcı ana sayfası' },
+    { path: '/alici/kargolar', text: 'alıcı ana sayfası' },
   ]);
 }
 

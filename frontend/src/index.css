@@ -85,6 +85,7 @@ tr.selectable:hover, tr.selected { background: var(--info-bg); }
 .alert.danger { background: var(--danger-bg); color: var(--danger); }
 .alert.warn { background: var(--warn-bg); color: var(--warn); }
 .alert.ok { background: var(--ok-bg); color: var(--ok); }
+.alert.info { background: var(--info-bg); color: var(--primary); }
 .alert ul { margin: 4px 0 0; padding-left: 18px; }
 .empty { text-align: center; color: var(--muted); padding: 32px 12px; font-size: 14px; }
 

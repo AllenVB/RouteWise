@@ -5,7 +5,7 @@ export function homeOf(role: Role): string {
     case 'COMPANY':
       return '/firma/kargolar';
     case 'RECIPIENT':
-      return '/alici/adresler';
+      return '/alici/kargolar';
     case 'COURIER':
       return '/kurye';
   }
