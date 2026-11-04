@@ -4,13 +4,18 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.routewise.address.AddressDtos.CreateAddressRequest;
 import com.routewise.address.AddressDtos.ValidationResult;
 import com.routewise.common.error.ApiException;
 import com.routewise.common.error.ErrorCode;
 import com.routewise.common.geo.Points;
+import com.routewise.notification.Notification;
+import com.routewise.notification.NotificationService;
+import com.routewise.recipient.RecipientRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,13 +31,18 @@ public class AddressService {
     private final AddressValidator validator;
     private final AddressValidationProperties props;
     private final Clock clock;
+    private final RecipientRepository recipients;
+    private final NotificationService notifications;
 
     public AddressService(AddressRepository addresses, AddressValidator validator,
-                          AddressValidationProperties props, Clock clock) {
+                          AddressValidationProperties props, Clock clock,
+                          RecipientRepository recipients, NotificationService notifications) {
         this.addresses = addresses;
         this.validator = validator;
         this.props = props;
         this.clock = clock;
+        this.recipients = recipients;
+        this.notifications = notifications;
     }
 
     /** Kaydetmeden değerlendirme — haritaya tıklandığı anda geri bildirim için. */
@@ -105,6 +115,7 @@ public class AddressService {
             return address;   // zaten onaylı; tekrar onaylamak hata değil
         }
         address.verify(verifierUserId);
+        notifyOwner(address, "DOGRULANDI", null);
         log.info("adres {} onaylandi (kullanici {})", addressId, verifierUserId);
         return address;
     }
@@ -113,6 +124,7 @@ public class AddressService {
     public Address reject(Long addressId, Long verifierUserId, String reason) {
         Address address = get(addressId);
         address.reject(verifierUserId, reason);
+        notifyOwner(address, "REDDEDILDI", reason);
         log.info("adres {} reddedildi: {}", addressId, reason);
         return address;
     }
@@ -131,6 +143,18 @@ public class AddressService {
                 ? ErrorCode.TOO_FAR_FROM_ROAD
                 : ErrorCode.OUTSIDE_SERVICE_AREA;
         throw new ApiException(code, String.join(" ", result.blockers()));
+    }
+
+    /** Alıcı adresinin sonucunu öğrensin; red sebebi olmadan neyi düzelteceğini bilemez. */
+    private void notifyOwner(Address address, String result, String reason) {
+        recipients.findById(address.getRecipientId()).ifPresent(r -> {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("addressId", address.getId());
+            payload.put("addressText", address.getAddressText());
+            payload.put("result", result);
+            payload.put("reason", reason);
+            notifications.notify(r.getUserId(), null, Notification.Type.DOGRULAMA, payload);
+        });
     }
 
     private static BigDecimal round(Double meters) {

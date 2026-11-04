@@ -1,6 +1,7 @@
 package com.routewise.plan;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -10,6 +11,10 @@ import com.routewise.common.error.ApiException;
 import com.routewise.common.error.ErrorCode;
 import com.routewise.courier.Courier;
 import com.routewise.courier.CourierRepository;
+import com.routewise.notification.Notification;
+import com.routewise.notification.NotificationService;
+import com.routewise.recipient.Recipient;
+import com.routewise.recipient.RecipientRepository;
 import com.routewise.optimization.OptimizationRun;
 import com.routewise.optimization.OptimizationRunRepository;
 import com.routewise.optimization.PlannedRoute;
@@ -50,11 +55,14 @@ public class DispatchService {
     private final ShipmentRepository shipments;
     private final CourierRepository couriers;
     private final UserRepository users;
+    private final RecipientRepository recipients;
+    private final NotificationService notifications;
 
     public DispatchService(DeliveryPlanRepository plans, OptimizationRunRepository runs,
                            PlannedRouteRepository routes, RouteStopRepository stops,
                            ShipmentRepository shipments, CourierRepository couriers,
-                           UserRepository users) {
+                           UserRepository users, RecipientRepository recipients,
+                           NotificationService notifications) {
         this.plans = plans;
         this.runs = runs;
         this.routes = routes;
@@ -62,6 +70,8 @@ public class DispatchService {
         this.shipments = shipments;
         this.couriers = couriers;
         this.users = users;
+        this.recipients = recipients;
+        this.notifications = notifications;
     }
 
     public record DispatchedRoute(Long routeId, Long vehicleId, Long courierId, String courierName, int stopCount) {}
@@ -118,8 +128,28 @@ public class DispatchService {
             result.add(new DispatchedRoute(route.getId(), route.getVehicleId(), courier.getId(), name, rs.size()));
         }
         plan.markDispatched();
+        notifyRecipients(plan, byRoute, byId);
 
         log.info("plan {} sevk edildi: kosu {}, {} rota, {} kargo", planId, run.getId(), result.size(), shipmentIds.size());
         return new DispatchResult(planId, plan.getStatus(), run.getId(), result);
+    }
+
+    /** Her alıcıya kargosunun tahmini teslim saati — aynı transaction'da, sevk geri alınırsa o da yok. */
+    private void notifyRecipients(DeliveryPlan plan, Map<Long, List<RouteStop>> byRoute, Map<Long, Shipment> byId) {
+        Map<Long, Long> userOf = recipients.findAllById(
+                        byId.values().stream().map(Shipment::getRecipientId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Recipient::getId, Recipient::getUserId));
+        byRoute.values().stream().flatMap(List::stream).forEach(stop -> {
+            Shipment s = byId.get(stop.getShipmentId());
+            Long userId = userOf.get(s.getRecipientId());
+            if (userId == null) {
+                return;     // alıcı profili silinmiş; bildirecek kimse yok
+            }
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("orderNumber", s.getOrderNumber());
+            payload.put("planDate", plan.getPlanDate().toString());
+            payload.put("eta", stop.getEta() == null ? null : stop.getEta().toString());
+            notifications.notify(userId, s.getId(), Notification.Type.ETA, payload);
+        });
     }
 }

@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +17,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import com.routewise.address.AddressDtos.Coordinate;
@@ -24,8 +26,13 @@ import com.routewise.address.AddressDtos.ValidationResult;
 import com.routewise.common.error.ApiException;
 import com.routewise.common.error.ErrorCode;
 import com.routewise.common.geo.Points;
+import com.routewise.notification.Notification;
+import com.routewise.notification.NotificationService;
+import com.routewise.recipient.Recipient;
+import com.routewise.recipient.RecipientRepository;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -49,6 +56,8 @@ class AddressServiceTest {
 
     private AddressRepository addresses;
     private AddressValidator validator;
+    private final RecipientRepository recipients = mock(RecipientRepository.class);
+    private final NotificationService notifications = mock(NotificationService.class);
     private Address address;
 
     @BeforeEach
@@ -67,7 +76,8 @@ class AddressServiceTest {
     private AddressService serviceAt(String istanbulLocalDateTime) {
         Instant now = java.time.LocalDateTime.parse(istanbulLocalDateTime).atZone(ISTANBUL).toInstant();
         return new AddressService(addresses, validator,
-                new AddressValidationProperties(50.0, 5000.0, 2), Clock.fixed(now, ISTANBUL));
+                new AddressValidationProperties(50.0, 5000.0, 2), Clock.fixed(now, ISTANBUL),
+                recipients, notifications);
     }
 
     @Nested
@@ -170,6 +180,50 @@ class AddressServiceTest {
     @Nested
     @DisplayName("verify / reject")
     class VerifyReject {
+
+        private void ownerIsUser(long userId) {
+            Recipient r = mock(Recipient.class);
+            when(r.getUserId()).thenReturn(userId);
+            when(recipients.findById(12L)).thenReturn(Optional.of(r));
+        }
+
+        @Test
+        @DisplayName("Onay alıcıya DOGRULAMA bildirimi gönderir")
+        @SuppressWarnings("unchecked")
+        void verifyNotifiesOwner() {
+            ownerIsUser(3L);
+
+            serviceAt("2026-10-30T10:00").verify(31L, 1L);
+
+            var payload = ArgumentCaptor.forClass(Map.class);
+            verify(notifications).notify(eq(3L), eq(null), eq(Notification.Type.DOGRULAMA), payload.capture());
+            assertThat(payload.getValue()).containsEntry("result", "DOGRULANDI");
+        }
+
+        @Test
+        @DisplayName("Ret sebebiyle bildirilir — alıcı neyi düzelteceğini bilmeli")
+        @SuppressWarnings("unchecked")
+        void rejectNotifiesWithReason() {
+            ownerIsUser(3L);
+
+            serviceAt("2026-10-30T10:00").reject(31L, 1L, "Yanlış mahalle");
+
+            var payload = ArgumentCaptor.forClass(Map.class);
+            verify(notifications).notify(eq(3L), eq(null), eq(Notification.Type.DOGRULAMA), payload.capture());
+            assertThat(payload.getValue()).containsEntry("result", "REDDEDILDI").containsEntry("reason", "Yanlış mahalle");
+        }
+
+        @Test
+        @DisplayName("Zaten onaylı adres tekrar onaylanınca ikinci bildirim gitmez")
+        void verifyTwiceNotifiesOnce() {
+            ownerIsUser(3L);
+            AddressService service = serviceAt("2026-10-30T10:00");
+
+            service.verify(31L, 1L);
+            service.verify(31L, 2L);
+
+            verify(notifications, times(1)).notify(any(), any(), any(), any());
+        }
 
         @Test
         @DisplayName("Zaten onaylı adresi tekrar onaylamak hata değildir ve onaylayanı değiştirmez")
