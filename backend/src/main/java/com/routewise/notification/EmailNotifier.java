@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 
 import com.routewise.notification.Notification.Channel;
 import com.routewise.user.UserRepository;
@@ -63,9 +64,13 @@ public class EmailNotifier {
     String[] render(NotificationService.Created e) {
         Object order = e.payload().getOrDefault("orderNumber", "");
         return switch (e.type()) {
-            case ETA -> new String[] {
-                    "Kargonuz bugün yola çıkıyor",
-                    "%s numaralı kargonuzun tahmini teslim saati %s.".formatted(order, clockOf(e.payload().get("eta")))};
+            case ETA -> Boolean.TRUE.equals(e.payload().get("updated"))
+                    ? new String[] {"Tahmini teslim saatiniz değişti",
+                            "Kuryenin rotası güncellendi; %s numaralı kargonuzun yeni tahmini teslim saati %s."
+                                    .formatted(order, clockOf(e.payload().get("eta")))}
+                    : new String[] {"Kargonuz bugün yola çıkıyor",
+                            "%s numaralı kargonuzun tahmini teslim saati %s."
+                                    .formatted(order, clockOf(e.payload().get("eta")))};
             case DOGRULAMA -> "DOGRULANDI".equals(e.payload().get("result"))
                     ? new String[] {"Adresiniz onaylandı",
                             "\"%s\" adresiniz onaylandı; kargolarınız bu adrese planlanabilir."
@@ -73,10 +78,24 @@ public class EmailNotifier {
                     : new String[] {"Adresiniz onaylanmadı",
                             "\"%s\" adresiniz onaylanmadı. Sebep: %s. Konumu düzeltip yeniden gönderebilirsiniz."
                                     .formatted(e.payload().get("addressText"), e.payload().get("reason"))};
-            case ERTELEME -> new String[] {"Kargonuz ertelendi", "%s numaralı kargonuz ertelendi.".formatted(order)};
-            case ROTA_DEGISTI -> new String[] {"Teslimat planınız değişti",
-                    "%s numaralı kargonuzun teslim planı değişti.".formatted(order)};
+            case ERTELEME -> new String[] {"Kargonuz ertelendi", postponed(order, e.payload())};
+            // Kuryeye giden yükte rota kimliği var; alıcıya gidende yok.
+            case ROTA_DEGISTI -> e.payload().containsKey("routeId")
+                    ? new String[] {"Rotanız güncellendi",
+                            "%s numaralı kargo rotanızdan çıktı. Kalan durak: %s. Sırayı uygulamadan kontrol edin."
+                                    .formatted(order, e.payload().get("openStops"))}
+                    : new String[] {"Teslimat planınız değişti",
+                            "%s numaralı kargonuzun teslim planı değişti.".formatted(order)};
         };
+    }
+
+    private static String postponed(Object order, Map<String, Object> payload) {
+        Object day = payload.get("postponedTo");
+        String when = day == null ? "" : " " + day + " tarihine";
+        String why = "EXCEEDS_WORKDAY".equals(payload.get("reason"))
+                ? " Kurye bugün mesai içinde adresinize ulaşamayacaktı."
+                : "";
+        return "%s numaralı kargonuz%s ertelendi.%s".formatted(order, when, why);
     }
 
     private String clockOf(Object iso) {

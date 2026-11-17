@@ -177,7 +177,8 @@ export type OptimizeResponse = z.infer<typeof optimizeResponseSchema>;
 
 const positionSchema = z.tuple([z.number(), z.number()]);   // [boylam, enlem]
 
-export const stopStatusSchema = z.enum(['BEKLEMEDE', 'TESLIM_EDILDI', 'ULASILAMADI']);
+// ERTELENDI: rotadan çıkarıldı (alıcı erteledi ya da kalan güne sığmadı); kuryenin uğramadığı durak.
+export const stopStatusSchema = z.enum(['BEKLEMEDE', 'TESLIM_EDILDI', 'ULASILAMADI', 'ERTELENDI']);
 export type StopStatus = z.infer<typeof stopStatusSchema>;
 
 export const stopDetailSchema = z.object({

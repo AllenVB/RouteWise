@@ -19,12 +19,13 @@ from app.schemas.optimize import MatrixIn
 client = TestClient(app)
 
 # Düğüm -> x konumu (x100 m). Depo 10; kargolar: 501@13 (x=5), 502@11 (x=1), 503@12 (x=3)
-X = {10: 0, 11: 1, 12: 3, 13: 5}
+X = {10: 0, 11: 1, 12: 3, 13: 5, 14: 6}   # 14: kuryenin yoldaki konumu (yeniden rotalama)
+VARSAYILAN = (10, 11, 12, 13)
 
 
 def matris(dugumler=None, *, kopuk=()):
     """Doğru üzerinde mesafe; `kopuk` düğümlerine giden ve onlardan gelen yol yok."""
-    ids = sorted(dugumler or X)
+    ids = sorted(dugumler or VARSAYILAN)
 
     def hucre(a, b, olcek):
         if a != b and (a in kopuk or b in kopuk):
@@ -237,3 +238,35 @@ def test_baseline_null_reports_reason_instead_of_failing():
     ok = post(istek()).json()
     alt = OptimizeResponse.model_validate({**ok, "baseline": None, "baselineError": "sığmıyor"})
     assert alt.baseline is None and alt.baseline_error == "sığmıyor"
+
+
+# --- Faz 5: yolda yeniden rotalama — araç son kapanan duraktan çıkar, depoya döner ---
+
+
+def test_route_starts_at_start_node_and_returns_to_depot():
+    # 14 (x=6) -> 13 -> 12 -> 11 -> depo: 100 + 200 + 200 + 100 m
+    r = post(istek(matrix=matris(X), startNodeId=14)).json()["result"]["routes"][0]
+    assert [s["stopId"] for s in r["stops"]] == [501, 503, 502]
+    assert r["stops"][0]["distanceFromPrevM"] == 100.0
+    assert r["stops"][0]["arrivalS"] == 10.0
+    assert r["returnDistanceM"] == 100.0
+    assert r["totalDistanceM"] == 600.0
+
+
+def test_start_node_equal_to_depot_behaves_like_no_start():
+    ilk = post(istek()).json()
+    ayni = post(istek(startNodeId=10)).json()
+    assert ayni["result"]["routes"] == ilk["result"]["routes"]
+    assert ayni["baseline"]["routes"] == ilk["baseline"]["routes"]
+
+
+def test_workday_limit_counts_from_start_node():
+    # Başlangıçtan kalan tur 60 sn; depodan kurulsaydı 100 sn sürerdi.
+    yoldan = post(istek(matrix=matris(X), startNodeId=14, maxRouteDurationS=60)).json()
+    assert yoldan["unassigned"] == []
+    assert yoldan["result"]["totalDurationS"] == 60.0
+    assert post(istek(maxRouteDurationS=60)).json()["result"]["totalDurationS"] <= 60.0
+
+
+def test_start_node_missing_from_matrix_is_422():
+    assert post(istek(startNodeId=99)).status_code == 422

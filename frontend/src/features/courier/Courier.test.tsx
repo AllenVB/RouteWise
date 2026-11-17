@@ -47,6 +47,18 @@ describe('courier screens', () => {
       expect(screen.getByTestId('map-markers')).toHaveTextContent('D,1,2,3');
     });
 
+    it('should leave a postponed stop out of progress and the map', async () => {
+      server.use(http.get('/api/v1/courier/route', () => HttpResponse.json(route([
+        stop(1, 1, 'TESLIM_EDILDI'), stop(3, 2, 'BEKLEMEDE'), stop(2, 3, 'ERTELENDI', { eta: null }),
+      ]))));
+      renderAt('/kurye', <CourierRoutePage />);
+
+      expect(await screen.findByText('1/2 tamamlandı')).toBeInTheDocument();
+      expect(screen.getByText(/Sıradaki durak · 2\. durak/)).toBeInTheDocument();
+      expect(screen.getByText('Ertelendi · rotadan çıktı')).toBeInTheDocument();
+      expect(screen.getByTestId('map-markers')).toHaveTextContent('D,1,2');
+    });
+
     it('should say the day is done when every stop is closed', async () => {
       server.use(http.get('/api/v1/courier/route', () => HttpResponse.json(route([
         stop(1, 1, 'TESLIM_EDILDI'), stop(2, 2, 'ULASILAMADI', { failureReason: 'Kimse yok' }),

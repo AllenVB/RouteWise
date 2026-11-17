@@ -9,6 +9,11 @@ uğraşmaz ve aynı düğüme düşen iki kargo (aynı apartman) doğal olarak a
 
 Ulaşılamaz çift `inf` ile temsil edilir, büyük bir sayıyla değil
 (bkz. `matrix/builder.py:_json_safe`).
+
+Yolda yeniden rotalama (Faz 5): araç depodan değil kuryenin son kapattığı
+duraktan çıkar ama yine depoya döner. Bunun için 0 indeksi iki yüzlüdür:
+satırı (0 -> x) başlangıç düğümünden, sütunu (x -> 0) depodan okunur. Matris
+zaten asimetrik desteklendiğinden algoritmaların hiçbiri değişmez.
 """
 
 from __future__ import annotations
@@ -70,6 +75,8 @@ class Problem:
     costs: CostParams | None = None
     # Çalışma günü: rota süresi (yol + teslim + depoya dönüş) bunu aşamaz. None: sınır yok.
     max_duration_s: float | None = None
+    # Araçların yola çıktığı düğüm; None ise depo. Dönüş her zaman depoya.
+    start_node_id: int | None = None
 
     @property
     def size(self) -> int:
@@ -138,19 +145,28 @@ class Problem:
         vehicles: Sequence[Vehicle],
         costs: CostParams | None = None,
         max_duration_s: float | None = None,
+        start_node_id: int | None = None,
     ) -> Problem:
-        """Düğüm sıralı matristen problem indeksli matrise."""
+        """
+        Düğüm sıralı matristen problem indeksli matrise.
+
+        `start_node_id` verilirse 0 indeksinin satırı o düğümden, sütunu depodan
+        alınır: 0 -> x "kuryenin bulunduğu yerden x'e", x -> 0 "x'ten depoya".
+        """
         pos = {int(n): i for i, n in enumerate(node_ids)}
-        order = [depot_node_id, *(s.node_id for s in stops)]
-        idx = np.array([pos[n] for n in order], dtype=np.int64)
+        stop_pos = [pos[s.node_id] for s in stops]
+        start = depot_node_id if start_node_id is None else start_node_id
+        rows = np.array([pos[start], *stop_pos], dtype=np.int64)
+        cols = np.array([pos[depot_node_id], *stop_pos], dtype=np.int64)
         return cls(
             depot_node_id=depot_node_id,
             stops=tuple(stops),
             vehicles=tuple(vehicles),
-            distance=_to_array(distance_m)[np.ix_(idx, idx)],
-            duration=_to_array(duration_s)[np.ix_(idx, idx)],
+            distance=_to_array(distance_m)[np.ix_(rows, cols)],
+            duration=_to_array(duration_s)[np.ix_(rows, cols)],
             costs=costs,
             max_duration_s=max_duration_s,
+            start_node_id=start_node_id,
         )
 
 

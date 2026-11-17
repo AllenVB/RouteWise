@@ -56,6 +56,7 @@ export const stopStatusLabel: Record<string, { text: string; tone: string }> = {
   BEKLEMEDE: { text: 'Bekliyor', tone: 'info' },
   TESLIM_EDILDI: { text: 'Teslim edildi', tone: 'ok' },
   ULASILAMADI: { text: 'Ulaşılamadı', tone: 'danger' },
+  ERTELENDI: { text: 'Ertelendi · rotadan çıktı', tone: 'warn' },
 };
 
 export const excludedReasonLabel: Record<string, string> = {

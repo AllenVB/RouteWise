@@ -90,6 +90,10 @@ class OptimizeRequest(CamelModel):
         None, gt=0, description="Çalışma günü: rota süresi (yol + teslim + dönüş) bunu aşamaz.")
     warm_start: list[WarmRouteIn] | None = Field(
         None, description="Önceki uygulanan koşu; yalnızca ROUTEWISE. Bilinmeyen kargolar yok sayılır.")
+    start_node_id: int | None = Field(
+        None, description="Yolda yeniden rotalama: araçlar bu düğümden çıkar (kuryenin son kapattığı "
+                          "durak), depoya döner. arrivalS ve maxRouteDurationS buradan çıkışa göredir. "
+                          "Verilmezse depo.")
 
     @model_validator(mode="after")
     def _tutarli(self) -> OptimizeRequest:
@@ -100,7 +104,10 @@ class OptimizeRequest(CamelModel):
         if len(set(vids)) != len(vids):
             raise ValueError("vehicles tekrar eden araç kimliği içeriyor")
         bilinen = set(self.matrix.node_ids)
-        eksik = sorted({self.depot_node_id, *(s.node_id for s in self.stops)} - bilinen)
+        gerekli = {self.depot_node_id, *(s.node_id for s in self.stops)}
+        if self.start_node_id is not None:
+            gerekli.add(self.start_node_id)
+        eksik = sorted(gerekli - bilinen)
         if eksik:
             raise ValueError(f"matriste olmayan düğümler: {eksik[:10]}")
         return self
@@ -121,6 +128,7 @@ class OptimizeRequest(CamelModel):
                 driver_cost_per_hour=self.cost_params.driver_cost_per_hour,
                 priority_penalty=self.cost_params.priority_penalty),
             max_duration_s=self.max_route_duration_s,
+            start_node_id=self.start_node_id,
         )
 
     def anneal_params(self) -> AnnealParams:

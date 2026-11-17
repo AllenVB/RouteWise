@@ -23,7 +23,6 @@ import com.routewise.optimization.RouteStop;
 import com.routewise.optimization.RouteStopRepository;
 import com.routewise.shipment.Shipment;
 import com.routewise.shipment.ShipmentRepository;
-import com.routewise.shipment.ShipmentStatus;
 import com.routewise.user.UserRepository;
 
 import org.slf4j.Logger;
@@ -108,8 +107,9 @@ public class DispatchService {
 
         // Optimizasyondan sonra yola çıkmış ya da teslim edilmiş bir kargo rotada
         // kalamaz; sessizce atlamak yerine yeniden optimizasyon istenir.
+        // Koşudan sonra başka bir güne ertelenen kargo da bu günün rotasına giremez.
         List<String> stale = byId.values().stream()
-                .filter(s -> s.getStatus() != ShipmentStatus.BEKLEMEDE && s.getStatus() != ShipmentStatus.ERTELENDI)
+                .filter(s -> !s.isPlannableOn(plan.getPlanDate()))
                 .map(Shipment::getOrderNumber).sorted().toList();
         if (!stale.isEmpty() || byId.size() != shipmentIds.size()) {
             throw new ApiException(ErrorCode.PLAN_NOT_OPTIMIZED,

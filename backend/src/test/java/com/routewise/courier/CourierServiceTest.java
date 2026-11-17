@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +34,7 @@ import com.routewise.optimization.RunService;
 import com.routewise.plan.DeliveryPlan;
 import com.routewise.plan.DeliveryPlanRepository;
 import com.routewise.plan.PlanStatus;
+import com.routewise.plan.RouteCompletion;
 import com.routewise.shipment.Shipment;
 import com.routewise.shipment.ShipmentRepository;
 import com.routewise.shipment.ShipmentStatus;
@@ -42,6 +44,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class CourierServiceTest {
@@ -56,8 +59,8 @@ class CourierServiceTest {
     private final DeliveryPlanRepository plans = mock(DeliveryPlanRepository.class);
     private final ShipmentRepository shipments = mock(ShipmentRepository.class);
     private final RunService runService = mock(RunService.class);
-    private final CourierService service = new CourierService(couriers, routes, stops, runs, plans, shipments,
-            runService, Clock.fixed(NOW, ZoneId.of("Europe/Istanbul")));
+    private final CourierService service = new CourierService(couriers, routes, stops, shipments,
+            runService, new RouteCompletion(runs, routes, plans), Clock.fixed(NOW, ZoneId.of("Europe/Istanbul")));
 
     private PlannedRoute route;
     private RouteStop first;
@@ -88,6 +91,8 @@ class CourierServiceTest {
 
         when(stops.findById(101L)).thenReturn(Optional.of(first));
         when(stops.findById(102L)).thenReturn(Optional.of(second));
+        when(stops.findRouteIdOf(101L)).thenReturn(Optional.of(7L));
+        when(stops.findRouteIdOf(102L)).thenReturn(Optional.of(7L));
         when(routes.lockById(7L)).thenReturn(Optional.of(route));
         when(routes.findById(7L)).thenReturn(Optional.of(route));
         when(routes.findByRunIdOrderByIdAsc(50L)).thenReturn(List.of(route));
@@ -154,6 +159,16 @@ class CourierServiceTest {
 
             assertThatThrownBy(() -> service.deliver(ME, 101L))
                     .extracting(e -> ((ApiException) e).code()).isEqualTo(ErrorCode.STOP_ALREADY_CLOSED);
+        }
+
+        @Test
+        @DisplayName("Rota kilidi durak okunmadan alınır — eşzamanlı ikinci dokunuş kapanmış durağı görür")
+        void shouldLockRouteBeforeReadingStop() {
+            service.deliver(ME, 101L);
+
+            InOrder order = inOrder(routes, stops);
+            order.verify(routes).lockById(7L);
+            order.verify(stops).findById(101L);
         }
 
         @Test

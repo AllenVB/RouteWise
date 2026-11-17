@@ -159,7 +159,8 @@ public class OptimizationService {
                         price.getPriorityPenalty().doubleValue()),
                 r.randomSeed(),
                 warm,
-                depot.getMaxRouteDurationMin() * 60.0));
+                depot.getMaxRouteDurationMin() * 60.0,
+                null));
 
         // Rotalar depo açılışında, depo saat diliminde (İstanbul) yola çıkar.
         Instant departure = ZonedDateTime.of(plan.getPlanDate(), depot.getOpeningTime(), clock.getZone()).toInstant();

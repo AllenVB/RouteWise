@@ -181,4 +181,26 @@ class DispatchServiceTest {
                 .extracting(e -> ((ApiException) e).code()).isEqualTo(ErrorCode.PLAN_NOT_OPTIMIZED);
         assertThat(s1.getStatus()).isEqualTo(ShipmentStatus.BEKLEMEDE);
     }
+
+    @Test
+    @DisplayName("Koşudan sonra plan gününden sonraya ertelenen kargo varsa sevk durur")
+    void shouldRejectDispatchWhenShipmentPostponedPastPlanDay() {
+        s2.postponeTo(plan.getPlanDate().plusDays(1));
+
+        assertThatThrownBy(() -> service.dispatch(3L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("BND-2026-00052")
+                .extracting(e -> ((ApiException) e).code()).isEqualTo(ErrorCode.PLAN_NOT_OPTIMIZED);
+    }
+
+    @Test
+    @DisplayName("Plan gününe ya da öncesine ertelenmiş kargo sevk edilir")
+    void shouldDispatchShipmentPostponedToPlanDay() {
+        s2.postponeTo(plan.getPlanDate());
+
+        service.dispatch(3L);
+
+        assertThat(s2.getStatus()).isEqualTo(ShipmentStatus.PLANLANDI);
+        assertThat(s2.getPostponedTo()).isNull();
+    }
 }

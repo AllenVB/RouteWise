@@ -15,14 +15,16 @@ export function CourierRoutePage() {
   const route = useMyRoute();
   const r = route.data?.routes[0];
   const next = r?.stops.find((s) => s.status === 'BEKLEMEDE') ?? null;
-  const closed = r ? r.stops.filter((s) => s.status !== 'BEKLEMEDE').length : 0;
+  // Ertelenen durağa uğranmaz: ne "tamamlandı" sayılır ne toplamda yer alır.
+  const visits = r ? r.stops.filter((s) => s.status !== 'ERTELENDI') : [];
+  const closed = visits.filter((s) => s.status !== 'BEKLEMEDE').length;
 
   const { markers, lines } = useMemo(() => {
     const d = route.data;
     if (!d || !r) return { markers: [] as MapMarker[], lines: [] as MapLine[] };
     const ms: MapMarker[] = [{ id: 'depot', lat: d.depot.lat, lon: d.depot.lon, label: 'D', tone: 'depot', title: d.depot.name }];
     for (const s of r.stops) {
-      if (s.lat === null || s.lon === null) continue;
+      if (s.lat === null || s.lon === null || s.status === 'ERTELENDI') continue;
       ms.push({
         id: s.id, lat: s.lat, lon: s.lon, label: String(s.sequenceNo),
         // Kapanan duraklar soluk, sıradaki vurgulu
@@ -50,10 +52,10 @@ export function CourierRoutePage() {
         <div>
           <h1>Bugünkü rotam</h1>
           <p className="muted">
-            {r.plate ?? `Araç ${r.vehicleId}`} · {r.stops.length} durak · {formatKm(r.totalDistanceM)} · {formatDuration(r.totalDurationS)}
+            {r.plate ?? `Araç ${r.vehicleId}`} · {visits.length} durak · {formatKm(r.totalDistanceM)} · {formatDuration(r.totalDurationS)}
           </p>
         </div>
-        <Badge text={`${closed}/${r.stops.length} tamamlandı`} tone={closed === r.stops.length ? 'ok' : 'info'} />
+        <Badge text={`${closed}/${visits.length} tamamlandı`} tone={closed === visits.length ? 'ok' : 'info'} />
       </div>
 
       {next ? (

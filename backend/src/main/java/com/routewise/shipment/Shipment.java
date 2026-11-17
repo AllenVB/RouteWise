@@ -119,6 +119,12 @@ public class Shipment {
         this.updatedAt = Instant.now();
     }
 
+    /** Same rule as {@code ShipmentRepository.findPlannableOn}: waiting, or postponed to that day or earlier. */
+    public boolean isPlannableOn(LocalDate date) {
+        return status == ShipmentStatus.BEKLEMEDE
+                || (status == ShipmentStatus.ERTELENDI && postponedTo != null && !postponedTo.isAfter(date));
+    }
+
     public void postponeTo(LocalDate date) {
         this.status = ShipmentStatus.ERTELENDI;
         this.postponedTo = date;

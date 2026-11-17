@@ -58,6 +58,7 @@ söyler, özür dilemez.
 | 409 | `NOT_ENOUGH_COURIERS` | Rota sayısı kadar müsait kurye yok |
 | 409 | `SHIPMENT_IN_RUN_HISTORY` | Kargo kayıtlı bir koşuda geçiyor; ölçüm geçmişi korunur, silinemez |
 | 409 | `STOP_ALREADY_CLOSED` | Durak zaten teslim edildi ya da ulaşılamadı olarak kapatıldı |
+| 409 | `SHIPMENT_NOT_POSTPONABLE` | Teslim edilmiş kargo ertelenmek istendi ya da kurye durağı az önce kapattı |
 | 422 | `OUTSIDE_SERVICE_AREA` | Nokta Bandırma sınırı dışında |
 | 422 | `TOO_FAR_FROM_ROAD` | Nokta en yakın yola eşikten uzak |
 | 502 | `OPTIMIZER_UNAVAILABLE` | Python servisine ulaşılamıyor |
@@ -153,7 +154,7 @@ rotalama **son tamamlanan duraktan** başlar, canlı GPS kullanılmaz.
 |---|---|---|---|
 | GET | `/me/shipments` | A2 | Alıcının kargoları |
 | GET | `/me/shipments/{id}` | A3 | Kargo detayı + ETA + durum geçmişi |
-| POST | `/me/shipments/{id}/postpone` | A3 | `{date}` — başka gün gelsin |
+| POST | `/me/shipments/{id}/postpone` | A3 | `{date}` — başka gün gelsin (yarın … +14 gün). Kurye yoldaysa durak rotadan çıkar, rota son kapanan duraktan yeniden hesaplanır |
 | GET | `/me/addresses` | A4 | Alıcının adresleri |
 | POST | `/me/addresses` | A4 | Yeni adres |
 | PUT | `/me/addresses/{id}` | A4 | Adresi güncelle → durum `DOGRULAMA_BEKLIYOR`'a düşer |
@@ -339,5 +340,6 @@ Bu belge **sözleşmedir**; uçların gövdeleri Faz 2'den itibaren yazılır.
 | ✅ Faz 3 | çok araç + maliyet, `/plans/{id}/dispatch` (otomatik kurye ataması), `GET /routes/{id}` |
 | ✅ Faz 4 | `/courier/route?date=&courierId=` (firma courierId ile okur), `/courier/stops/{id}`, `.../deliver`, `.../fail` `{reason}` |
 | ✅ Faz 4 | `/me/shipments`, `/me/shipments/{id}`, `/me/notifications`, `/me/notifications/read` `{ids}` / `{all:true}` |
-| Faz 5 | `/me/shipments/{id}/postpone`, `/courier/route/changes` |
+| ✅ Faz 5 (1. adım) | `/me/shipments/{id}/postpone` `{date}` — erteleme + yolda yeniden rotalama |
+| Faz 5 | `/courier/route/changes` |
 | Faz 6 | `/compare/**`, `/analytics/**` |

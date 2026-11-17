@@ -40,7 +40,7 @@ class OptimizerClientTest {
             new MatrixIn(List.of(10L, 11L),
                     new Double[][] {{0.0, 100.0}, {null, 0.0}},
                     new Double[][] {{0.0, 10.0}, {null, 0.0}}),
-            new CostParamsIn(44.0, 150.0, 2.5), null, null, 32_400.0);
+            new CostParamsIn(44.0, 150.0, 2.5), null, null, 32_400.0, null);
 
     @BeforeEach
     void setUp() {

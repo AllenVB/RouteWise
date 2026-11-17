@@ -111,6 +111,7 @@ class AccessMatrixTest extends ApiTest {
 
             ep("GET", "/me/shipments", Access.RECIPIENT),
             ep("GET", "/me/shipments/{id}", Access.RECIPIENT),
+            ep("POST", "/me/shipments/{id}/postpone", Access.RECIPIENT),
             ep("GET", "/me/addresses", Access.RECIPIENT),
             ep("POST", "/me/addresses", Access.RECIPIENT),
             ep("PUT", "/me/addresses/{id}", Access.RECIPIENT),

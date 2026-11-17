@@ -30,6 +30,9 @@ public final class OptimizerDtos {
      * @param randomSeed null lets the optimizer draw one; it is returned either way
      * @param warmStart  previous applied run; only the routes that receive new
      *                   stops change, so a courier's route is not reshuffled
+     * @param startNodeId rerouting on the road: vehicles leave from here (the
+     *                   courier's last closed stop) and still return to the depot;
+     *                   null = the depot. arrivalS and maxRouteDurationS count from it
      */
     public record OptimizeRequest(
             String algorithm,
@@ -40,7 +43,8 @@ public final class OptimizerDtos {
             CostParamsIn costParams,
             Long randomSeed,
             List<WarmRouteIn> warmStart,
-            Double maxRouteDurationS) {}
+            Double maxRouteDurationS,
+            Long startNodeId) {}
 
     /** {@code id} is the shipment id; it comes back unchanged as {@code stopId}. */
     public record StopIn(long id, long nodeId, double demandKg, double serviceTimeS, int priority) {}

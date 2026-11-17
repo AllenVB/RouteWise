@@ -168,7 +168,8 @@ public class RunService {
     private LineString geometry(Long depotNode, List<RouteStop> rs) {
         List<Long> sequence = new ArrayList<>();
         sequence.add(depotNode);
-        rs.forEach(s -> sequence.add(s.getNodeId()));
+        // Ertelenen durağa uğranmaz; çizgi kalan sırayı göstermeli.
+        rs.stream().filter(s -> !s.isPostponed()).forEach(s -> sequence.add(s.getNodeId()));
         sequence.add(depotNode);
 
         GeometryResult g = optimizer.routeGeometry(sequence);

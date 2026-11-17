@@ -53,6 +53,8 @@ public class RouteStop {
     public static final String PENDING = "BEKLEMEDE";
     public static final String DELIVERED = "TESLIM_EDILDI";
     public static final String FAILED = "ULASILAMADI";
+    /** Rotadan çıkarıldı: alıcı erteledi ya da kalan güne sığmadı. Ziyaret edilmez. */
+    public static final String POSTPONED = "ERTELENDI";
 
     protected RouteStop() {}
 
@@ -75,6 +77,33 @@ public class RouteStop {
 
     public boolean isOpen() {
         return PENDING.equals(status);
+    }
+
+    /** Kurye uğradı (teslim etti ya da ulaşamadı) — yeniden rotalamada sabit kalır. */
+    public boolean isVisited() {
+        return DELIVERED.equals(status) || FAILED.equals(status);
+    }
+
+    public boolean isPostponed() {
+        return POSTPONED.equals(status);
+    }
+
+    public void postpone() {
+        this.status = POSTPONED;
+        this.eta = null;
+    }
+
+    /** Yeniden rotalama: açık durağın yeni yeri, önceki duraktan bacak ve yeni ETA. */
+    public void reschedule(int sequenceNo, BigDecimal distanceFromPrevM, Integer durationFromPrevS, Instant eta) {
+        this.sequenceNo = sequenceNo;
+        this.distanceFromPrevM = distanceFromPrevM;
+        this.durationFromPrevS = durationFromPrevS;
+        this.eta = eta;
+    }
+
+    /** Yalnızca sıra numarası: ziyaret edilmiş ve ertelenmiş duraklar listede yer değiştirir. */
+    public void renumber(int sequenceNo) {
+        this.sequenceNo = sequenceNo;
     }
 
     public void deliver(Instant at) {

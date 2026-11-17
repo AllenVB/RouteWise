@@ -11,10 +11,15 @@ export function notificationText(n: AppNotification): { title: string; body: str
   const str = (k: string) => (typeof p[k] === 'string' ? (p[k] as string) : '');
   switch (n.type) {
     case 'ETA':
-      return {
-        title: 'Kargonuz bugün yola çıkıyor',
-        body: `${str('orderNumber')} numaralı kargonuzun tahmini teslim saati ${str('eta') ? formatClock(str('eta')) : 'belirlenecek'}.`,
-      };
+      return p.updated === true
+        ? {
+            title: 'Tahmini teslim saatiniz değişti',
+            body: `Kuryenin rotası güncellendi; ${str('orderNumber')} numaralı kargonuzun yeni tahmini teslim saati ${str('eta') ? formatClock(str('eta')) : 'belirlenecek'}.`,
+          }
+        : {
+            title: 'Kargonuz bugün yola çıkıyor',
+            body: `${str('orderNumber')} numaralı kargonuzun tahmini teslim saati ${str('eta') ? formatClock(str('eta')) : 'belirlenecek'}.`,
+          };
     case 'DOGRULAMA':
       return str('result') === 'DOGRULANDI'
         ? { title: 'Adresiniz onaylandı', body: `"${str('addressText')}" adresiniz onaylandı.` }
@@ -22,8 +27,11 @@ export function notificationText(n: AppNotification): { title: string; body: str
             title: 'Adresiniz onaylanmadı',
             body: `"${str('addressText')}" onaylanmadı. Sebep: ${str('reason') || 'belirtilmedi'}. Konumu düzeltip yeniden gönderebilirsiniz.`,
           };
-    case 'ERTELEME':
-      return { title: 'Kargonuz ertelendi', body: `${str('orderNumber')} numaralı kargonuz ertelendi.` };
+    case 'ERTELEME': {
+      const when = str('postponedTo') ? ` ${str('postponedTo')} tarihine` : '';
+      const why = str('reason') === 'EXCEEDS_WORKDAY' ? ' Kurye bugün mesai içinde adresinize ulaşamayacaktı.' : '';
+      return { title: 'Kargonuz ertelendi', body: `${str('orderNumber')} numaralı kargonuz${when} ertelendi.${why}` };
+    }
     case 'ROTA_DEGISTI':
       return { title: 'Teslimat planınız değişti', body: `${str('orderNumber')} numaralı kargonuzun teslim planı değişti.` };
   }

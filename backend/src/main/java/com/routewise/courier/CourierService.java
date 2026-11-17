@@ -11,8 +11,6 @@ import java.util.stream.Collectors;
 
 import com.routewise.common.error.ApiException;
 import com.routewise.common.error.ErrorCode;
-import com.routewise.optimization.OptimizationRun;
-import com.routewise.optimization.OptimizationRunRepository;
 import com.routewise.optimization.PlannedRoute;
 import com.routewise.optimization.PlannedRouteRepository;
 import com.routewise.optimization.RouteStop;
@@ -20,8 +18,7 @@ import com.routewise.optimization.RouteStopRepository;
 import com.routewise.optimization.RunDtos.RunDetail;
 import com.routewise.optimization.RunDtos.StopDetail;
 import com.routewise.optimization.RunService;
-import com.routewise.plan.DeliveryPlan;
-import com.routewise.plan.DeliveryPlanRepository;
+import com.routewise.plan.RouteCompletion;
 import com.routewise.shipment.Shipment;
 import com.routewise.shipment.ShipmentRepository;
 
@@ -50,23 +47,20 @@ public class CourierService {
     private final CourierRepository couriers;
     private final PlannedRouteRepository routes;
     private final RouteStopRepository stops;
-    private final OptimizationRunRepository runs;
-    private final DeliveryPlanRepository plans;
     private final ShipmentRepository shipments;
     private final RunService runService;
+    private final RouteCompletion completion;
     private final Clock clock;
 
     public CourierService(CourierRepository couriers, PlannedRouteRepository routes,
-                          RouteStopRepository stops, OptimizationRunRepository runs,
-                          DeliveryPlanRepository plans, ShipmentRepository shipments,
-                          RunService runService, Clock clock) {
+                          RouteStopRepository stops, ShipmentRepository shipments,
+                          RunService runService, RouteCompletion completion, Clock clock) {
         this.couriers = couriers;
         this.routes = routes;
         this.stops = stops;
-        this.runs = runs;
-        this.plans = plans;
         this.shipments = shipments;
         this.runService = runService;
+        this.completion = completion;
         this.clock = clock;
     }
 
@@ -122,11 +116,14 @@ public class CourierService {
 
     private Closed close(Long courierId, Long stopId, StopAction onStop,
                          Consumer<Shipment> onShipment) {
-        RouteStop stop = stops.findById(stopId).orElseThrow(() -> ApiException.notFound("Durak"));
-        PlannedRoute route = routes.lockById(stop.getRouteId()).orElseThrow(() -> ApiException.notFound("Durak"));
+        // Önce rota kilidi, sonra durak: kilitten önce okunan durak bu transaction'da
+        // önbellekte kalır ve eşzamanlı ikinci dokunuş kapanmış durağı açık görürdü.
+        Long routeId = stops.findRouteIdOf(stopId).orElseThrow(() -> ApiException.notFound("Durak"));
+        PlannedRoute route = routes.lockById(routeId).orElseThrow(() -> ApiException.notFound("Durak"));
         if (!courierId.equals(route.getCourierId())) {
             throw ApiException.notFound("Durak");
         }
+        RouteStop stop = stops.findById(stopId).orElseThrow(() -> ApiException.notFound("Durak"));
         if (!stop.isOpen()) {
             throw new ApiException(ErrorCode.STOP_ALREADY_CLOSED, "Bu durak zaten kapatıldı.");
         }
@@ -144,22 +141,8 @@ public class CourierService {
         onStop.apply(stop, now);
         onShipment.accept(byId.get(stop.getShipmentId()));
 
-        if (all.stream().noneMatch(RouteStop::isOpen)) {
-            route.complete(now);
-            completePlanIfDone(route);
-        }
+        completion.completeIfDone(route, all, now);
         return new Closed(route.getId(), stop.getId());
-    }
-
-    private void completePlanIfDone(PlannedRoute route) {
-        OptimizationRun run = runs.findById(route.getRunId()).orElseThrow();
-        boolean allDone = routes.findByRunIdOrderByIdAsc(run.getId()).stream()
-                .allMatch(r -> "TAMAMLANDI".equals(r.getStatus()));
-        if (allDone) {
-            DeliveryPlan plan = plans.lockById(run.getPlanId()).orElseThrow();
-            plan.markCompleted();
-            log.info("plan {} tamamlandi", plan.getId());
-        }
     }
 
     private StopDetail detailAfterClose(Closed c) {

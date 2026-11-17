@@ -57,6 +57,7 @@ Faz 3 alanları (hepsi isteğe bağlı; verilmezse Faz 2 davranışı):
 | `randomSeed` | yalnızca ROUTEWISE; verilmezse üretilir, yanıtta `randomSeed` olarak döner |
 | `iterations` | SA iterasyon bütçesi (varsayılan 20.000) — süre değil, sonuç tekrarlanabilsin |
 | `warmStart` | `[{vehicleId, stopIds}]` önceki uygulanan koşu; yalnızca etkilenen rotalar değişir |
+| `startNodeId` | Yolda yeniden rotalama: araçlar bu düğümden (kuryenin son kapattığı durak) çıkar, depoya döner. `arrivalS` ve `maxRouteDurationS` buradan çıkışa göredir. Boşsa depo. Uygulama: problem matrisinde 0 indeksinin satırı bu düğümden, sütunu depodan okunur; algoritmalar değişmez |
 
 Yanıtta `totalCostTry` gerçek paradır (yakıt + sürücü + sabit); `priorityPenalty` amaçtaki
 ceza terimidir, para değildir; `objective` ikisinin toplamıdır.
