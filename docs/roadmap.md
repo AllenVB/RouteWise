@@ -455,7 +455,10 @@ Gün sınırı sert kısıt olarak devrede; alıcı ETA bildirimi alıyor; üç 
    yok); e-posta commit sonrası `MailPort` üzerinden. **E-posta şimdilik yalnızca loglanıyor** —
    `spring-boot-starter-mail` + yerel SMTP (ör. Mailpit) kararı bekliyor. EMAIL satırı yalnızca
    gerçekten gönderilince yazılır. Tetikleyiciler: sevkte ETA, adres onay/ret (sebebiyle)
-5. Rol bazlı yetkilendirme tüm endpoint'lerde
+5. ✅ Rol bazlı yetkilendirme tüm endpoint'lerde — `AccessMatrixTest` her ucu her role karşı gerçek
+   filtre zinciri ve gerçek JWT ile dener (yetkisiz 403, oturumsuz 401, yetkili geçer); uygulamaya
+   matrise yazılmamış bir uç eklenirse test düşer. Durak kapatma kuralı filtreye de eklendi
+   (yalnızca controller'dayken gövde doğrulaması önce çalışıp firmaya 400 dönüyordu)
 6. ✅ Kurye ekranları K1–K4 + `/courier/**`: günün sevk edilmiş rotası (yoksa 404 → "bugün rotan yok"),
    durak detayı (alıcı adı, telefon, ETA), teslim / ulaşılamadı (sebep zorunlu, 033).
    İlk kapanan durak rotayı YOLDA'ya, açık kargoları YOLDA'ya (adres kilidi) alır; son durak
@@ -469,8 +472,9 @@ Gün sınırı sert kısıt olarak devrede; alıcı ETA bildirimi alıyor; üç 
 - [ ] Gün sınırını aşan çözüm **üretilmiyor**
 - [ ] ETA'lar makul (elle birkaç durak için doğrula)
 - [ ] Alıcı e-posta ve uygulama içi bildirim alıyor
-- [ ] **Rol sızıntısı testleri yeşil** — alıcı başkasının teslimatını göremiyor
-- [ ] Kurye yalnızca kendi rotasını görüyor
+- [x] **Rol sızıntısı testleri yeşil** — alıcı başkasının teslimatını göremiyor (`OwnershipLeakTest`:
+  kargo, adres, bildirim; 404 ve gövdede iz yok)
+- [x] Kurye yalnızca kendi rotasını görüyor (başkasının durağı 404, `courierId` kuryede yok sayılır)
 
 ---
 

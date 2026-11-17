@@ -51,6 +51,12 @@ public class SecurityConfig {
                     .permitAll()
 
                 .requestMatchers(API + "/me/**").hasRole(Role.RECIPIENT.name())
+                // Firma kurye uçlarını okur ama durak kapatamaz. Kural burada da
+                // olmalı: yalnızca controller'da olunca gövde doğrulaması önce
+                // çalışıyor ve firma 403 yerine 400 alıyordu.
+                .requestMatchers(HttpMethod.POST, API + "/courier/stops/*/deliver",
+                        API + "/courier/stops/*/fail")
+                    .hasRole(Role.COURIER.name())
                 .requestMatchers(API + "/courier/**")
                     .hasAnyRole(Role.COURIER.name(), Role.COMPANY.name())
                 .requestMatchers(API + "/addresses/validate")
