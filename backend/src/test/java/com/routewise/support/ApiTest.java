@@ -24,7 +24,9 @@ import org.testcontainers.containers.PostgreSQLContainer;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-@TestPropertySource(properties = "spring.liquibase.contexts=test")
+// Yeniden rotalama testte eşzamanlıdır: test transaction'ı hiç commit edilmez,
+// commit sonrası bekleyen bir iş hiç koşmazdı.
+@TestPropertySource(properties = {"spring.liquibase.contexts=test", "routewise.reroute.debounce=0s"})
 public abstract class ApiTest {
 
     @ServiceConnection

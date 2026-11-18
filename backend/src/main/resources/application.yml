@@ -46,6 +46,12 @@ routewise:
     # Alıcının günlük adres değiştirme hakkı — rota titreşimini önler.
     max-changes-per-day: 2
 
+  reroute:
+    # Bir rotaya bu aralıktan sık gelen değişiklikler tek optimizasyonda birleşir.
+    debounce: 500ms
+    # Bir rota günde en fazla bu kadar yeniden sıralanır; sonrası durak çıkar ama sıra değişmez.
+    max-per-route-per-day: 10
+
   jwt:
     # En az 32 bayt. Ortam değişkeniyle verilir; varsayılan YALNIZCA yerel
     # geliştirme içindir ve gerçek kurulumda mutlaka değiştirilmelidir.

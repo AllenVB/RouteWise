@@ -8,6 +8,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -43,13 +44,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.ResultActions;
 
 /**
- * "Başka gün gelsin" during delivery, end to end: real filter chain, real
- * database, the optimizer stubbed — what it is asked and what is written back.
+ * Changes to a route on the road, end to end: real filter chain, real database,
+ * the optimizer stubbed — what it is asked and what is written back. Rerouting
+ * runs synchronously here ({@code routewise.reroute.debounce=0s}).
  *
- * <p>The route: S1 delivered at node 101, S2·S3·S4 still open. The recipient
- * postpones S2, so the courier continues from 101 with S3 and S4.
+ * <p>The route: S1 delivered at node 101, S2·S3·S4 still open. Typically the
+ * recipient postpones S2, so the courier continues from 101 with S3 and S4.
  */
-class PostponeRerouteTest extends ApiTest {
+class RerouteFlowTest extends ApiTest {
 
     private static final ZoneId TZ = ZoneId.of("Europe/Istanbul");
 
@@ -390,6 +392,106 @@ class PostponeRerouteTest extends ApiTest {
                     .andExpect(jsonPath("$.status").value("ERTELENDI"));
 
             verify(optimizer, never()).optimize(any());
+        }
+    }
+
+    @Test
+    @DisplayName("Günlük limit dolduysa durak çıkar ama sıra değişmez; kurye yine bilgilendirilir")
+    void shouldKeepOrderOnceDailyLimitIsReached() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            jdbc.update("""
+                    INSERT INTO reroute_events (route_id, trigger_type, start_node_id, open_stops_before, open_stops_after)
+                    VALUES (?, 'ERTELEME', 1, 3, 3)
+                    """, route);
+        }
+
+        postpone(s2, today.plusDays(1), "alici@test").andExpect(status().isOk());
+
+        verify(optimizer, never()).optimize(any());
+        assertThat(stopStatus(stop2)).isEqualTo("ERTELENDI");
+        assertThat(List.of(seq(stop3), seq(stop4))).containsExactly(3, 4);
+        assertThat(jdbc.queryForObject("""
+                SELECT payload->>'orderKept' FROM notifications WHERE user_id = ? AND type = 'ROTA_DEGISTI'
+                """, String.class, courierUser)).isEqualTo("true");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM reroute_events WHERE route_id = ?",
+                Integer.class, route)).isEqualTo(10);
+    }
+
+    @Nested
+    @DisplayName("Dağıtım sırasında adres değişikliği")
+    class AddressChange {
+
+        private long moved;
+
+        /** S3 kendi adresinde (düğüm 103); alıcı onu düğüm 555'e taşıdı, firma kararı bekleniyor. */
+        @BeforeEach
+        void moveS3() {
+            long recipient = jdbc.queryForObject("SELECT recipient_id FROM shipments WHERE id = ?", Long.class, s3);
+            moved = jdbc.queryForObject("""
+                    INSERT INTO addresses (recipient_id, address_text, location, verification_status, snapped_node_id)
+                    VALUES (?, 'Yeni Sokak 9', ST_SetSRID(ST_MakePoint(27.98, 40.36), 4326), 'DOGRULAMA_BEKLIYOR', 555)
+                    RETURNING id
+                    """, Long.class, recipient);
+            jdbc.update("UPDATE shipments SET address_id = ? WHERE id = ?", moved, s3);
+        }
+
+        @Test
+        @DisplayName("onaylanınca durak yeni düğüme taşınır ve rota yeniden hesaplanır")
+        void shouldRerouteWhenMovedAddressIsVerified() throws Exception {
+            when(optimizer.optimize(any())).thenReturn(answer(List.of(s2, s3, s4), List.of()));
+
+            mvc.perform(post("/api/v1/addresses/" + moved + "/verify").header("Authorization", bearer("firma@test")))
+                    .andExpect(status().isOk());
+
+            assertThat(jdbc.queryForObject("SELECT node_id FROM route_stops WHERE id = ?", Long.class, stop3))
+                    .isEqualTo(555L);
+            ArgumentCaptor<OptimizeRequest> sent = ArgumentCaptor.forClass(OptimizeRequest.class);
+            verify(optimizer).optimize(sent.capture());
+            assertThat(sent.getValue().stops()).filteredOn(st -> st.id() == s3)
+                    .singleElement().extracting(st -> st.nodeId()).isEqualTo(555L);
+            assertThat(jdbc.queryForObject("SELECT trigger_type FROM reroute_events WHERE route_id = ?",
+                    String.class, route)).isEqualTo("ADRES_DEGISIKLIGI");
+        }
+
+        @Test
+        @DisplayName("reddedilince durak rotadan çıkar, kargo adres düzelene kadar havuza döner")
+        void shouldDropStopWhenMovedAddressIsRejected() throws Exception {
+            when(optimizer.optimize(any())).thenReturn(answer(List.of(s2, s4), List.of()));
+
+            mvc.perform(post("/api/v1/addresses/" + moved + "/reject").header("Authorization", bearer("firma@test"))
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"reason\":\"Bina bulunamadı\"}"))
+                    .andExpect(status().isOk());
+
+            assertThat(stopStatus(stop3)).isEqualTo("ERTELENDI");
+            assertThat(jdbc.queryForObject("SELECT status FROM shipments WHERE id = ?", String.class, s3))
+                    .isEqualTo("BEKLEMEDE");
+            ArgumentCaptor<OptimizeRequest> sent = ArgumentCaptor.forClass(OptimizeRequest.class);
+            verify(optimizer).optimize(sent.capture());
+            assertThat(sent.getValue().stops()).extracting(st -> st.id()).containsExactly(s2, s4);
+        }
+
+        @Test
+        @DisplayName("aynı düğüme düşen onay rotayı yeniden hesaplatmaz")
+        void shouldNotRerouteWhenNodeIsUnchanged() throws Exception {
+            jdbc.update("UPDATE addresses SET snapped_node_id = 103 WHERE id = ?", moved);
+
+            mvc.perform(post("/api/v1/addresses/" + moved + "/verify").header("Authorization", bearer("firma@test")))
+                    .andExpect(status().isOk());
+
+            verify(optimizer, never()).optimize(any());
+        }
+
+        @Test
+        @DisplayName("kargo yoldayken alıcı adresi taşıyamaz (409 ADDRESS_LOCKED)")
+        void shouldLockAddressWhileParcelIsOnTheRoad() throws Exception {
+            mvc.perform(put("/api/v1/me/addresses/" + moved).header("Authorization", bearer("alici@test"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"addressText\":\"Başka yer\",\"location\":{\"lat\":40.35,\"lon\":27.97}}"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("ADDRESS_LOCKED"));
+
+            assertThat(jdbc.queryForObject("SELECT address_text FROM addresses WHERE id = ?", String.class, moved))
+                    .isEqualTo("Yeni Sokak 9");
         }
     }
 }

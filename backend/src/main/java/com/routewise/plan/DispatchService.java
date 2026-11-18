@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.routewise.address.Address;
+import com.routewise.address.AddressRepository;
 import com.routewise.common.error.ApiException;
 import com.routewise.common.error.ErrorCode;
 import com.routewise.courier.Courier;
@@ -56,12 +58,13 @@ public class DispatchService {
     private final UserRepository users;
     private final RecipientRepository recipients;
     private final NotificationService notifications;
+    private final AddressRepository addresses;
 
     public DispatchService(DeliveryPlanRepository plans, OptimizationRunRepository runs,
                            PlannedRouteRepository routes, RouteStopRepository stops,
                            ShipmentRepository shipments, CourierRepository couriers,
                            UserRepository users, RecipientRepository recipients,
-                           NotificationService notifications) {
+                           NotificationService notifications, AddressRepository addresses) {
         this.plans = plans;
         this.runs = runs;
         this.routes = routes;
@@ -71,6 +74,7 @@ public class DispatchService {
         this.users = users;
         this.recipients = recipients;
         this.notifications = notifications;
+        this.addresses = addresses;
     }
 
     public record DispatchedRoute(Long routeId, Long vehicleId, Long courierId, String courierName, int stopCount) {}
@@ -108,8 +112,17 @@ public class DispatchService {
         // Optimizasyondan sonra yola çıkmış ya da teslim edilmiş bir kargo rotada
         // kalamaz; sessizce atlamak yerine yeniden optimizasyon istenir.
         // Koşudan sonra başka bir güne ertelenen kargo da bu günün rotasına giremez.
+        // Adresi koşudan sonra taşınan ya da onayını kaybeden kargo da: kurye eski
+        // noktaya gönderilirdi.
+        Map<Long, Long> nodeOfStop = byRoute.values().stream().flatMap(List::stream)
+                .filter(s -> s.getNodeId() != null)
+                .collect(Collectors.toMap(RouteStop::getShipmentId, RouteStop::getNodeId, (a, b) -> a));
+        Map<Long, Address> addressById = addresses.findAllById(
+                        byId.values().stream().map(Shipment::getAddressId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Address::getId, Function.identity()));
         List<String> stale = byId.values().stream()
-                .filter(s -> !s.isPlannableOn(plan.getPlanDate()))
+                .filter(s -> !s.isPlannableOn(plan.getPlanDate())
+                        || addressMoved(addressById.get(s.getAddressId()), nodeOfStop.get(s.getId())))
                 .map(Shipment::getOrderNumber).sorted().toList();
         if (!stale.isEmpty() || byId.size() != shipmentIds.size()) {
             throw new ApiException(ErrorCode.PLAN_NOT_OPTIMIZED,
@@ -132,6 +145,11 @@ public class DispatchService {
 
         log.info("plan {} sevk edildi: kosu {}, {} rota, {} kargo", planId, run.getId(), result.size(), shipmentIds.size());
         return new DispatchResult(planId, plan.getStatus(), run.getId(), result);
+    }
+
+    private static boolean addressMoved(Address a, Long nodeAtRun) {
+        return a == null || !a.getVerificationStatus().isUsableForRouting()
+                || (nodeAtRun != null && !nodeAtRun.equals(a.getSnappedNodeId()));
     }
 
     /** Her alıcıya kargosunun tahmini teslim saati — aynı transaction'da, sevk geri alınırsa o da yok. */

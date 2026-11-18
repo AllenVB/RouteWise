@@ -36,6 +36,7 @@ import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 class AddressServiceTest {
 
@@ -56,6 +57,7 @@ class AddressServiceTest {
 
     private AddressRepository addresses;
     private AddressValidator validator;
+    private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final RecipientRepository recipients = mock(RecipientRepository.class);
     private final NotificationService notifications = mock(NotificationService.class);
     private Address address;
@@ -77,7 +79,7 @@ class AddressServiceTest {
         Instant now = java.time.LocalDateTime.parse(istanbulLocalDateTime).atZone(ISTANBUL).toInstant();
         return new AddressService(addresses, validator,
                 new AddressValidationProperties(50.0, 5000.0, 2), Clock.fixed(now, ISTANBUL),
-                recipients, notifications);
+                recipients, notifications, events);
     }
 
     @Nested

@@ -19,6 +19,7 @@ import com.routewise.recipient.RecipientRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,16 +34,28 @@ public class AddressService {
     private final Clock clock;
     private final RecipientRepository recipients;
     private final NotificationService notifications;
+    private final ApplicationEventPublisher events;
+
+    /**
+     * Published in the verifying transaction. A dispatched route with a parcel
+     * to this address follows it ({@code reroute.AddressRerouteHandler}); the
+     * address module does not need to know routes exist.
+     */
+    public record Verified(Long addressId, Long snappedNodeId) {}
+
+    public record Rejected(Long addressId) {}
 
     public AddressService(AddressRepository addresses, AddressValidator validator,
                           AddressValidationProperties props, Clock clock,
-                          RecipientRepository recipients, NotificationService notifications) {
+                          RecipientRepository recipients, NotificationService notifications,
+                          ApplicationEventPublisher events) {
         this.addresses = addresses;
         this.validator = validator;
         this.props = props;
         this.clock = clock;
         this.recipients = recipients;
         this.notifications = notifications;
+        this.events = events;
     }
 
     /** Kaydetmeden değerlendirme — haritaya tıklandığı anda geri bildirim için. */
@@ -116,6 +129,7 @@ public class AddressService {
         }
         address.verify(verifierUserId);
         notifyOwner(address, "DOGRULANDI", null);
+        events.publishEvent(new Verified(address.getId(), address.getSnappedNodeId()));
         log.info("adres {} onaylandi (kullanici {})", addressId, verifierUserId);
         return address;
     }
@@ -125,6 +139,7 @@ public class AddressService {
         Address address = get(addressId);
         address.reject(verifierUserId, reason);
         notifyOwner(address, "REDDEDILDI", reason);
+        events.publishEvent(new Rejected(address.getId()));
         log.info("adres {} reddedildi: {}", addressId, reason);
         return address;
     }

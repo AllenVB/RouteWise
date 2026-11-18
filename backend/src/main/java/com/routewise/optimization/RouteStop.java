@@ -101,6 +101,11 @@ public class RouteStop {
         this.eta = eta;
     }
 
+    /** Adres onaylı olarak taşındı: kurye artık yeni noktaya gidecek. */
+    public void moveTo(Long nodeId) {
+        this.nodeId = nodeId;
+    }
+
     /** Yalnızca sıra numarası: ziyaret edilmiş ve ertelenmiş duraklar listede yer değiştirir. */
     public void renumber(int sequenceNo) {
         this.sequenceNo = sequenceNo;

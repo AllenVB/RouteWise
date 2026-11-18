@@ -50,7 +50,7 @@ söyler, özür dilemez.
 | 403 | `FORBIDDEN` | Rol bu kaynağa erişemez |
 | 404 | `NOT_FOUND` | Kayıt yok |
 | 409 | `ADDRESS_NOT_VERIFIED` | Doğrulanmamış adresli kargo plana alınmak istendi |
-| 409 | `ADDRESS_LOCKED` | Teslimat `YOLDA` iken adres değiştirilmek istendi |
+| 409 | `ADDRESS_LOCKED` | Teslimat `YOLDA` iken adres değiştirilmek istendi (firma kargo düzenlemesi ya da alıcının kendi adresi) |
 | 409 | `CHANGE_LIMIT_REACHED` | Günlük adres değişikliği limiti aşıldı |
 | 409 | `PLAN_ALREADY_DISPATCHED` | Sevk edilmiş plan yeniden optimize edilmek istendi |
 | 409 | `NO_FEASIBLE_SOLUTION` | Kapasite/süre kısıtlarıyla olurlu çözüm yok |

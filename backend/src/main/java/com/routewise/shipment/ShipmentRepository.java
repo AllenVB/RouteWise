@@ -16,6 +16,8 @@ public interface ShipmentRepository
 
     boolean existsByAddressId(Long addressId);
 
+    boolean existsByAddressIdAndStatus(Long addressId, ShipmentStatus status);
+
     List<Shipment> findByRecipientIdOrderByCreatedAtDesc(Long recipientId);
 
     /**

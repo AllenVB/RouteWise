@@ -47,4 +47,21 @@ public interface RouteStopRepository extends JpaRepository<RouteStop, Long> {
               AND s.status = 'BEKLEMEDE'
             """)
     List<Long> findOpenDispatchedRouteIds(@Param("shipmentId") Long shipmentId);
+
+    /**
+     * {@code [routeId, shipmentId]} of open stops on dispatched plans whose
+     * shipment goes to this address. Scalars, for the same reason as
+     * {@link #findRouteIdOf}: the caller locks each route before loading stops.
+     */
+    @Query("""
+            SELECT s.routeId, s.shipmentId FROM RouteStop s, Shipment sh, PlannedRoute r,
+                   OptimizationRun run, DeliveryPlan p
+            WHERE s.shipmentId = sh.id AND s.routeId = r.id AND r.runId = run.id AND run.planId = p.id
+              AND run.applied = true
+              AND p.status = com.routewise.plan.PlanStatus.SEVK_EDILDI
+              AND sh.addressId = :addressId
+              AND s.status = 'BEKLEMEDE'
+            ORDER BY s.routeId, s.shipmentId
+            """)
+    List<Object[]> findOpenDispatchedByAddress(@Param("addressId") Long addressId);
 }

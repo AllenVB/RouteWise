@@ -107,6 +107,7 @@ public class RerouteService {
     private final NotificationService notifications;
     private final RerouteEventRepository events;
     private final RouteCompletion completion;
+    private final RerouteProperties props;
     private final TransactionTemplate tx;
     private final Clock clock;
 
@@ -117,7 +118,8 @@ public class RerouteService {
                           CourierRepository couriers, RecipientRepository recipients,
                           DepotService depots, DistanceMatrixProvider matrices, OptimizerClient optimizer,
                           NotificationService notifications, RerouteEventRepository events,
-                          RouteCompletion completion, TransactionTemplate tx, Clock clock) {
+                          RouteCompletion completion, RerouteProperties props, TransactionTemplate tx,
+                          Clock clock) {
         this.routes = routes;
         this.stops = stops;
         this.runs = runs;
@@ -134,6 +136,7 @@ public class RerouteService {
         this.notifications = notifications;
         this.events = events;
         this.completion = completion;
+        this.props = props;
         this.tx = tx;
         this.clock = clock;
     }
@@ -156,6 +159,9 @@ public class RerouteService {
             if (snap == null) {
                 return Outcome.skipped(routeId);
             }
+            if (!snap.open().isEmpty() && limitReached(routeId)) {
+                return tx.execute(status -> keepOrder(snap, trigger, shipmentId));
+            }
             Solved solved = solve(snap);
             Outcome out = tx.execute(status -> persist(snap, solved, trigger, shipmentId));
             if (out != null) {
@@ -165,6 +171,25 @@ public class RerouteService {
         }
         throw new ApiException(ErrorCode.INTERNAL_ERROR,
                 "Rota hesaplanırken duraklar sürekli değişti; değişiklik kaydedildi, rota bir sonraki değişiklikte güncellenecek.");
+    }
+
+    /** Günlük değişiklik limiti: bugün (depo saatiyle) bu rotada yapılmış yeniden rotalama sayısı. */
+    private boolean limitReached(Long routeId) {
+        Instant dayStart = LocalDate.now(clock).atStartOfDay(clock.getZone()).toInstant();
+        return events.countByRouteIdAndCreatedAtGreaterThanEqual(routeId, dayStart) >= props.maxPerRoutePerDay();
+    }
+
+    /**
+     * Limit dolduysa kuryenin sırası artık değişmez: çıkan durak çıkmış olarak kalır
+     * (çağıran işaretledi), kalanlar eski sırasıyla sürer. Kurye yine bilgilendirilir.
+     */
+    private Outcome keepOrder(Snapshot snap, RerouteEvent.Trigger trigger, Long triggerShipmentId) {
+        PlannedRoute route = routes.lockById(snap.routeId()).orElseThrow();
+        Shipment cause = triggerShipmentId == null ? null : shipments.findById(triggerShipmentId).orElse(null);
+        notifyCourier(route, trigger, cause, snap.open().size(), List.of(), true);
+        log.info("rota {}: gunluk yeniden rotalama limiti ({}) dolu, sira korunuyor", route.getId(),
+                props.maxPerRoutePerDay());
+        return new Outcome(route.getId(), false, snap.open().size(), List.of());
     }
 
     // --- 1. okuma -------------------------------------------------------------
@@ -366,7 +391,7 @@ public class RerouteService {
 
         int openAfter = solved.order().size();
         completion.completeIfDone(route, all, now);
-        notifyCourier(route, trigger, byId.get(triggerShipmentId), openAfter, autoPostponed);
+        notifyCourier(route, trigger, byId.get(triggerShipmentId), openAfter, autoPostponed, false);
         events.save(new RerouteEvent(route.getId(), trigger, triggerShipmentId, snap.start(),
                 snap.open().size(), openAfter, autoPostponed.size(),
                 solved.keptCost(), solved.newCost(), solved.computationMs(), now));
@@ -377,8 +402,9 @@ public class RerouteService {
         return new Outcome(route.getId(), true, openAfter, autoPostponed);
     }
 
+    /** @param orderKept the daily limit was reached: the stop left but the order did not change */
     private void notifyCourier(PlannedRoute route, RerouteEvent.Trigger trigger, Shipment cause, int openStops,
-                               List<String> autoPostponed) {
+                               List<String> autoPostponed, boolean orderKept) {
         if (route.getCourierId() == null) {
             return;
         }
@@ -389,6 +415,7 @@ public class RerouteService {
             payload.put("orderNumber", cause == null ? null : cause.getOrderNumber());
             payload.put("openStops", openStops);
             payload.put("autoPostponed", autoPostponed);
+            payload.put("orderKept", orderKept);
             notifications.notify(c.getUserId(), cause == null ? null : cause.getId(),
                     Notification.Type.ROTA_DEGISTI, payload);
         });

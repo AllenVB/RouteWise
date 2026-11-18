@@ -20,6 +20,8 @@ import com.routewise.common.error.ApiException;
 import com.routewise.common.error.ErrorCode;
 import com.routewise.common.geo.Points;
 
+import com.routewise.shipment.ShipmentRepository;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +36,8 @@ class MyAddressServiceTest {
     private final RecipientRepository recipients = mock(RecipientRepository.class);
     private final AddressRepository addresses = mock(AddressRepository.class);
     private final AddressService addressService = mock(AddressService.class);
-    private final MyAddressService service = new MyAddressService(recipients, addresses, addressService);
+    private final ShipmentRepository shipments = mock(ShipmentRepository.class);
+    private final MyAddressService service = new MyAddressService(recipients, addresses, addressService, shipments);
 
     @BeforeEach
     void setUp() {

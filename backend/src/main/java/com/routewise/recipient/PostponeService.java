@@ -11,7 +11,7 @@ import com.routewise.optimization.RouteStopRepository;
 import com.routewise.optimization.PlannedRouteRepository;
 import com.routewise.recipient.MyShipmentService.MyShipment;
 import com.routewise.reroute.RerouteEvent;
-import com.routewise.reroute.RerouteService;
+import com.routewise.reroute.RerouteScheduler;
 import com.routewise.shipment.Shipment;
 import com.routewise.shipment.ShipmentRepository;
 import com.routewise.shipment.ShipmentStatus;
@@ -25,7 +25,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * "Başka gün gelsin" (A3): the recipient moves their own shipment to another day.
  *
  * <p>If the shipment is on a route a courier is driving, its stop leaves the route
- * and the route is re-sequenced from the courier's last closed stop. The
+ * and the route is re-sequenced from the courier's last closed stop, in the
+ * background ({@link RerouteScheduler}). The
  * postponement commits <b>first</b> and on its own: it is the recipient's
  * decision and stands even if the optimizer is down; the courier then still sees
  * the stop removed, only the ETAs of the rest are not refreshed.
@@ -43,13 +44,13 @@ public class PostponeService {
     private final RouteStopRepository stops;
     private final PlannedRouteRepository routes;
     private final MyShipmentService myShipments;
-    private final RerouteService reroute;
+    private final RerouteScheduler reroute;
     private final TransactionTemplate tx;
     private final Clock clock;
 
     public PostponeService(RecipientRepository recipients, ShipmentRepository shipments,
                            RouteStopRepository stops, PlannedRouteRepository routes,
-                           MyShipmentService myShipments, RerouteService reroute,
+                           MyShipmentService myShipments, RerouteScheduler reroute,
                            TransactionTemplate tx, Clock clock) {
         this.recipients = recipients;
         this.shipments = shipments;
@@ -64,15 +65,9 @@ public class PostponeService {
     public MyShipment postpone(Long userId, Long shipmentId, LocalDate date) {
         Long routeId = tx.execute(status -> mark(userId, shipmentId, date));
         if (routeId != null) {
-            try {
-                reroute.reroute(routeId, RerouteEvent.Trigger.ERTELEME, shipmentId);
-            } catch (ApiException e) {
-                // Erteleme kayıtlı ve kuryenin listesinden düştü; yalnızca kalan
-                // durakların sırası ve ETA'sı eski. Alıcıya hata dönmek, yaptığı
-                // işlemi geri alınmış sandırırdı.
-                log.warn("kargo {} ertelendi ama rota {} yeniden hesaplanamadi: {} {}",
-                        shipmentId, routeId, e.code(), e.getMessage());
-            }
+            // Commit sonrası, arka planda: alıcı optimizasyonu beklemez. Hesaplama
+            // başarısız olsa bile erteleme kayıtlı ve durak kuryenin listesinden düştü.
+            reroute.request(routeId, RerouteEvent.Trigger.ERTELEME, shipmentId);
         }
         return myShipments.get(userId, shipmentId);
     }

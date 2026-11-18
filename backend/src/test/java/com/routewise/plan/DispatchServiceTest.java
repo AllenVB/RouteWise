@@ -17,8 +17,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.routewise.address.Address;
+import com.routewise.address.AddressRepository;
 import com.routewise.common.error.ApiException;
 import com.routewise.common.error.ErrorCode;
+import com.routewise.common.geo.Points;
 import com.routewise.courier.Courier;
 import com.routewise.courier.CourierRepository;
 import com.routewise.optimization.Algorithm;
@@ -54,8 +57,11 @@ class DispatchServiceTest {
     private final UserRepository users = mock(UserRepository.class);
     private final RecipientRepository recipients = mock(RecipientRepository.class);
     private final NotificationService notifications = mock(NotificationService.class);
-    private final DispatchService service =
-            new DispatchService(plans, runs, routes, stops, shipments, couriers, users, recipients, notifications);
+    private final AddressRepository addresses = mock(AddressRepository.class);
+    private final DispatchService service = new DispatchService(plans, runs, routes, stops, shipments, couriers,
+            users, recipients, notifications, addresses);
+    private Address a1;
+    private Address a2;
 
     private DeliveryPlan plan;
     private PlannedRoute r1;
@@ -91,6 +97,12 @@ class DispatchServiceTest {
         s1 = withId(new Shipment("BND-2026-00051", 12L, 31L, BigDecimal.ONE, (short) 0, 5), 51L);
         s2 = withId(new Shipment("BND-2026-00052", 12L, 32L, BigDecimal.ONE, (short) 0, 5), 52L);
         when(shipments.findAllById(anyList())).thenReturn(List.of(s1, s2));
+        // Koşudaki düğümler 1 ve 2; adresler onaylı ve hâlâ o düğümlerde.
+        a1 = withId(new Address(12L, "A 1", null, null, Points.of(40.35, 27.97), 1L, BigDecimal.ONE), 31L);
+        a2 = withId(new Address(12L, "A 2", null, null, Points.of(40.35, 27.97), 2L, BigDecimal.ONE), 32L);
+        a1.verify(9L);
+        a2.verify(9L);
+        when(addresses.findAllById(anyList())).thenReturn(List.of(a1, a2));
         // Kurye mock'ları önce kurulur: thenReturn() içinde başka mock stub'lamak Mockito'yu bozar.
         List<Courier> two = List.of(courier(1), courier(2));
         when(couriers.findByStatusOrderByIdAsc(Courier.AVAILABLE)).thenReturn(two);
@@ -202,5 +214,27 @@ class DispatchServiceTest {
 
         assertThat(s2.getStatus()).isEqualTo(ShipmentStatus.PLANLANDI);
         assertThat(s2.getPostponedTo()).isNull();
+    }
+
+    @Test
+    @DisplayName("Adresi koşudan sonra taşınan kargo varsa sevk durur — kurye eski noktaya gitmesin")
+    void shouldRejectDispatchWhenAddressMovedAfterRun() {
+        a2.relocate("A 2 yeni", null, null, Points.of(40.36, 27.98), 77L, BigDecimal.ONE, LocalDate.of(2026, 10, 31));
+        a2.verify(9L);
+
+        assertThatThrownBy(() -> service.dispatch(3L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("BND-2026-00052")
+                .extracting(e -> ((ApiException) e).code()).isEqualTo(ErrorCode.PLAN_NOT_OPTIMIZED);
+    }
+
+    @Test
+    @DisplayName("Adresi onay bekleyen kargo varsa sevk durur")
+    void shouldRejectDispatchWhenAddressAwaitsVerification() {
+        a1.relocate("A 1", null, null, Points.of(40.35, 27.97), 1L, BigDecimal.ONE, LocalDate.of(2026, 10, 31));
+
+        assertThatThrownBy(() -> service.dispatch(3L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("BND-2026-00051");
     }
 }
