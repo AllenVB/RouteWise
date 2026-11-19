@@ -6,6 +6,8 @@ import com.routewise.optimization.client.OptimizerDtos.GeometryRequest;
 import com.routewise.optimization.client.OptimizerDtos.GeometryResult;
 import com.routewise.optimization.client.OptimizerDtos.OptimizeRequest;
 import com.routewise.optimization.client.OptimizerDtos.OptimizeResult;
+import com.routewise.optimization.client.OptimizerDtos.PathCompareRequest;
+import com.routewise.optimization.client.OptimizerDtos.PathCompareResult;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -26,6 +28,15 @@ public class OptimizerClient {
                 .body(request)
                 .retrieve()
                 .body(OptimizeResult.class));
+    }
+
+    /** Level 1: Dijkstra, A*, BFS and DFS on the same pair of road nodes. */
+    public PathCompareResult comparePath(PathCompareRequest request) {
+        return OptimizerCalls.call("yol karsilastirma", () -> optimizerClient.post()
+                .uri("/internal/compare/path")
+                .body(request)
+                .retrieve()
+                .body(PathCompareResult.class));
     }
 
     /** Road-following coordinates for a visiting order, depot at both ends. */

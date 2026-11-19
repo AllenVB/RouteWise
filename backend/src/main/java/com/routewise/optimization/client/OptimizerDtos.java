@@ -113,6 +113,22 @@ public final class OptimizerDtos {
 
     public record GeometryRequest(List<Long> nodeIds) {}
 
+    /** @param weight {@code distance} or {@code duration} */
+    public record PathCompareRequest(long fromNodeId, long toNodeId, String weight, int repeats) {}
+
+    public record PathCompareResult(long fromNodeId, long toNodeId, String weight, int repeats,
+                                    List<PathAlgorithmOut> results) {}
+
+    /**
+     * @param computationTimeMs median of {@code repeats} runs
+     * @param deviationPct      over Dijkstra in the chosen weight; null when no path exists
+     * @param coordinates       {@code [lon, lat]} pairs along the path
+     */
+    public record PathAlgorithmOut(String algorithm, boolean found, double lengthM, double durationS,
+                                   int edgeCount, int nodesVisited, double computationTimeMs,
+                                   Double deviationPct, boolean samePathAsReference, List<Long> path,
+                                   List<double[]> coordinates) {}
+
     public record GeometryResult(List<LegGeometry> legs, double totalLengthM) {}
 
     /** Coordinates are {@code [lon, lat]} pairs — GeoJSON order. */

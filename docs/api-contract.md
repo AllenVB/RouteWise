@@ -130,8 +130,8 @@ yeniden doğrulanır**. İstemciye güvenilmez.
 | POST | `/plans/{id}/dispatch` | F6 | Uygulanan koşuyu kuryelere sevk et |
 | GET | `/routes/{id}` | F7 | Rota detayı: duraklar, ETA, yük, maliyet |
 | POST | `/plans/{id}/compare/tour` | F8 | Seviye 2 — tüm tur algoritmaları |
-| POST | `/compare/path` | F8 | Seviye 1 — `{fromNodeId, toNodeId}` |
-| GET | `/comparisons/{id}` | F8 | Karşılaştırma sonucu |
+| POST | `/compare/path` | F8 | Seviye 1 — her uç `from: {lat, lon}` (en yakın yol düğümüne bağlanır, hizmet alanı dışıysa 422 `OUTSIDE_SERVICE_AREA`) ya da `fromNodeId`; `weight` `DISTANCE`/`DURATION`, `repeats` 1–20 (varsayılan 5). Dijkstra, A*, BFS, DFS: uzunluk, süre, kenar ve gezilen düğüm sayısı, süre medyanı, Dijkstra'dan sapma %, yol ve koordinatlar |
+| GET | `/comparisons/{id}` | F8 | Kaydedilmiş karşılaştırma, hesaplandığı gibi (şimdilik Seviye 1) |
 | GET | `/analytics/savings?period=&from=&to=` | F9 | `period=WEEK\|MONTH\|YEAR` |
 | GET | `/analytics/export?format=&period=` | F9 | `format=XLSX\|PDF` → dosya |
 | GET | `/vehicles` | F6 | Filo (salt okunur, seed) |

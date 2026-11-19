@@ -63,6 +63,22 @@ public class ServiceAreaRepository {
         return new SnapResult(((Number) row[0]).longValue(), ((Number) row[1]).doubleValue());
     }
 
+    /** A road node's position; {@code null} if the graph has no such node. */
+    public RoadNode roadNode(long nodeId) {
+        var rows = em.createNativeQuery("""
+                SELECT ST_X(v.the_geom), ST_Y(v.the_geom) FROM ways_vertices_pgr v WHERE v.id = :id
+                """)
+                .setParameter("id", nodeId)
+                .getResultList();
+        if (rows.isEmpty()) {
+            return null;
+        }
+        Object[] row = (Object[]) rows.get(0);
+        return new RoadNode(nodeId, ((Number) row[0]).doubleValue(), ((Number) row[1]).doubleValue());
+    }
+
+    public record RoadNode(long nodeId, double lon, double lat) {}
+
     /**
      * Katman 3 — noktaya en yakın isimli yolun adı.
      *

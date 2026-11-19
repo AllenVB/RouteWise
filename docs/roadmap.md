@@ -549,10 +549,23 @@ Projenin en görünür çıktısı: algoritma karşılaştırması, tasarruf ana
 ### Görevler
 
 **Seviye 1 — yol bulma**
-1. `astar.py`, `bfs.py`, `dfs.py` implementasyonları
-2. Ortak metrik toplama: yol uzunluğu, süre (ms), gezilen düğüm
-3. `path_comparison_runs` kayıtları
-4. `POST /compare/path`
+1. ✅ `astar.py`, `bfs.py`, `dfs.py` implementasyonları — A* sezgiseli kuş uçuşu (süre ağırlığında
+   / graftaki en yüksek hız, ×0,99 güvenlik payı); DFS açık yığınla (özyineleme sınırı yok)
+2. ✅ Ortak metrik toplama: yol uzunluğu ve süresi (aynı kenarlar üzerinden), gezilen düğüm, kenar
+   sayısı, hesaplama süresi (N koşunun medyanı), Dijkstra'dan sapma % — `pathfinding/compare.py`
+3. ✅ `path_comparison_runs` kayıtları — karşılaştırma başına `comparisons` satırı (girdi + tam sonuç,
+   F8 yeniden çizebilsin), algoritma başına metrik satırı (037)
+4. ✅ `POST /compare/path` — uçlar haritadan nokta (yola bağlanır) ya da düğüm kimliği;
+   `GET /comparisons/{id}`
+
+   Gerçek Bandırma grafında 30 rastgele çift (mesafe ağırlığı, seed 42):
+
+   | Algoritma | Sapma medyan | Sapma en kötü | Gezilen düğüm medyan | Süre medyan |
+   |---|---|---|---|---|
+   | Dijkstra | %0 | %0 | 6.276 | 19,1 ms |
+   | A\* | %0 (30/30 aynı yol) | %0 | 1.395 (Dijkstra'nın %30,5'i) | 8,0 ms |
+   | BFS | %8,9 | %70,6 | 5.558 | 7,6 ms |
+   | DFS | %890,6 | %6.502,6 | 4.752 | 8,3 ms |
 
 **Seviye 2 — tur sırası**
 5. `nearest_neighbor.py`, `exhaustive.py` (n ≤ 10)
@@ -567,8 +580,8 @@ Projenin en görünür çıktısı: algoritma karşılaştırması, tasarruf ana
 12. Frontend: F8, F9 — karşılaştırma tabloları, Recharts grafikleri, indirme
 
 ### Biten iş tanımı
-- [ ] BFS'in ağırlıkları yok saydığı **sayısal olarak gösteriliyor** (Dijkstra'dan sapma %)
-- [ ] A\*, Dijkstra ile aynı yolu daha az düğüm gezerek buluyor
+- [x] BFS'in ağırlıkları yok saydığı **sayısal olarak gösteriliyor** (Dijkstra'dan sapma %) — medyan %8,9, en kötü %70,6
+- [x] A\*, Dijkstra ile aynı yolu daha az düğüm gezerek buluyor — 30/30 aynı yol, gezilen düğüm %30,5
 - [ ] DFS-exhaustive küçük örnekte gerçek optimumu veriyor
 - [ ] "RouteWise optimumun %X içinde" cümlesi veriyle destekleniyor
 - [ ] En az **30 senaryoda** anlamlılık testi koşuldu, p değeri raporlanıyor
