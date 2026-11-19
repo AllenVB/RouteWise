@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router';
 import { AppShell, type NavItem } from './components/layout/AppShell';
 import { LoginPage } from './features/auth/LoginPage';
 import { RequireRole } from './features/auth/RequireRole';
+import { CourierChangesPage } from './features/courier/CourierChangesPage';
 import { CourierStopPage } from './features/courier/CourierStopPage';
 import { MyShipmentDetailPage, MyShipmentsPage } from './features/recipient/MyShipmentsPage';
 import { NotificationsPage } from './features/recipient/NotificationsPage';
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, lazy: courierRoute, hydrateFallbackElement: loading },
       { path: 'durak/:id', element: <CourierStopPage /> },
+      { path: 'degisiklikler', element: <CourierChangesPage /> },
     ],
   },
   { path: '*', element: <Navigate to="/giris" replace /> },

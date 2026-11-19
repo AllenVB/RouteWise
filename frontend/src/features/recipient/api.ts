@@ -55,3 +55,16 @@ export function useMarkRead() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['me', 'notifications'] }),
   });
 }
+
+/** "Başka gün gelsin" (A3). Kargo yoldaysa durak kuryenin rotasından çıkar. */
+export function usePostpone(id: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (date: string) =>
+      api(`/me/shipments/${id}/postpone`, { method: 'POST', body: { date }, schema: myShipmentSchema }),
+    onSuccess: (shipment) => {
+      qc.setQueryData(['me', 'shipments', id], shipment);
+      void qc.invalidateQueries({ queryKey: ['me', 'shipments'], exact: true });
+    },
+  });
+}

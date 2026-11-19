@@ -59,6 +59,7 @@ söyler, özür dilemez.
 | 409 | `SHIPMENT_IN_RUN_HISTORY` | Kargo kayıtlı bir koşuda geçiyor; ölçüm geçmişi korunur, silinemez |
 | 409 | `STOP_ALREADY_CLOSED` | Durak zaten teslim edildi ya da ulaşılamadı olarak kapatıldı |
 | 409 | `SHIPMENT_NOT_POSTPONABLE` | Teslim edilmiş kargo ertelenmek istendi ya da kurye durağı az önce kapattı |
+| 409 | `SUGGESTION_CLOSED` | Erteleme önerisi zaten sonuçlandırılmış (ertelendi, bugün kalsın denildi ya da geçersiz) |
 | 422 | `OUTSIDE_SERVICE_AREA` | Nokta Bandırma sınırı dışında |
 | 422 | `TOO_FAR_FROM_ROAD` | Nokta en yakın yola eşikten uzak |
 | 502 | `OPTIMIZER_UNAVAILABLE` | Python servisine ulaşılamıyor |
@@ -143,10 +144,20 @@ yeniden doğrulanır**. İstemciye güvenilmez.
 | GET | `/courier/stops/{id}` | K3 | Durak detayı |
 | POST | `/courier/stops/{id}/deliver` | K3 | Teslim edildi |
 | POST | `/courier/stops/{id}/fail` | K3 | `{reason}` — ulaşılamadı |
-| GET | `/courier/route/changes?since=` | K5 | Rota değişiklikleri: çıkan, eklenen, sırası değişen duraklar |
+| GET | `/courier/route/changes?date=&since=&courierId=` | K5 | Günün yeniden rotalamaları, eskiden yeniye: `removed` (sebebiyle: `ALICI_ERTELEDI`, `FIRMA_ERTELEDI`, `ADRES_REDDEDILDI`, `EXCEEDS_WORKDAY`…), `moved` (adresi onaylı taşınan), `reordered` (`fromSeq` → `toSeq`; yalnızca kuryenin gördüğü numara değiştiyse), `orderKept` (günlük limit doldu, sıra korundu). `recomputing`: bir değişiklik geldi, yeni sıra hesaplanıyor (ilerleme göstergesi). `since` yalnızca ondan sonrakileri döner. Firma `courierId` ile okur |
 
 `deliver` çağrısı sistemin kuryenin konumunu bilmesini sağlar: dinamik yeniden
 rotalama **son tamamlanan duraktan** başlar, canlı GPS kullanılmaz.
+
+**Erteleme önerileri (firma, maliyet artışı eşiği).** Onaylanan adres değişikliği yoldaki
+rotayı yeniden hesaplatır; taşınan durak kalan turu `routewise.reroute.suggest-postpone-above`
+oranından (varsayılan %15) fazla pahalılaştırırsa öneri açılır.
+
+| Metot | Yol | Ekran | İş |
+|---|---|---|---|
+| GET | `/reroute/suggestions` | F5 | Bugünün açık önerileri: `orderNumber`, `addressText`, `vehiclePlate`, `costWithoutTry` / `costWithTry` (kalan tur durak yokken / varken), `extraCostTry`, `extraRatio`. Kurye durağı kapattıysa listelenmez |
+| POST | `/reroute/suggestions/{id}/postpone` | F5 | Yarına ertele: durak çıkar, alıcıya `ERTELEME` (`reason: FIRMA_ERTELEDI`), rota arka planda yeniden hesaplanır. 409 `SUGGESTION_CLOSED` / `STOP_ALREADY_CLOSED` |
+| POST | `/reroute/suggestions/{id}/keep` | F5 | Bugün kalsın: öneri kapanır, rota değişmez. 409 `SUGGESTION_CLOSED` |
 
 ### 5.3 Alıcı
 
@@ -201,7 +212,7 @@ Her ekranın ihtiyacı karşılanıyor mu, karşılıksız uç var mı?
 | F2 Gösterge paneli | `GET /dashboard` |
 | F3 Kargo listesi | `GET /shipments`, `PATCH /shipments/{id}`, `DELETE /shipments/{id}` |
 | F4 Yeni kargo | `GET /recipients`, `GET /recipients/{id}/addresses`, `POST /shipments` |
-| F5 Adres doğrulama | `GET /addresses?status=`, `GET /addresses/{id}`, `POST .../verify`, `POST .../reject` |
+| F5 Adres doğrulama | `GET /addresses?status=`, `GET /addresses/{id}`, `POST .../verify`, `POST .../reject`, `GET /reroute/suggestions`, `POST .../postpone`, `POST .../keep` |
 | F6 Rota planlama | `GET /plans`, `POST /plans`, `POST /plans/{id}/optimize`, `GET /runs/{id}`, `GET /vehicles`, `POST /plans/{id}/dispatch` |
 | F7 Rota detayı | `GET /routes/{id}` |
 | F8 Karşılaştırma | `POST /plans/{id}/compare/tour`, `POST /compare/path`, `GET /comparisons/{id}` |
@@ -341,5 +352,5 @@ Bu belge **sözleşmedir**; uçların gövdeleri Faz 2'den itibaren yazılır.
 | ✅ Faz 4 | `/courier/route?date=&courierId=` (firma courierId ile okur), `/courier/stops/{id}`, `.../deliver`, `.../fail` `{reason}` |
 | ✅ Faz 4 | `/me/shipments`, `/me/shipments/{id}`, `/me/notifications`, `/me/notifications/read` `{ids}` / `{all:true}` |
 | ✅ Faz 5 (1. adım) | `/me/shipments/{id}/postpone` `{date}` — erteleme + yolda yeniden rotalama |
-| Faz 5 | `/courier/route/changes` |
+| ✅ Faz 5 | `/courier/route/changes?date=&since=&courierId=`, `/me/shipments/{id}/postpone` `{date}`, `/reroute/suggestions` (+ `/{id}/postpone`, `/{id}/keep`) |
 | Faz 6 | `/compare/**`, `/analytics/**` |

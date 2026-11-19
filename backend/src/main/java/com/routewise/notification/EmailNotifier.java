@@ -92,9 +92,11 @@ public class EmailNotifier {
     private static String postponed(Object order, Map<String, Object> payload) {
         Object day = payload.get("postponedTo");
         String when = day == null ? "" : " " + day + " tarihine";
-        String why = "EXCEEDS_WORKDAY".equals(payload.get("reason"))
-                ? " Kurye bugün mesai içinde adresinize ulaşamayacaktı."
-                : "";
+        String why = switch (String.valueOf(payload.get("reason"))) {
+            case "EXCEEDS_WORKDAY" -> " Kurye bugün mesai içinde adresinize ulaşamayacaktı.";
+            case "FIRMA_ERTELEDI" -> " Yeni adresiniz kuryenin bugünkü güzergâhının dışında kaldı.";
+            default -> "";
+        };
         return "%s numaralı kargonuz%s ertelendi.%s".formatted(order, when, why);
     }
 

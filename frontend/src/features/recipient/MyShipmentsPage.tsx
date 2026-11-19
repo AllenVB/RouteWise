@@ -1,8 +1,29 @@
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useParams } from 'react-router';
+import { z } from 'zod';
 import { Badge } from '../../components/ui/Badge';
 import { ApiError } from '../../lib/apiClient';
-import { formatClock, formatDateTime, formatNumber, shipmentLabel } from '../../lib/format';
-import { useMyShipment, useMyShipments, type MyShipment } from './api';
+import {
+  addDays, formatClock, formatDate, formatDateTime, formatNumber, shipmentLabel, todayInDepot,
+} from '../../lib/format';
+import { useMyShipment, useMyShipments, usePostpone, type MyShipment } from './api';
+
+/** Sunucudaki PostponeService.MAX_DAYS_AHEAD ile aynı: daha ilerisi erteleme değil yeni sipariş. */
+export const MAX_POSTPONE_DAYS = 14;
+
+/** Yarın … +14 gün; tarihler YYYY-MM-DD olduğu için metin karşılaştırması takvim sırasıdır. */
+export function postponeSchema(today: string) {
+  const min = addDays(today, 1);
+  const max = addDays(today, MAX_POSTPONE_DAYS);
+  return z.object({
+    date: z.string().min(1, 'Bir gün seçin.')
+      .refine((d) => d >= min, 'En erken yarın olabilir.')
+      .refine((d) => d <= max, `En fazla ${MAX_POSTPONE_DAYS} gün sonrası seçilebilir.`),
+  });
+}
+type PostponeForm = z.infer<ReturnType<typeof postponeSchema>>;
 
 /** A2 — kargolarım. */
 export function MyShipmentsPage() {
@@ -67,7 +88,69 @@ export function MyShipmentDetailPage() {
           <div className="alert warn">Kurye notu: {s.failureReason}. Kargonuz başka bir güne planlanacak.</div>
         )}
       </div>
+      {s.status !== 'TESLIM_EDILDI' && <PostponeCard shipment={s} />}
     </div>
+  );
+}
+
+/** A3 — "Başka gün gelsin". Kurye yoldaysa durak rotasından çıkar; bunu alıcıya önceden söyleriz. */
+function PostponeCard({ shipment }: { shipment: MyShipment }) {
+  const [open, setOpen] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+  const today = todayInDepot();
+  const postpone = usePostpone(shipment.id);
+  const form = useForm<PostponeForm>({
+    resolver: zodResolver(postponeSchema(today)),
+    defaultValues: { date: shipment.postponedTo ?? addDays(today, 1) },
+  });
+  const { errors } = form.formState;
+
+  function onSubmit({ date }: PostponeForm) {
+    postpone.mutate(date, {
+      onSuccess: () => {
+        setDone(date);
+        setOpen(false);
+      },
+      onError: (e) => {
+        const fe = e instanceof ApiError ? e.fieldErrors.find((f) => f.field === 'date') : undefined;
+        if (fe) form.setError('date', { message: fe.message });
+      },
+    });
+  }
+
+  if (!open) {
+    return (
+      <div className="card stack">
+        {done && <div role="status" className="alert ok">Kargonuz {formatDate(done)} tarihine ertelendi.</div>}
+        <button type="button" onClick={() => { setDone(null); setOpen(true); }}>
+          {shipment.status === 'ERTELENDI' ? 'Teslim gününü değiştir' : 'Başka gün gelsin'}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form className="card stack" noValidate onSubmit={form.handleSubmit(onSubmit)}>
+      <h2>Başka gün gelsin</h2>
+      {shipment.status === 'YOLDA' && (
+        <p className="alert warn">Kargonuz bugün yolda. Ertelerseniz kurye bugün size uğramaz.</p>
+      )}
+      <label>
+        Teslim günü
+        <input type="date" min={addDays(today, 1)} max={addDays(today, MAX_POSTPONE_DAYS)}
+          aria-invalid={errors.date ? true : undefined} {...form.register('date')} />
+      </label>
+      {errors.date && <span role="alert" className="field-error">{errors.date.message}</span>}
+      {postpone.error && !(postpone.error instanceof ApiError && postpone.error.fieldErrors.length > 0) && (
+        <div role="alert" className="alert danger">
+          {postpone.error instanceof ApiError ? postpone.error.message : 'Erteleme kaydedilemedi.'}
+        </div>
+      )}
+      <div className="row">
+        <button type="submit" className="primary" disabled={postpone.isPending}>Ertele</button>
+        <button type="button" onClick={() => { postpone.reset(); setOpen(false); }}>Vazgeç</button>
+      </div>
+    </form>
   );
 }
 
@@ -75,7 +158,7 @@ export function MyShipmentDetailPage() {
 function expectation(s: MyShipment): string {
   if (s.status === 'TESLIM_EDILDI') return s.actualArrival ? `Teslim edildi · ${formatClock(s.actualArrival)}` : 'Teslim edildi';
   if (s.stopStatus === 'ULASILAMADI') return 'Teslim edilemedi; yeniden planlanacak';
-  if (s.status === 'ERTELENDI' && s.postponedTo) return `Ertelendi · ${s.postponedTo}`;
+  if (s.status === 'ERTELENDI' && s.postponedTo) return `Ertelendi · ${formatDate(s.postponedTo)}`;
   if (s.eta) return `Tahmini teslim ${formatClock(s.eta)}`;
   return 'Henüz planlanmadı';
 }

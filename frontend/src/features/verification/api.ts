@@ -41,3 +41,42 @@ export function useRejectAddress() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['addresses'] }),
   });
 }
+
+// --- Maliyet artışı eşiği: firmaya erteleme önerileri ---------------------------
+
+export const postponeSuggestionSchema = z.object({
+  id: z.number(),
+  routeId: z.number(),
+  stopId: z.number(),
+  shipmentId: z.number(),
+  orderNumber: z.string().nullable(),
+  addressText: z.string().nullable(),
+  vehiclePlate: z.string().nullable(),
+  costWithoutTry: z.number(),
+  costWithTry: z.number(),
+  extraCostTry: z.number(),
+  extraRatio: z.number().nullable(),
+  status: z.enum(['ACIK', 'ERTELENDI', 'KALDI', 'GECERSIZ']),
+  createdAt: z.string(),
+});
+export type PostponeSuggestion = z.infer<typeof postponeSuggestionSchema>;
+
+/** Onaydan sonra yeniden rotalama arka planda biter; öneri birkaç saniye sonra düşer. */
+export const SUGGESTIONS_POLL_MS = 10_000;
+
+export function usePostponeSuggestions() {
+  return useQuery({
+    queryKey: ['reroute', 'suggestions'],
+    queryFn: () => api('/reroute/suggestions', { schema: z.array(postponeSuggestionSchema) }),
+    refetchInterval: SUGGESTIONS_POLL_MS,
+  });
+}
+
+export function useDecideSuggestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, decision }: { id: number; decision: 'postpone' | 'keep' }) =>
+      api(`/reroute/suggestions/${id}/${decision}`, { method: 'POST', schema: postponeSuggestionSchema }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['reroute', 'suggestions'] }),
+  });
+}

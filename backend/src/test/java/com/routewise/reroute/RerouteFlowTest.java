@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -147,12 +148,22 @@ class RerouteFlowTest extends ApiTest {
 
     /** Optimizer answer visiting the given shipments in that order, {@code 600 s} apart. */
     private OptimizeResult answer(List<Long> order, List<UnassignedOut> unassigned) {
+        return priced(order, unassigned, 90.0);
+    }
+
+    /** Same, the round costing {@code costTry} (no priority penalty). */
+    private OptimizeResult priced(List<Long> order, double costTry) {
+        return priced(order, List.of(), costTry);
+    }
+
+    private OptimizeResult priced(List<Long> order, List<UnassignedOut> unassigned, double costTry) {
         List<StopOut> out = new ArrayList<>();
         for (int i = 0; i < order.size(); i++) {
             out.add(new StopOut(order.get(i), 100 + i, i + 1, 600.0 * (i + 1), 1000.0, 120.0));
         }
         RouteOut r = new RouteOut(vehicle, out, 900, 90, 4000, 400, 600, 1000, 4, 0.4, 90.0);
-        SolutionOut result = new SolutionOut("ROUTEWISE", List.of(r), 4000, 1000, 1, 12.0, 0.4, 90.0, 3.0, 93.0);
+        SolutionOut result = new SolutionOut("ROUTEWISE", List.of(r), 4000, 1000, 1, 12.0, 0.4, costTry, 3.0,
+                costTry + 3.0);
         SolutionOut kept = new SolutionOut("NAIVE", List.of(r), 4500, 1100, 1, 1.0, 0.45, 100.0, 4.0, 104.0);
         return new OptimizeResult(route, result, kept, null, unassigned);
     }
@@ -175,6 +186,10 @@ class RerouteFlowTest extends ApiTest {
     private Instant eta(long stop) {
         Timestamp t = jdbc.queryForObject("SELECT eta FROM route_stops WHERE id = ?", Timestamp.class, stop);
         return t == null ? null : t.toInstant();
+    }
+
+    private int suggestionRows() {
+        return jdbc.queryForObject("SELECT count(*) FROM postpone_suggestions WHERE route_id = ?", Integer.class, route);
     }
 
     private int notifications(long user, String type) {
@@ -413,8 +428,138 @@ class RerouteFlowTest extends ApiTest {
         assertThat(jdbc.queryForObject("""
                 SELECT payload->>'orderKept' FROM notifications WHERE user_id = ? AND type = 'ROTA_DEGISTI'
                 """, String.class, courierUser)).isEqualTo("true");
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM reroute_events WHERE route_id = ?",
-                Integer.class, route)).isEqualTo(10);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM reroute_events WHERE route_id = ? AND order_kept",
+                Integer.class, route)).isEqualTo(1);
+        changes("kurye@test", null)
+                .andExpect(jsonPath("$.changes[10].orderKept").value(true))
+                .andExpect(jsonPath("$.changes[10].removed[0].stopId").value(stop2))
+                .andExpect(jsonPath("$.changes[10].reordered").isEmpty());
+    }
+
+    @Test
+    @DisplayName("Sırayı korumuş değişiklikler günlük limite sayılmaz")
+    void shouldNotCountKeptOrderTowardsLimit() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            jdbc.update("""
+                    INSERT INTO reroute_events (route_id, trigger_type, start_node_id, open_stops_before,
+                                                open_stops_after, order_kept)
+                    VALUES (?, 'ERTELEME', 1, 3, 3, true)
+                    """, route);
+        }
+        when(optimizer.optimize(any())).thenReturn(answer(List.of(s3, s4), List.of()));
+
+        postpone(s2, today.plusDays(1), "alici@test").andExpect(status().isOk());
+
+        verify(optimizer).optimize(any());
+    }
+
+    @Nested
+    @DisplayName("Kuryenin rota değişti ekranı (K5)")
+    class CourierChanges {
+
+        @Test
+        @DisplayName("alıcı ertelemesi: çıkan durak sebebiyle, numarası değişen durak eski ve yeni yeriyle")
+        void shouldListRemovedAndReorderedStops() throws Exception {
+            when(optimizer.optimize(any())).thenReturn(answer(List.of(s4, s3), List.of()));
+            postpone(s2, today.plusDays(2), "alici@test").andExpect(status().isOk());
+
+            // s4 4. iken 2. oldu; s3 s4'ün arkasına düştü ama numarası 3 kaldı, kuryeye "değişmedi".
+            changes("kurye@test", null)
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.routeId").value(route))
+                    .andExpect(jsonPath("$.recomputing").value(false))
+                    .andExpect(jsonPath("$.changes.length()").value(1))
+                    .andExpect(jsonPath("$.changes[0].trigger").value("ERTELEME"))
+                    .andExpect(jsonPath("$.changes[0].orderKept").value(false))
+                    .andExpect(jsonPath("$.changes[0].openStops").value(2))
+                    .andExpect(jsonPath("$.changes[0].removed.length()").value(1))
+                    .andExpect(jsonPath("$.changes[0].removed[0].stopId").value(stop2))
+                    .andExpect(jsonPath("$.changes[0].removed[0].orderNumber").value("BND-2026-08002"))
+                    .andExpect(jsonPath("$.changes[0].removed[0].reason").value("ALICI_ERTELEDI"))
+                    .andExpect(jsonPath("$.changes[0].moved").isEmpty())
+                    .andExpect(jsonPath("$.changes[0].reordered.length()").value(1))
+                    .andExpect(jsonPath("$.changes[0].reordered[0].stopId").value(stop4))
+                    .andExpect(jsonPath("$.changes[0].reordered[0].fromSeq").value(4))
+                    .andExpect(jsonPath("$.changes[0].reordered[0].toSeq").value(2));
+        }
+
+        @Test
+        @DisplayName("sıra aynı kalırsa yalnızca çıkan durak listelenir")
+        void shouldNotReportShiftedNumbersAsReordering() throws Exception {
+            when(optimizer.optimize(any())).thenReturn(answer(List.of(s3, s4), List.of()));
+            postpone(s2, today.plusDays(1), "alici@test").andExpect(status().isOk());
+
+            changes("kurye@test", null)
+                    .andExpect(jsonPath("$.changes[0].removed.length()").value(1))
+                    .andExpect(jsonPath("$.changes[0].reordered").isEmpty());
+        }
+
+        @Test
+        @DisplayName("güne sığmayan durak otomatik ertelenir, aynı değişiklikte kendi sebebiyle görünür")
+        void shouldListAutoPostponedStopWithSolverReason() throws Exception {
+            when(optimizer.optimize(any()))
+                    .thenThrow(new ApiException(ErrorCode.NO_FEASIBLE_SOLUTION, "sığmıyor"))
+                    .thenReturn(answer(List.of(s3), List.of()));
+            postpone(s2, today.plusDays(1), "alici@test").andExpect(status().isOk());
+
+            changes("kurye@test", null)
+                    .andExpect(jsonPath("$.changes[0].removed.length()").value(2))
+                    .andExpect(jsonPath("$.changes[0].removed[?(@.stopId == " + stop2 + ")].reason")
+                            .value("ALICI_ERTELEDI"))
+                    .andExpect(jsonPath("$.changes[0].removed[?(@.stopId == " + stop4 + ")].reason")
+                            .value("EXCEEDS_WORKDAY"));
+        }
+
+        @Test
+        @DisplayName("önceki değişiklikte bildirilen durak sonrakinde tekrar çıktı diye görünmez")
+        void shouldReportEachRemovalOnce() throws Exception {
+            when(optimizer.optimize(any()))
+                    .thenReturn(answer(List.of(s3, s4), List.of()))
+                    .thenReturn(answer(List.of(s4), List.of()));
+            postpone(s2, today.plusDays(1), "alici@test").andExpect(status().isOk());
+            postpone(s3, today.plusDays(1), "alici@test").andExpect(status().isOk());
+
+            changes("kurye@test", null)
+                    .andExpect(jsonPath("$.changes.length()").value(2))
+                    .andExpect(jsonPath("$.changes[1].removed.length()").value(1))
+                    .andExpect(jsonPath("$.changes[1].removed[0].stopId").value(stop3));
+        }
+
+        @Test
+        @DisplayName("since verilirse yalnızca ondan sonraki değişiklikler gelir")
+        void shouldFilterBySince() throws Exception {
+            when(optimizer.optimize(any())).thenReturn(answer(List.of(s3, s4), List.of()));
+            postpone(s2, today.plusDays(1), "alici@test").andExpect(status().isOk());
+            Instant created = jdbc.queryForObject("SELECT created_at FROM reroute_events WHERE route_id = ?",
+                    Timestamp.class, route).toInstant();
+
+            changes("kurye@test", created.minusSeconds(1)).andExpect(jsonPath("$.changes.length()").value(1));
+            changes("kurye@test", created).andExpect(jsonPath("$.changes").isEmpty());
+        }
+
+        @Test
+        @DisplayName("rotası olmayan kurye 404 alır; firma kuryeyi belirterek okur")
+        void shouldScopeToOwnRoute() throws Exception {
+            courier(user("baska-kurye@test", "COURIER"));
+
+            changes("baska-kurye@test", null).andExpect(status().isNotFound());
+            mvc.perform(get("/api/v1/courier/route/changes").param("courierId", String.valueOf(courierOf(route)))
+                            .header("Authorization", bearer("firma@test")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.routeId").value(route));
+        }
+    }
+
+    private ResultActions changes(String who, Instant since) throws Exception {
+        var req = get("/api/v1/courier/route/changes").header("Authorization", bearer(who));
+        if (since != null) {
+            req = req.param("since", since.toString());
+        }
+        return mvc.perform(req);
+    }
+
+    private long courierOf(long routeId) {
+        return jdbc.queryForObject("SELECT courier_id FROM routes WHERE id = ?", Long.class, routeId);
     }
 
     @Nested
@@ -445,12 +590,18 @@ class RerouteFlowTest extends ApiTest {
 
             assertThat(jdbc.queryForObject("SELECT node_id FROM route_stops WHERE id = ?", Long.class, stop3))
                     .isEqualTo(555L);
+            // Yeniden rotalama + taşınan durağın ek maliyet ölçümü (durak olmadan kalan tur).
             ArgumentCaptor<OptimizeRequest> sent = ArgumentCaptor.forClass(OptimizeRequest.class);
-            verify(optimizer).optimize(sent.capture());
-            assertThat(sent.getValue().stops()).filteredOn(st -> st.id() == s3)
+            verify(optimizer, times(2)).optimize(sent.capture());
+            assertThat(sent.getAllValues().get(0).stops()).filteredOn(st -> st.id() == s3)
                     .singleElement().extracting(st -> st.nodeId()).isEqualTo(555L);
+            assertThat(suggestionRows()).isZero();
             assertThat(jdbc.queryForObject("SELECT trigger_type FROM reroute_events WHERE route_id = ?",
                     String.class, route)).isEqualTo("ADRES_DEGISIKLIGI");
+            changes("kurye@test", null)
+                    .andExpect(jsonPath("$.changes[0].moved.length()").value(1))
+                    .andExpect(jsonPath("$.changes[0].moved[0].stopId").value(stop3))
+                    .andExpect(jsonPath("$.changes[0].removed").isEmpty());
         }
 
         @Test
@@ -468,6 +619,10 @@ class RerouteFlowTest extends ApiTest {
             ArgumentCaptor<OptimizeRequest> sent = ArgumentCaptor.forClass(OptimizeRequest.class);
             verify(optimizer).optimize(sent.capture());
             assertThat(sent.getValue().stops()).extracting(st -> st.id()).containsExactly(s2, s4);
+            changes("kurye@test", null)
+                    .andExpect(jsonPath("$.changes[0].removed[0].stopId").value(stop3))
+                    .andExpect(jsonPath("$.changes[0].removed[0].reason").value("ADRES_REDDEDILDI"))
+                    .andExpect(jsonPath("$.changes[0].moved").isEmpty());
         }
 
         @Test
@@ -492,6 +647,173 @@ class RerouteFlowTest extends ApiTest {
 
             assertThat(jdbc.queryForObject("SELECT address_text FROM addresses WHERE id = ?", String.class, moved))
                     .isEqualTo("Yeni Sokak 9");
+        }
+
+        @Nested
+        @DisplayName("Maliyet artışı eşiği → firmaya erteleme önerisi")
+        class CostThreshold {
+
+            /** S3 yeni adresiyle kalan turu 100 TL'den 125 TL'ye çıkarır: %25 > %15. */
+            private void verifyExpensiveMove() throws Exception {
+                mvc.perform(post("/api/v1/addresses/" + moved + "/verify").header("Authorization", bearer("firma@test")))
+                        .andExpect(status().isOk());
+            }
+
+            private ResultActions decide(long suggestion, String action) throws Exception {
+                return mvc.perform(post("/api/v1/reroute/suggestions/" + suggestion + "/" + action)
+                        .header("Authorization", bearer("firma@test")));
+            }
+
+            private ResultActions list() throws Exception {
+                return mvc.perform(get("/api/v1/reroute/suggestions").header("Authorization", bearer("firma@test")));
+            }
+
+            private long openSuggestion() {
+                return jdbc.queryForObject("SELECT id FROM postpone_suggestions WHERE status = 'ACIK'", Long.class);
+            }
+
+            private String suggestionStatus(long id) {
+                return jdbc.queryForObject("SELECT status FROM postpone_suggestions WHERE id = ?", String.class, id);
+            }
+
+            @Test
+            @DisplayName("taşınan durak kalan turu eşikten fazla pahalılaştırırsa öneri açılır")
+            void shouldSuggestWhenMoveRaisesCostAboveThreshold() throws Exception {
+                when(optimizer.optimize(any()))
+                        .thenReturn(priced(List.of(s2, s3, s4), 125.0))
+                        .thenReturn(priced(List.of(s2, s4), 100.0));
+
+                verifyExpensiveMove();
+
+                ArgumentCaptor<OptimizeRequest> sent = ArgumentCaptor.forClass(OptimizeRequest.class);
+                verify(optimizer, times(2)).optimize(sent.capture());
+                assertThat(sent.getAllValues().get(1).stops()).extracting(st -> st.id()).containsExactly(s2, s4);
+                list().andExpect(status().isOk())
+                        .andExpect(jsonPath("$.length()").value(1))
+                        .andExpect(jsonPath("$[0].routeId").value(route))
+                        .andExpect(jsonPath("$[0].stopId").value(stop3))
+                        .andExpect(jsonPath("$[0].shipmentId").value(s3))
+                        .andExpect(jsonPath("$[0].orderNumber").value("BND-2026-08003"))
+                        .andExpect(jsonPath("$[0].addressText").value("Yeni Sokak 9"))
+                        .andExpect(jsonPath("$[0].vehiclePlate").value("10 R 1"))
+                        .andExpect(jsonPath("$[0].costWithoutTry").value(100.0))
+                        .andExpect(jsonPath("$[0].costWithTry").value(125.0))
+                        .andExpect(jsonPath("$[0].extraCostTry").value(25.0))
+                        .andExpect(jsonPath("$[0].extraRatio").value(0.25))
+                        .andExpect(jsonPath("$[0].status").value("ACIK"));
+                // Öneri yalnızca öneri: durak rotada, yeni adrese taşınmış olarak kalır.
+                assertThat(stopStatus(stop3)).isEqualTo("BEKLEMEDE");
+            }
+
+            @Test
+            @DisplayName("tam eşikte (%15) öneri açılmaz")
+            void shouldNotSuggestAtThreshold() throws Exception {
+                when(optimizer.optimize(any()))
+                        .thenReturn(priced(List.of(s2, s3, s4), 115.0))
+                        .thenReturn(priced(List.of(s2, s4), 100.0));
+
+                verifyExpensiveMove();
+
+                assertThat(suggestionRows()).isZero();
+                list().andExpect(jsonPath("$").isEmpty());
+            }
+
+            @Test
+            @DisplayName("ek maliyet ölçülemezse yeniden rotalama yine yazılır, öneri açılmaz")
+            void shouldKeepRerouteWhenMeasurementFails() throws Exception {
+                when(optimizer.optimize(any()))
+                        .thenReturn(priced(List.of(s2, s3, s4), 125.0))
+                        .thenThrow(new ApiException(ErrorCode.OPTIMIZER_UNAVAILABLE, "kapalı"));
+
+                verifyExpensiveMove();
+
+                assertThat(jdbc.queryForObject("SELECT count(*) FROM reroute_events WHERE route_id = ?",
+                        Integer.class, route)).isEqualTo(1);
+                assertThat(suggestionRows()).isZero();
+            }
+
+            @Test
+            @DisplayName("firma yarına erteler: durak çıkar, alıcıya bildirilir, kurye sebebi görür")
+            void shouldPostponeOnCompanyDecision() throws Exception {
+                when(optimizer.optimize(any()))
+                        .thenReturn(priced(List.of(s2, s3, s4), 125.0))
+                        .thenReturn(priced(List.of(s2, s4), 100.0))
+                        .thenReturn(priced(List.of(s2, s4), 100.0));
+                verifyExpensiveMove();
+                long id = openSuggestion();
+
+                decide(id, "postpone").andExpect(status().isOk())
+                        .andExpect(jsonPath("$.status").value("ERTELENDI"));
+
+                assertThat(stopStatus(stop3)).isEqualTo("ERTELENDI");
+                assertThat(jdbc.queryForMap("SELECT status, postponed_to FROM shipments WHERE id = ?", s3))
+                        .containsEntry("status", "ERTELENDI")
+                        .containsEntry("postponed_to", Date.valueOf(today.plusDays(1)));
+                assertThat(jdbc.queryForObject("""
+                        SELECT payload->>'reason' FROM notifications
+                        WHERE user_id = ? AND type = 'ERTELEME' AND shipment_id = ?
+                        """, String.class, recipientUser, s3)).isEqualTo("FIRMA_ERTELEDI");
+                verify(optimizer, times(3)).optimize(any());
+                changes("kurye@test", null)
+                        .andExpect(jsonPath("$.changes.length()").value(2))
+                        .andExpect(jsonPath("$.changes[1].removed[0].stopId").value(stop3))
+                        .andExpect(jsonPath("$.changes[1].removed[0].reason").value("FIRMA_ERTELEDI"));
+                list().andExpect(jsonPath("$").isEmpty());
+
+                decide(id, "postpone").andExpect(status().isConflict())
+                        .andExpect(jsonPath("$.code").value("SUGGESTION_CLOSED"));
+            }
+
+            @Test
+            @DisplayName("firma bugün kalsın der: öneri kapanır, rota değişmez")
+            void shouldKeepOnCompanyDecision() throws Exception {
+                when(optimizer.optimize(any()))
+                        .thenReturn(priced(List.of(s2, s3, s4), 125.0))
+                        .thenReturn(priced(List.of(s2, s4), 100.0));
+                verifyExpensiveMove();
+                long id = openSuggestion();
+
+                decide(id, "keep").andExpect(status().isOk()).andExpect(jsonPath("$.status").value("KALDI"));
+
+                assertThat(stopStatus(stop3)).isEqualTo("BEKLEMEDE");
+                verify(optimizer, times(2)).optimize(any());
+                list().andExpect(jsonPath("$").isEmpty());
+                decide(id, "postpone").andExpect(status().isConflict())
+                        .andExpect(jsonPath("$.code").value("SUGGESTION_CLOSED"));
+            }
+
+            @Test
+            @DisplayName("kurye durağı kapattıysa öneri listelenmez, ertelenemez")
+            void shouldNotPostponeClosedStop() throws Exception {
+                when(optimizer.optimize(any()))
+                        .thenReturn(priced(List.of(s2, s3, s4), 125.0))
+                        .thenReturn(priced(List.of(s2, s4), 100.0));
+                verifyExpensiveMove();
+                long id = openSuggestion();
+                mvc.perform(post("/api/v1/courier/stops/" + stop3 + "/deliver").header("Authorization", bearer("kurye@test")))
+                        .andExpect(status().isOk());
+
+                list().andExpect(jsonPath("$").isEmpty());
+                decide(id, "postpone").andExpect(status().isConflict())
+                        .andExpect(jsonPath("$.code").value("STOP_ALREADY_CLOSED"));
+                assertThat(suggestionStatus(id)).isEqualTo("ACIK");
+            }
+
+            @Test
+            @DisplayName("durak başka sebeple rotadan çıkınca öneri geçersiz olur")
+            void shouldInvalidateWhenStopLeavesRoute() throws Exception {
+                when(optimizer.optimize(any()))
+                        .thenReturn(priced(List.of(s2, s3, s4), 125.0))
+                        .thenReturn(priced(List.of(s2, s4), 100.0))
+                        .thenReturn(priced(List.of(s2, s4), 100.0));
+                verifyExpensiveMove();
+                long id = openSuggestion();
+
+                postpone(s3, today.plusDays(2), "alici@test").andExpect(status().isOk());
+
+                assertThat(suggestionStatus(id)).isEqualTo("GECERSIZ");
+                decide(id, "keep").andExpect(status().isConflict());
+            }
         }
     }
 }

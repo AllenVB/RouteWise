@@ -72,3 +72,31 @@ export function todayLocal(): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
+
+/** Depo günü (İstanbul) — sunucunun "bugün"üyle aynı; tarayıcının dilimi ne olursa olsun. */
+export function todayInDepot(now: Date = new Date()): string {
+  // en-CA biçimi YYYY-MM-DD verir.
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul' }).format(now);
+}
+
+/** YYYY-MM-DD + gün; takvim günü üzerinden, saat dilimi kayması olmadan. */
+export function addDays(isoDate: string, days: number): string {
+  const d = new Date(`${isoDate}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** 2026-11-19 → 19.11.2026 */
+export function formatDate(isoDate: string): string {
+  const [y, m, d] = isoDate.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+/** Duraktan neden çıkıldı — kuryenin değişiklik ekranı (K5). */
+export const removedReasonLabel: Record<string, string> = {
+  ALICI_ERTELEDI: 'Alıcı başka güne erteledi',
+  ADRES_REDDEDILDI: 'Yeni adres onaylanmadı',
+  EXCEEDS_WORKDAY: 'Kalan mesaiye sığmadı, yarına ertelendi',
+  NO_ROAD_NODE: 'Adres yol ağına bağlanamadı',
+  FIRMA_ERTELEDI: 'Yeni adres güzergâhın dışında kaldı, firma yarına erteledi',
+};

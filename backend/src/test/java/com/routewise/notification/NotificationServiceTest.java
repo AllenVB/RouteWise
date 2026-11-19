@@ -157,5 +157,18 @@ class NotificationServiceTest {
             assertThat(text[0]).isEqualTo("Adresiniz onaylanmadı");
             assertThat(text[1]).contains("Yanlış mahalle");
         }
+
+        @Test
+        @DisplayName("Firma ertelediyse e-posta sebebini söyler")
+        void companyPostponementCarriesReason() {
+            var postponed = new NotificationService.Created(2L, 3L, null, Type.ERTELEME,
+                    Map.of("orderNumber", "BND-2026-00042", "postponedTo", "2026-11-20", "reason", "FIRMA_ERTELEDI"));
+
+            String[] text = notifier.render(postponed);
+
+            assertThat(text[0]).isEqualTo("Kargonuz ertelendi");
+            assertThat(text[1]).isEqualTo("BND-2026-00042 numaralı kargonuz 2026-11-20 tarihine ertelendi. "
+                    + "Yeni adresiniz kuryenin bugünkü güzergâhının dışında kaldı.");
+        }
     }
 }

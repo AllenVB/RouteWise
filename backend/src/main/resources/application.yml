@@ -51,6 +51,9 @@ routewise:
     debounce: 500ms
     # Bir rota günde en fazla bu kadar yeniden sıralanır; sonrası durak çıkar ama sıra değişmez.
     max-per-route-per-day: 10
+    # Onaylanan adres değişikliği kalan turu bu orandan fazla pahalılaştırırsa firmaya
+    # "yarına ertele" önerilir (0.15 = %15).
+    suggest-postpone-above: 0.15
 
   jwt:
     # En az 32 bayt. Ortam değişkeniyle verilir; varsayılan YALNIZCA yerel

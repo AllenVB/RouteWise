@@ -6,6 +6,11 @@ import type { AppNotification } from './api';
  * değişikliği eski bildirimleri de günceller, veri göçü gerekmez.
  * (E-posta metni backend'de EmailNotifier'da; anlamları aynı tutulmalı.)
  */
+const postponeReason: Record<string, string> = {
+  EXCEEDS_WORKDAY: ' Kurye bugün mesai içinde adresinize ulaşamayacaktı.',
+  FIRMA_ERTELEDI: ' Yeni adresiniz kuryenin bugünkü güzergâhının dışında kaldı.',
+};
+
 export function notificationText(n: AppNotification): { title: string; body: string } {
   const p = n.payload ?? {};
   const str = (k: string) => (typeof p[k] === 'string' ? (p[k] as string) : '');
@@ -29,7 +34,7 @@ export function notificationText(n: AppNotification): { title: string; body: str
           };
     case 'ERTELEME': {
       const when = str('postponedTo') ? ` ${str('postponedTo')} tarihine` : '';
-      const why = str('reason') === 'EXCEEDS_WORKDAY' ? ' Kurye bugün mesai içinde adresinize ulaşamayacaktı.' : '';
+      const why = postponeReason[str('reason')] ?? '';
       return { title: 'Kargonuz ertelendi', body: `${str('orderNumber')} numaralı kargonuz${when} ertelendi.${why}` };
     }
     case 'ROTA_DEGISTI':

@@ -9,5 +9,8 @@ public interface RerouteEventRepository extends JpaRepository<RerouteEvent, Long
 
     List<RerouteEvent> findByRouteIdOrderByIdAsc(Long routeId);
 
-    long countByRouteIdAndCreatedAtGreaterThanEqual(Long routeId, Instant since);
+    /** Günlük limit: sırayı gerçekten değiştiren yeniden rotalamalar. */
+    long countByRouteIdAndOrderKeptFalseAndCreatedAtGreaterThanEqual(Long routeId, Instant since);
+
+    List<RerouteEvent> findByRouteIdAndCreatedAtAfterOrderByIdAsc(Long routeId, Instant since);
 }

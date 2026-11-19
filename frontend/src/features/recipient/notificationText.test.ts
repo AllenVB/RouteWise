@@ -16,6 +16,15 @@ describe('notificationText', () => {
       + 'Kurye bugün mesai içinde adresinize ulaşamayacaktı.');
   });
 
+  it('should tell the recipient when the company postponed after an address move', () => {
+    const t = notificationText(n('ERTELEME', {
+      orderNumber: 'BND-2026-00042', postponedTo: '2026-11-20', reason: 'FIRMA_ERTELEDI',
+    }));
+
+    expect(t.body).toBe('BND-2026-00042 numaralı kargonuz 2026-11-20 tarihine ertelendi. '
+      + 'Yeni adresiniz kuryenin bugünkü güzergâhının dışında kaldı.');
+  });
+
   it('should keep the old wording for a postponement without details', () => {
     expect(notificationText(n('ERTELEME', { orderNumber: 'BND-2026-00042' })).body)
       .toBe('BND-2026-00042 numaralı kargonuz ertelendi.');

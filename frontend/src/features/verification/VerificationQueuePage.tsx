@@ -5,6 +5,7 @@ import { ApiError } from '../../lib/apiClient';
 import { formatDateTime, formatNumber, verificationLabel } from '../../lib/format';
 import type { VerificationStatus } from '../../types/api';
 import { useAddressQueue, useRejectAddress, useValidatePoint, useVerifyAddress } from './api';
+import { PostponeSuggestions } from './PostponeSuggestions';
 import { ValidationChecks } from './ValidationChecks';
 
 /** F5 — adres doğrulama kuyruğu; beşinci katman olan insan onayı burada verilir. */
@@ -48,6 +49,8 @@ export function VerificationQueuePage() {
           </select>
         </label>
       </div>
+
+      <PostponeSuggestions />
 
       <div className="grid-2">
         <section className="card stack" aria-label="Kuyruk">

@@ -105,6 +105,10 @@ class AccessMatrixTest extends ApiTest {
             ep("GET", "/routes/{id}", Access.COMPANY),
 
             ep("GET", "/courier/route", Access.COURIER_OR_COMPANY),
+            ep("GET", "/courier/route/changes", Access.COURIER_OR_COMPANY),
+            ep("GET", "/reroute/suggestions", Access.COMPANY),
+            ep("POST", "/reroute/suggestions/{id}/postpone", Access.COMPANY),
+            ep("POST", "/reroute/suggestions/{id}/keep", Access.COMPANY),
             ep("GET", "/courier/stops/{id}", Access.COURIER_OR_COMPANY),
             ep("POST", "/courier/stops/{id}/deliver", Access.COURIER),
             ep("POST", "/courier/stops/{id}/fail", Access.COURIER),

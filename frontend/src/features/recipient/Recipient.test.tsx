@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { addDays, formatDate, todayInDepot } from '../../lib/format';
 import { renderAt, signedInAs } from '../../test/render';
 import { apiError, server } from '../../test/server';
 import { MyShipmentDetailPage, MyShipmentsPage } from './MyShipmentsPage';
@@ -47,6 +48,73 @@ describe('recipient screens', () => {
 
       expect(await screen.findByText(/Kurye notu: Adreste kimse yok/)).toBeInTheDocument();
       expect(screen.getByText('Teslim edilemedi; yeniden planlanacak')).toBeInTheDocument();
+    });
+
+    describe('postpone (Başka gün gelsin)', () => {
+      const today = todayInDepot();
+
+      function renderDetail(extra: object = {}) {
+        server.use(http.get('/api/v1/me/shipments/51', () => HttpResponse.json(shipment(extra))));
+        renderAt('/alici/kargolar/:id', <MyShipmentDetailPage />, [], '/alici/kargolar/51');
+      }
+
+      it('should postpone to the chosen day and confirm it', async () => {
+        const target = addDays(today, 3);
+        let sent: unknown;
+        server.use(http.post('/api/v1/me/shipments/51/postpone', async ({ request }) => {
+          sent = await request.json();
+          return HttpResponse.json(shipment({ status: 'ERTELENDI', postponedTo: target, eta: null, stopStatus: 'ERTELENDI' }));
+        }));
+        const user = userEvent.setup();
+        renderDetail({ status: 'YOLDA' });
+
+        await user.click(await screen.findByRole('button', { name: 'Başka gün gelsin' }));
+        expect(screen.getByText(/Ertelerseniz kurye bugün size uğramaz/)).toBeInTheDocument();
+        const day = screen.getByLabelText('Teslim günü');
+        expect(day).toHaveValue(addDays(today, 1));
+        await user.clear(day);
+        await user.type(day, target);
+        await user.click(screen.getByRole('button', { name: 'Ertele' }));
+
+        expect(await screen.findByRole('status')).toHaveTextContent(`Kargonuz ${formatDate(target)} tarihine ertelendi.`);
+        expect(sent).toEqual({ date: target });
+        expect(screen.getByText(`Ertelendi · ${formatDate(target)}`)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Teslim gününü değiştir' })).toBeInTheDocument();
+      });
+
+      it('should reject a day beyond the window without calling the server', async () => {
+        const user = userEvent.setup();
+        renderDetail();
+
+        await user.click(await screen.findByRole('button', { name: 'Başka gün gelsin' }));
+        const day = screen.getByLabelText('Teslim günü');
+        await user.clear(day);
+        await user.type(day, addDays(today, 15));
+        await user.click(screen.getByRole('button', { name: 'Ertele' }));
+
+        // Tanımsız POST çağrılsaydı MSW testi düşürürdü.
+        expect(await screen.findByRole('alert')).toHaveTextContent('En fazla 14 gün sonrası seçilebilir.');
+      });
+
+      it('should show the server message when the courier has just closed the stop', async () => {
+        server.use(http.post('/api/v1/me/shipments/51/postpone', () => HttpResponse.json(
+          apiError('SHIPMENT_NOT_POSTPONABLE', 'Kurye bu teslimatı az önce sonuçlandırdı; kargo durumunu yenileyin.'),
+          { status: 409 })));
+        const user = userEvent.setup();
+        renderDetail({ status: 'YOLDA' });
+
+        await user.click(await screen.findByRole('button', { name: 'Başka gün gelsin' }));
+        await user.click(screen.getByRole('button', { name: 'Ertele' }));
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('Kurye bu teslimatı az önce sonuçlandırdı');
+      });
+
+      it('should not offer postponing a delivered shipment', async () => {
+        renderDetail({ status: 'TESLIM_EDILDI', stopStatus: 'TESLIM_EDILDI', actualArrival: '2026-11-03T05:31:00Z' });
+
+        expect(await screen.findByText('Teslim edildi · 08:31')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Başka gün gelsin' })).not.toBeInTheDocument();
+      });
     });
 
     it("should treat someone else's shipment as not found", async () => {

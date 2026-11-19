@@ -507,7 +507,11 @@ Dağıtım sırasında erteleme ve adres değişikliği rotayı canlı olarak g�
      en sonda) olan çıkar; tek başına sığmayan da çıkar; ertesi güne, alıcıya sebebiyle bildirim
    - ✅ `YOLDA` durumunda adres kilidi — alıcının kendi adres ekranında eksikti (yalnızca firmanın
      kargo düzenlemesinde vardı); artık yoldaki kargonun adresi taşınamaz, 409 `ADDRESS_LOCKED`
-   - maliyet artışı eşiği → erteleme önerisi
+   - ✅ maliyet artışı eşiği → erteleme önerisi — onaylanan adres değişikliğiyle taşınan durak için
+     kalan tur bir kez de o durak olmadan hesaplanır; fark kalan turun %15'ini aşarsa
+     (`routewise.reroute.suggest-postpone-above`) firmaya F5'te öneri düşer (036). Firma "Yarına
+     ertele" der (alıcıya bildirilir, kuryede `FIRMA_ERTELEDI`) ya da "Bugün kalsın". Karar insanda;
+     sistem kendiliğinden ertelemez. Ölçülemezse yeniden rotalama yine geçerli, yalnızca öneri yok
    - ✅ günlük değişiklik limiti — rota başına günde 10 yeniden sıralama
      (`routewise.reroute.max-per-route-per-day`); sonrasında çıkan durak çıkar ama kalan sıra
      değişmez, kuryeye `orderKept` ile bildirilir. Alıcının günlük adres değiştirme hakkı (2) ayrıca var
@@ -516,16 +520,23 @@ Dağıtım sırasında erteleme ve adres değişikliği rotayı canlı olarak g�
 5. ✅ Debounce (~500 ms) + asenkron koşu — `RerouteScheduler`: istek commit sonrası kuyruğa girer,
    aynı rotaya pencere içinde gelen istekler tek koşuda birleşir (son tetikleyici kaydedilir); hata
    loglanır, değişikliğin kendisi kayıtlı kalır. Testlerde pencere 0 (eşzamanlı, test transaction'ı
-   commit edilmediği için). İlerleme göstergesi ekranlarla (3. adım)
+   commit edilmediği için). İlerleme göstergesi: `RerouteScheduler.isBusy` — değişiklik commit
+   edildiği andan koşu bitene kadar rota "hesaplanıyor"; kurye ekranı bu sürede 2 sn'de bir, sonra
+   30 sn'de bir sorar ve hesaplama bitince rotayı tazeler
+6. ✅ Ekranlar — alıcı A3'te "Başka gün gelsin" (yarın … +14 gün, yoldaysa "kurye bugün uğramaz"
+   uyarısı); kurye K2'de "Rota değişti" bandı ve K5 `/kurye/degisiklikler`: çıkan durak sebebiyle,
+   adresi değişen durak, numarası değişen durak eski ve yeni yeriyle. Her değişiklik
+   `reroute_events.changes`'e yazılır (035); pencerede birleşen tüm değişiklikler listelenir, bir
+   çıkış yalnızca bir kez gösterilir. Limit dolduğunda da kayıt düşer (`order_kept`), limite sayılmaz
 
 ### Biten iş tanımı
-- [x] Erteleme sonrası rota yeniden hesaplanıyor, teslim edilenler sabit kalıyor (`PostponeRerouteTest`)
+- [x] Erteleme sonrası rota yeniden hesaplanıyor, teslim edilenler sabit kalıyor (`RerouteFlowTest`)
 - [x] Adres değişikliği gün sınırını aşırırsa teslimat **otomatik erteleniyor** — onaydan sonraki
   yeniden rotalama aynı yoldan geçer (sığmayan ertesi güne)
 - [x] `YOLDA` teslimatın adresi değiştirilemiyor
 - [x] Günlük değişiklik limiti devrede
-- [ ] Kurye ekranında eski durak kalkıyor, bildirim düşüyor — durak "Ertelendi" olarak düşüyor;
-  kuryenin bildirim/değişiklik ekranı (K5) 3. adımda
+- [x] Kurye ekranında eski durak kalkıyor, bildirim düşüyor — durak "Ertelendi · rotadan çıktı" olarak
+  kalır, haritadan ve ilerlemeden düşer; "Rota değişti" bandı ve K5 ekranı ne değiştiğini söyler
 - [x] Arka arkaya 10 değişiklikte 10 değil 1 optimizasyon koşuyor (`RerouteSchedulerTest`)
 
 ---

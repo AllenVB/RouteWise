@@ -10,6 +10,7 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +57,7 @@ import com.routewise.routing.matrix.DistanceMatrix;
 import com.routewise.routing.matrix.DistanceMatrixProvider;
 import com.routewise.shipment.Shipment;
 import com.routewise.shipment.ShipmentRepository;
+import com.routewise.shipment.ShipmentStatus;
 import com.routewise.vehicle.Vehicle;
 import com.routewise.vehicle.VehicleRepository;
 
@@ -106,6 +108,7 @@ public class RerouteService {
     private final OptimizerClient optimizer;
     private final NotificationService notifications;
     private final RerouteEventRepository events;
+    private final PostponeSuggestionRepository suggestions;
     private final RouteCompletion completion;
     private final RerouteProperties props;
     private final TransactionTemplate tx;
@@ -118,7 +121,7 @@ public class RerouteService {
                           CourierRepository couriers, RecipientRepository recipients,
                           DepotService depots, DistanceMatrixProvider matrices, OptimizerClient optimizer,
                           NotificationService notifications, RerouteEventRepository events,
-                          RouteCompletion completion, RerouteProperties props, TransactionTemplate tx,
+                          PostponeSuggestionRepository suggestions, RouteCompletion completion, RerouteProperties props, TransactionTemplate tx,
                           Clock clock) {
         this.routes = routes;
         this.stops = stops;
@@ -135,6 +138,7 @@ public class RerouteService {
         this.optimizer = optimizer;
         this.notifications = notifications;
         this.events = events;
+        this.suggestions = suggestions;
         this.completion = completion;
         this.props = props;
         this.tx = tx;
@@ -154,16 +158,25 @@ public class RerouteService {
     }
 
     public Outcome reroute(Long routeId, RerouteEvent.Trigger trigger, Long shipmentId) {
+        return reroute(routeId, trigger, shipmentId, shipmentId == null ? Set.of() : Set.of(shipmentId));
+    }
+
+    /**
+     * @param shipmentId the latest change, recorded as the event's trigger
+     * @param causes     every shipment whose change is folded into this reroute
+     *                   (debounce); an address-moved one is reported as moved
+     */
+    public Outcome reroute(Long routeId, RerouteEvent.Trigger trigger, Long shipmentId, Set<Long> causes) {
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             Snapshot snap = tx.execute(status -> snapshot(routeId));
             if (snap == null) {
                 return Outcome.skipped(routeId);
             }
             if (!snap.open().isEmpty() && limitReached(routeId)) {
-                return tx.execute(status -> keepOrder(snap, trigger, shipmentId));
+                return tx.execute(status -> keepOrder(snap, trigger, shipmentId, causes));
             }
-            Solved solved = solve(snap);
-            Outcome out = tx.execute(status -> persist(snap, solved, trigger, shipmentId));
+            Solved solved = solve(snap, causes);
+            Outcome out = tx.execute(status -> persist(snap, solved, trigger, shipmentId, causes));
             if (out != null) {
                 return out;
             }
@@ -176,20 +189,99 @@ public class RerouteService {
     /** Günlük değişiklik limiti: bugün (depo saatiyle) bu rotada yapılmış yeniden rotalama sayısı. */
     private boolean limitReached(Long routeId) {
         Instant dayStart = LocalDate.now(clock).atStartOfDay(clock.getZone()).toInstant();
-        return events.countByRouteIdAndCreatedAtGreaterThanEqual(routeId, dayStart) >= props.maxPerRoutePerDay();
+        return events.countByRouteIdAndOrderKeptFalseAndCreatedAtGreaterThanEqual(routeId, dayStart)
+                >= props.maxPerRoutePerDay();
     }
 
     /**
      * Limit dolduysa kuryenin sırası artık değişmez: çıkan durak çıkmış olarak kalır
-     * (çağıran işaretledi), kalanlar eski sırasıyla sürer. Kurye yine bilgilendirilir.
+     * (çağıran işaretledi), kalanlar eski sırasıyla sürer. Kurye yine bilgilendirilir ve
+     * değişiklik K5 için kaydedilir; bu satır limit sayımına girmez.
      */
-    private Outcome keepOrder(Snapshot snap, RerouteEvent.Trigger trigger, Long triggerShipmentId) {
+    private Outcome keepOrder(Snapshot snap, RerouteEvent.Trigger trigger, Long triggerShipmentId, Set<Long> causes) {
         PlannedRoute route = routes.lockById(snap.routeId()).orElseThrow();
-        Shipment cause = triggerShipmentId == null ? null : shipments.findById(triggerShipmentId).orElse(null);
-        notifyCourier(route, trigger, cause, snap.open().size(), List.of(), true);
+        List<RouteStop> all = stops.findByRouteIdOrderBySequenceNoAsc(route.getId());
+        Map<Long, Shipment> byId = shipments.findAllById(all.stream().map(RouteStop::getShipmentId).toList())
+                .stream().collect(Collectors.toMap(Shipment::getId, Function.identity()));
+        int open = (int) all.stream().filter(RouteStop::isOpen).count();
+        RerouteEvent.Changes changes = new RerouteEvent.Changes(
+                removedSinceLast(route.getId(), all, byId, Map.of()), moved(all, byId, causes), List.of());
+        Shipment cause = triggerShipmentId == null ? null : byId.get(triggerShipmentId);
+        notifyCourier(route, trigger, cause, open, List.of(), true);
+        events.save(new RerouteEvent(route.getId(), trigger, triggerShipmentId, snap.start(), open, open, 0,
+                null, null, null, true, changes, clock.instant()));
         log.info("rota {}: gunluk yeniden rotalama limiti ({}) dolu, sira korunuyor", route.getId(),
                 props.maxPerRoutePerDay());
-        return new Outcome(route.getId(), false, snap.open().size(), List.of());
+        return new Outcome(route.getId(), false, open, List.of());
+    }
+
+    // --- K5: kuryenin gördüğü değişiklikler ------------------------------------
+
+    /**
+     * Stops postponed since the last reported change: the recipient's own
+     * postponement, a rejected address, or dropped by this reroute (solver reason).
+     */
+    private List<RerouteEvent.Removed> removedSinceLast(Long routeId, List<RouteStop> all, Map<Long, Shipment> byId,
+                                                        Map<Long, String> droppedNow) {
+        Set<Long> reported = new HashSet<>();
+        for (RerouteEvent e : events.findByRouteIdOrderByIdAsc(routeId)) {
+            e.getChanges().removed().forEach(r -> reported.add(r.stopId()));
+        }
+        Set<Long> byCompany = suggestions.findByRouteIdAndStatus(routeId, PostponeSuggestion.Status.ERTELENDI)
+                .stream().map(PostponeSuggestion::getStopId).collect(Collectors.toSet());
+        return all.stream()
+                .filter(RouteStop::isPostponed)
+                .filter(s -> !reported.contains(s.getId()))
+                .map(s -> {
+                    Shipment sh = byId.get(s.getShipmentId());
+                    String reason = droppedNow.get(s.getShipmentId());
+                    if (reason == null && byCompany.contains(s.getId())) {
+                        reason = RerouteEvent.COMPANY_POSTPONED;
+                    } else if (reason == null) {
+                        // Alıcı erteleyince kargo ERTELENDI olur; reddedilen adreste havuza döner.
+                        reason = sh != null && sh.getStatus() == ShipmentStatus.ERTELENDI
+                                ? RerouteEvent.RECIPIENT_POSTPONED : RerouteEvent.ADDRESS_REJECTED;
+                    }
+                    return new RerouteEvent.Removed(s.getId(), s.getShipmentId(),
+                            sh == null ? null : sh.getOrderNumber(), reason);
+                })
+                .toList();
+    }
+
+    /** A cause that is still an open stop can only be an approved address move. */
+    private static List<RerouteEvent.Moved> moved(List<RouteStop> all, Map<Long, Shipment> byId, Set<Long> causes) {
+        return all.stream()
+                .filter(RouteStop::isOpen)
+                .filter(s -> causes.contains(s.getShipmentId()))
+                .map(s -> new RerouteEvent.Moved(s.getId(), s.getShipmentId(), orderNumber(byId, s)))
+                .toList();
+    }
+
+    /**
+     * Open stops whose place among the remaining ones changed. A stop leaving shifts
+     * the numbers after it but is not a reordering, so ranks are compared; a stop is
+     * listed only if its number on the courier's screen changed too.
+     */
+    private static List<RerouteEvent.Reordered> reordered(List<RouteStop> openBefore, Map<Long, Integer> seqBefore,
+                                                          List<RouteStop> openAfter, Map<Long, Shipment> byId) {
+        Set<Long> kept = openAfter.stream().map(RouteStop::getId).collect(Collectors.toSet());
+        List<Long> before = openBefore.stream().map(RouteStop::getId).filter(kept::contains).toList();
+        List<RerouteEvent.Reordered> out = new ArrayList<>();
+        for (int i = 0; i < openAfter.size(); i++) {
+            RouteStop s = openAfter.get(i);
+            int from = seqBefore.get(s.getId());
+            // Yalnızca kuryenin gördüğü numara değiştiyse: 3. iken yine 3. olan durak ona "değişmedi".
+            if (before.indexOf(s.getId()) != i && from != s.getSequenceNo()) {
+                out.add(new RerouteEvent.Reordered(s.getId(), s.getShipmentId(), orderNumber(byId, s),
+                        from, s.getSequenceNo()));
+            }
+        }
+        return out;
+    }
+
+    private static String orderNumber(Map<Long, Shipment> byId, RouteStop s) {
+        Shipment sh = byId.get(s.getShipmentId());
+        return sh == null ? null : sh.getOrderNumber();
     }
 
     // --- 1. okuma -------------------------------------------------------------
@@ -265,11 +357,15 @@ public class RerouteService {
      * @param order    new visiting order of the stops that still fit
      * @param dropped  shipment id -> why it leaves the route
      * @param keptCost the old order with removed stops skipped; null if even that does not fit the day
+     * @param measured what each address-moved stop adds to the rest of the round (cost threshold)
      */
     record Solved(List<StopOut> order, Map<Long, String> dropped, BigDecimal keptCost, BigDecimal newCost,
-                  Integer computationMs) {}
+                  Integer computationMs, List<Measured> measured) {}
 
-    private Solved solve(Snapshot snap) {
+    /** The rest of the round with and without one moved stop, in TL (no priority penalty). */
+    record Measured(Long shipmentId, BigDecimal costWithout, BigDecimal costWith) {}
+
+    private Solved solve(Snapshot snap, Set<Long> causes) {
         Map<Long, String> dropped = new LinkedHashMap<>();
         List<OpenStop> candidates = new ArrayList<>();
         for (OpenStop s : snap.open()) {
@@ -304,12 +400,44 @@ public class RerouteService {
             List<StopOut> order = result.result().routes().stream()
                     .filter(r -> r.vehicleId() == snap.vehicle().getId())
                     .findFirst().map(RouteOut::stops).orElse(List.of());
+            BigDecimal newCost = money(result.result().totalCostTry());
             return new Solved(order, dropped,
                     result.baseline() == null ? null : money(result.baseline().totalCostTry()),
-                    money(result.result().totalCostTry()),
-                    (int) Math.ceil(result.result().computationTimeMs()));
+                    newCost,
+                    (int) Math.ceil(result.result().computationTimeMs()),
+                    measure(snap, candidates, order, causes, newCost));
         }
-        return new Solved(List.of(), dropped, null, null, null);
+        return new Solved(List.of(), dropped, null, null, null, List.of());
+    }
+
+    /**
+     * Maliyet artışı eşiği: onaylanan adres değişikliğiyle taşınan her durak için kalan
+     * tur bir kez de o durak olmadan hesaplanır. Fark, durağın bugün rotaya eklediği
+     * maliyettir. Ölçüm yalnızca bilgi verir; ölçülemezse yeniden rotalama yine geçerli.
+     */
+    private List<Measured> measure(Snapshot snap, List<OpenStop> candidates, List<StopOut> order,
+                                   Set<Long> causes, BigDecimal costWith) {
+        if (costWith == null || candidates.size() < 2) {
+            return List.of();
+        }
+        Set<Long> served = order.stream().map(StopOut::stopId).collect(Collectors.toSet());
+        List<Measured> out = new ArrayList<>();
+        for (OpenStop moved : candidates) {
+            if (!causes.contains(moved.shipmentId()) || !served.contains(moved.shipmentId())) {
+                continue;
+            }
+            List<OpenStop> rest = candidates.stream().filter(s -> s != moved).toList();
+            try {
+                BigDecimal without = money(optimizer.optimize(request(snap, rest)).result().totalCostTry());
+                if (without != null) {
+                    out.add(new Measured(moved.shipmentId(), without, costWith));
+                }
+            } catch (ApiException e) {
+                log.warn("rota {}: kargo {} icin ek maliyet olculemedi ({}), oneri yapilmadi",
+                        snap.routeId(), moved.shipmentId(), e.code());
+            }
+        }
+        return out;
     }
 
     /** Current order goes first: it is the naive baseline and the warm start, so an unchanged order stays. */
@@ -340,7 +468,8 @@ public class RerouteService {
     // --- 3. yazma (rota kilidi altında) ---------------------------------------
 
     /** @return null if the route changed since the snapshot and the result is stale */
-    private Outcome persist(Snapshot snap, Solved solved, RerouteEvent.Trigger trigger, Long triggerShipmentId) {
+    private Outcome persist(Snapshot snap, Solved solved, RerouteEvent.Trigger trigger, Long triggerShipmentId,
+                            Set<Long> causes) {
         PlannedRoute route = routes.lockById(snap.routeId()).orElseThrow();
         List<RouteStop> all = stops.findByRouteIdOrderBySequenceNoAsc(route.getId());
         Set<Long> openNow = all.stream().filter(RouteStop::isOpen).map(RouteStop::getId).collect(Collectors.toSet());
@@ -353,6 +482,10 @@ public class RerouteService {
         Map<Long, Shipment> byId = shipments.findAllById(all.stream().map(RouteStop::getShipmentId).toList())
                 .stream().collect(Collectors.toMap(Shipment::getId, Function.identity()));
         Map<Long, Long> userOf = recipientUsers(byId.values());
+        List<RouteStop> openBefore = all.stream().filter(RouteStop::isOpen).toList();   // sıra numarasına göre
+        Map<Long, Integer> seqBefore = openBefore.stream()
+                .collect(Collectors.toMap(RouteStop::getId, RouteStop::getSequenceNo));
+        List<RouteStop> openAfter = new ArrayList<>();
 
         int seq = 0;
         // Uğranan duraklar uğrandıkları sırayla başa: kurye sırayı bozmuş olabilir.
@@ -366,6 +499,7 @@ public class RerouteService {
             Instant before = s.getEta();
             Instant eta = snap.base().plusSeconds(Math.round(so.arrivalS()));
             s.reschedule(++seq, meters(so.distanceFromPrevM()), (int) Math.round(so.durationFromPrevS()), eta);
+            openAfter.add(s);
             if (before != null && Duration.between(before, eta).abs().compareTo(ETA_NOTIFY_THRESHOLD) >= 0) {
                 Shipment sh = byId.get(s.getShipmentId());
                 notifyRecipient(userOf, sh, Notification.Type.ETA, Map.of(
@@ -389,17 +523,59 @@ public class RerouteService {
             s.renumber(++seq);
         }
 
-        int openAfter = solved.order().size();
+        RerouteEvent.Changes changes = new RerouteEvent.Changes(
+                removedSinceLast(route.getId(), all, byId, solved.dropped()),
+                moved(all, byId, causes),
+                reordered(openBefore, seqBefore, openAfter, byId));
         completion.completeIfDone(route, all, now);
-        notifyCourier(route, trigger, byId.get(triggerShipmentId), openAfter, autoPostponed, false);
-        events.save(new RerouteEvent(route.getId(), trigger, triggerShipmentId, snap.start(),
-                snap.open().size(), openAfter, autoPostponed.size(),
-                solved.keptCost(), solved.newCost(), solved.computationMs(), now));
+        notifyCourier(route, trigger, byId.get(triggerShipmentId), openAfter.size(), autoPostponed, false);
+        RerouteEvent event = events.save(new RerouteEvent(route.getId(), trigger, triggerShipmentId, snap.start(),
+                snap.open().size(), openAfter.size(), autoPostponed.size(),
+                solved.keptCost(), solved.newCost(), solved.computationMs(), false, changes, now));
+        suggest(route.getId(), event.getId(), solved.measured(), stopOf, openAfter, now);
 
-        log.info("rota {} yeniden rotalandi ({}): {} -> {} acik durak, {} otomatik ertelendi, maliyet {} -> {} TL",
-                route.getId(), trigger, snap.open().size(), openAfter, autoPostponed.size(),
-                solved.keptCost(), solved.newCost());
-        return new Outcome(route.getId(), true, openAfter, autoPostponed);
+        log.info("rota {} yeniden rotalandi ({}): {} -> {} acik durak, {} otomatik ertelendi, {} sira degisti, maliyet {} -> {} TL",
+                route.getId(), trigger, snap.open().size(), openAfter.size(), autoPostponed.size(),
+                changes.reordered().size(), solved.keptCost(), solved.newCost());
+        return new Outcome(route.getId(), true, openAfter.size(), autoPostponed);
+    }
+
+    /**
+     * A moved stop above the threshold gets (or keeps, with new numbers) one open
+     * suggestion; one measured below it drops its old one. Suggestions whose stop
+     * left the route or was closed meanwhile are no longer a question.
+     */
+    private void suggest(Long routeId, Long eventId, List<Measured> measured, Map<Long, RouteStop> stopOf,
+                         List<RouteStop> openAfter, Instant now) {
+        Set<Long> stillOpen = openAfter.stream().map(RouteStop::getId).collect(Collectors.toSet());
+        for (PostponeSuggestion old : suggestions.findByRouteIdAndStatus(routeId, PostponeSuggestion.Status.ACIK)) {
+            if (!stillOpen.contains(old.getStopId())) {
+                old.decide(PostponeSuggestion.Status.GECERSIZ, null, now);
+            }
+        }
+        BigDecimal threshold = BigDecimal.valueOf(props.suggestPostponeAbove());
+        for (Measured m : measured) {
+            RouteStop stop = stopOf.get(m.shipmentId());
+            if (stop == null || !stillOpen.contains(stop.getId())) {
+                continue;
+            }
+            BigDecimal extra = m.costWith().subtract(m.costWithout());
+            boolean above = m.costWithout().signum() > 0
+                    && extra.compareTo(m.costWithout().multiply(threshold)) > 0;
+            var open = suggestions.findByStopIdAndStatus(stop.getId(), PostponeSuggestion.Status.ACIK);
+            if (above && open.isPresent()) {
+                open.get().remeasure(eventId, m.costWithout(), m.costWith(), now);
+            } else if (above) {
+                suggestions.save(new PostponeSuggestion(routeId, stop.getId(), m.shipmentId(), eventId,
+                        m.costWithout(), m.costWith(), now));
+            } else {
+                open.ifPresent(o -> o.decide(PostponeSuggestion.Status.GECERSIZ, null, now));
+            }
+            if (above) {
+                log.info("rota {}: kargo {} rotaya {} TL ekliyor ({} -> {}), erteleme onerildi",
+                        routeId, m.shipmentId(), extra, m.costWithout(), m.costWith());
+            }
+        }
     }
 
     /** @param orderKept the daily limit was reached: the stop left but the order did not change */

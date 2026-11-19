@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { renderAt, signedInAs } from '../../test/render';
 import { apiError, server } from '../../test/server';
+import { CourierChangesPage } from './CourierChangesPage';
 import { CourierRoutePage } from './CourierRoutePage';
 import { CourierStopPage } from './CourierStopPage';
 
@@ -13,6 +14,14 @@ const stop = (id: number, seq: number, status: string, extra: object = {}) => ({
   eta: '2026-11-01T05:10:00Z', status, recipientName: 'Elif Demir', recipientPhone: '05321112233',
   actualArrival: null, failureReason: null, ...extra,
 });
+
+const change = (id: number, extra: object = {}) => ({
+  id, trigger: 'ERTELEME', at: '2026-11-01T06:40:00Z', orderKept: false, openStops: 2,
+  removed: [{ stopId: 2, shipmentId: 62, orderNumber: 'BND-2026-00062', reason: 'ALICI_ERTELEDI' }],
+  moved: [], reordered: [{ stopId: 4, shipmentId: 64, orderNumber: 'BND-2026-00064', fromSeq: 4, toSeq: 2 }],
+  ...extra,
+});
+const changes = (list: object[], recomputing = false) => ({ routeId: 7, recomputing, changes: list });
 
 const route = (stops: object[]) => ({
   run: { runId: 50, planId: 4, algorithm: 'ROUTEWISE', isApplied: true, isBaseline: false, totalDistanceM: 12000,
@@ -24,7 +33,10 @@ const route = (stops: object[]) => ({
 });
 
 describe('courier screens', () => {
-  beforeEach(() => signedInAs('COURIER'));
+  beforeEach(() => {
+    signedInAs('COURIER');
+    server.use(http.get('/api/v1/courier/route/changes', () => HttpResponse.json(changes([]))));
+  });
 
   describe('CourierRoutePage (K2/K4)', () => {
     it('should explain when nothing has been dispatched today', async () => {
@@ -66,6 +78,107 @@ describe('courier screens', () => {
       renderAt('/kurye', <CourierRoutePage />);
 
       expect(await screen.findByText(/Bütün duraklar kapandı/)).toBeInTheDocument();
+    });
+  });
+
+  describe('route changes on the route screen (K5)', () => {
+    const today = route([stop(1, 1, 'TESLIM_EDILDI'), stop(4, 2, 'BEKLEMEDE'), stop(3, 3, 'BEKLEMEDE'), stop(2, 4, 'ERTELENDI')]);
+
+    it('should say what changed until the courier acknowledges it', async () => {
+      server.use(
+        http.get('/api/v1/courier/route', () => HttpResponse.json(today)),
+        http.get('/api/v1/courier/route/changes', () => HttpResponse.json(changes([change(5)]))),
+      );
+      const user = userEvent.setup();
+      renderAt('/kurye', <CourierRoutePage />);
+
+      const banner = await screen.findByText(/Rota değişti · 09:40/);
+      expect(banner.closest('[role=status]')).toHaveTextContent('1 durak çıktı, 1 durağın sırası değişti · 2 açık durak kaldı.');
+      expect(screen.getByRole('link', { name: 'Ne değişti?' })).toHaveAttribute('href', '/kurye/degisiklikler');
+
+      await user.click(screen.getByRole('button', { name: 'Tamam' }));
+
+      expect(screen.queryByText(/Rota değişti/)).not.toBeInTheDocument();
+      expect(localStorage.getItem('routewise.courier.changesSeen.7')).toBe('5');
+    });
+
+    it('should not show a change the courier has already seen', async () => {
+      localStorage.setItem('routewise.courier.changesSeen.7', '5');
+      server.use(
+        http.get('/api/v1/courier/route', () => HttpResponse.json(today)),
+        http.get('/api/v1/courier/route/changes', () => HttpResponse.json(changes([change(5)]))),
+      );
+      renderAt('/kurye', <CourierRoutePage />);
+
+      expect(await screen.findByText('1/3 tamamlandı')).toBeInTheDocument();
+      expect(screen.queryByText(/Rota değişti/)).not.toBeInTheDocument();
+    });
+
+    it('should show progress while recomputing and reload the route when it is done', async () => {
+      let routeCalls = 0;
+      let busy = true;
+      server.use(
+        http.get('/api/v1/courier/route', () => {
+          routeCalls++;
+          return HttpResponse.json(today);
+        }),
+        http.get('/api/v1/courier/route/changes', () => {
+          const body = busy ? changes([], true) : changes([change(6)]);
+          busy = false;
+          return HttpResponse.json(body);
+        }),
+      );
+      renderAt('/kurye', <CourierRoutePage />);
+
+      expect(await screen.findByText(/Rota yeniden hesaplanıyor/)).toBeInTheDocument();
+
+      // Hesaplama sürerken sık sorulur; bitince yeni sıra için rota tazelenir.
+      expect(await screen.findByText(/Rota değişti/, {}, { timeout: 5_000 })).toBeInTheDocument();
+      await expect.poll(() => routeCalls).toBe(2);
+    });
+
+    it('should say when the daily limit kept the order', async () => {
+      server.use(
+        http.get('/api/v1/courier/route', () => HttpResponse.json(today)),
+        http.get('/api/v1/courier/route/changes', () =>
+          HttpResponse.json(changes([change(8, { orderKept: true, reordered: [] })]))),
+      );
+      renderAt('/kurye', <CourierRoutePage />);
+
+      expect(await screen.findByText(/Bugünkü değişiklik limiti doldu; kalan sıran korunuyor/)).toBeInTheDocument();
+    });
+  });
+
+  describe('CourierChangesPage (K5)', () => {
+    it('should list removed, moved and reordered stops with addresses, newest first', async () => {
+      server.use(
+        http.get('/api/v1/courier/route', () => HttpResponse.json(route([
+          stop(1, 1, 'TESLIM_EDILDI'), stop(4, 2, 'BEKLEMEDE'), stop(3, 3, 'BEKLEMEDE'), stop(2, 4, 'ERTELENDI'),
+        ]))),
+        http.get('/api/v1/courier/route/changes', () => HttpResponse.json(changes([
+          change(5),
+          change(6, {
+            trigger: 'ADRES_DEGISIKLIGI', at: '2026-11-01T07:15:00Z',
+            removed: [], reordered: [], moved: [{ stopId: 3, shipmentId: 63, orderNumber: 'BND-2026-00063' }],
+          }),
+        ]))),
+      );
+      renderAt('/kurye/degisiklikler', <CourierChangesPage />);
+
+      const cards = await screen.findAllByRole('region', { name: /Değişiklik/ });
+      expect(cards.map((c) => c.getAttribute('aria-label'))).toEqual(['Değişiklik 10:15', 'Değişiklik 09:40']);
+      expect(cards[0]).toHaveTextContent('Adresi değişen');
+      expect(await screen.findByRole('link', { name: 'Adres 3' })).toHaveAttribute('href', '/kurye/durak/3');
+      expect(cards[1]).toHaveTextContent('Adres 2 — Alıcı başka güne erteledi');
+      expect(cards[1]).toHaveTextContent('Adres 4 — 4. duraktan 2. durağa');
+      expect(localStorage.getItem('routewise.courier.changesSeen.7')).toBe('6');
+    });
+
+    it('should say when nothing changed today', async () => {
+      server.use(http.get('/api/v1/courier/route', () => HttpResponse.json(route([stop(1, 1, 'BEKLEMEDE')]))));
+      renderAt('/kurye/degisiklikler', <CourierChangesPage />);
+
+      expect(await screen.findByText('Bugün rotanda değişiklik olmadı.')).toBeInTheDocument();
     });
   });
 

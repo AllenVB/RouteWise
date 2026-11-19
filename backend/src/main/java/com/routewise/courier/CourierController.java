@@ -1,5 +1,6 @@
 package com.routewise.courier;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 import jakarta.validation.Valid;
@@ -11,6 +12,8 @@ import com.routewise.common.error.ApiException;
 import com.routewise.common.error.ErrorCode;
 import com.routewise.optimization.RunDtos.RunDetail;
 import com.routewise.optimization.RunDtos.StopDetail;
+import com.routewise.reroute.RouteChangesService;
+import com.routewise.reroute.RouteChangesService.RouteChanges;
 import com.routewise.user.Role;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,18 +30,20 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Courier screens K2–K4. The security filter lets couriers and the company in;
+ * Courier screens K2–K5. The security filter lets couriers and the company in;
  * the company may read (with an explicit courier) but never close a stop.
  */
 @RestController
 @RequestMapping("/courier")
-@Tag(name = "Kurye", description = "Kuryenin günlük rotası ve durakları (K2–K4)")
+@Tag(name = "Kurye", description = "Kuryenin günlük rotası, durakları ve rota değişiklikleri (K2–K5)")
 public class CourierController {
 
     private final CourierService service;
+    private final RouteChangesService changes;
 
-    public CourierController(CourierService service) {
+    public CourierController(CourierService service, RouteChangesService changes) {
         this.service = service;
+        this.changes = changes;
     }
 
     public record FailRequest(
@@ -54,6 +59,18 @@ public class CourierController {
                            @AuthenticationPrincipal AuthenticatedUser caller) {
         LocalDate day = date == null ? service.today() : date;
         return service.route(readerCourier(caller, courierId), day);
+    }
+
+    @GetMapping("/route/changes")
+    @Operation(summary = "Rota değişiklikleri (K5)",
+            description = "Gün içindeki yeniden rotalamalar: çıkan, adresi taşınan ve sırası değişen duraklar. "
+                    + "`since` verilirse yalnızca ondan sonrakiler; `recomputing` rota şu an yeniden hesaplanıyorsa true.")
+    public RouteChanges changes(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant since,
+                                @RequestParam(required = false) Long courierId,
+                                @AuthenticationPrincipal AuthenticatedUser caller) {
+        LocalDate day = date == null ? service.today() : date;
+        return changes.forCourier(readerCourier(caller, courierId), day, since);
     }
 
     @GetMapping("/stops/{id}")

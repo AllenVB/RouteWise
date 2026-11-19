@@ -35,6 +35,7 @@ import com.routewise.plan.DeliveryPlan;
 import com.routewise.plan.DeliveryPlanRepository;
 import com.routewise.plan.PlanStatus;
 import com.routewise.plan.RouteCompletion;
+import com.routewise.reroute.RouteChangesService;
 import com.routewise.shipment.Shipment;
 import com.routewise.shipment.ShipmentRepository;
 import com.routewise.shipment.ShipmentStatus;
@@ -216,7 +217,7 @@ class CourierServiceTest {
         @Test
         @DisplayName("Firma durak kapatamaz: 403")
         void companyCannotClose() {
-            var controller = new CourierController(service);
+            var controller = new CourierController(service, mock(RouteChangesService.class));
             var company = new AuthenticatedUser(1L, "firma@routewise.local", Role.COMPANY);
 
             assertThatThrownBy(() -> controller.deliver(101L, company))
@@ -227,7 +228,7 @@ class CourierServiceTest {
         @Test
         @DisplayName("Firma kuryesiz rota isteyemez: 400")
         void companyMustNameCourier() {
-            var controller = new CourierController(service);
+            var controller = new CourierController(service, mock(RouteChangesService.class));
             var company = new AuthenticatedUser(1L, "firma@routewise.local", Role.COMPANY);
 
             assertThatThrownBy(() -> controller.route(null, null, company))
