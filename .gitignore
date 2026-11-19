@@ -48,3 +48,8 @@ docs/diagrams/*.png
 
 # TypeScript artımlı derleme önbelleği
 *.tsbuildinfo
+
+# Python bayt kodu ve test önbelleği
+__pycache__/
+*.py[cod]
+.pytest_cache/
