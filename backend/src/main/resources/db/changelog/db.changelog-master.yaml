@@ -35,3 +35,5 @@ databaseChangeLog:
       file: db/changelog/changes/036-postpone-suggestions.sql
   - include:
       file: db/changelog/changes/037-comparisons.sql
+  - include:
+      file: db/changelog/changes/038-tour-comparison-runs.sql

@@ -73,7 +73,8 @@ public class PathComparisonService {
     public record End(long nodeId, double lat, double lon, Double snapDistanceM) {}
 
     public record PathComparison(Long id, Comparison.Level level, Instant createdAt, End from, End to,
-                                 Weight weight, int repeats, List<PathAlgorithmOut> results) {}
+                                 Weight weight, int repeats, List<PathAlgorithmOut> results)
+            implements ComparisonView {}
 
     record Params(End from, End to, Weight weight, int repeats) {}
 
@@ -111,10 +112,7 @@ public class PathComparisonService {
         return new PathComparison(saved.getId(), saved.getLevel(), saved.getCreatedAt(), a, b, w, n, result.results());
     }
 
-    public PathComparison get(Long id) {
-        Comparison c = comparisons.findById(id)
-                .filter(x -> x.getLevel() == Comparison.Level.PATH)
-                .orElseThrow(() -> ApiException.notFound("Karşılaştırma"));
+    PathComparison view(Comparison c) {
         Params p = read(c.getParams(), Params.class);
         PathCompareResult r = read(c.getResult(), PathCompareResult.class);
         return new PathComparison(c.getId(), c.getLevel(), c.getCreatedAt(), p.from(), p.to(), p.weight(),

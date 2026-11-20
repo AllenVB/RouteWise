@@ -73,8 +73,9 @@ class MatrixIn(CamelModel):
         return self
 
 
-class OptimizeRequest(CamelModel):
-    algorithm: Algorithm = Algorithm.GREEDY_NN
+class ProblemRequest(CamelModel):
+    """Bir rota probleminin girdisi: duraklar, araçlar, matris, maliyet ve çalışma günü."""
+
     depot_node_id: int
     stops: list[StopIn] = Field(
         ..., min_length=1, max_length=MAX_NODES - 1,
@@ -88,15 +89,13 @@ class OptimizeRequest(CamelModel):
     iterations: int = Field(20_000, ge=0, le=500_000, description="SA iterasyon bütçesi.")
     max_route_duration_s: float | None = Field(
         None, gt=0, description="Çalışma günü: rota süresi (yol + teslim + dönüş) bunu aşamaz.")
-    warm_start: list[WarmRouteIn] | None = Field(
-        None, description="Önceki uygulanan koşu; yalnızca ROUTEWISE. Bilinmeyen kargolar yok sayılır.")
-    start_node_id: int | None = Field(
-        None, description="Yolda yeniden rotalama: araçlar bu düğümden çıkar (kuryenin son kapattığı "
-                          "durak), depoya döner. arrivalS ve maxRouteDurationS buradan çıkışa göredir. "
-                          "Verilmezse depo.")
+
+    @property
+    def start_node(self) -> int | None:
+        return None
 
     @model_validator(mode="after")
-    def _tutarli(self) -> OptimizeRequest:
+    def _tutarli(self) -> ProblemRequest:
         ids = [s.id for s in self.stops]
         if len(set(ids)) != len(ids):
             raise ValueError("stops tekrar eden kargo kimliği içeriyor")
@@ -105,8 +104,8 @@ class OptimizeRequest(CamelModel):
             raise ValueError("vehicles tekrar eden araç kimliği içeriyor")
         bilinen = set(self.matrix.node_ids)
         gerekli = {self.depot_node_id, *(s.node_id for s in self.stops)}
-        if self.start_node_id is not None:
-            gerekli.add(self.start_node_id)
+        if self.start_node is not None:
+            gerekli.add(self.start_node)
         eksik = sorted(gerekli - bilinen)
         if eksik:
             raise ValueError(f"matriste olmayan düğümler: {eksik[:10]}")
@@ -128,11 +127,25 @@ class OptimizeRequest(CamelModel):
                 driver_cost_per_hour=self.cost_params.driver_cost_per_hour,
                 priority_penalty=self.cost_params.priority_penalty),
             max_duration_s=self.max_route_duration_s,
-            start_node_id=self.start_node_id,
+            start_node_id=self.start_node,
         )
 
     def anneal_params(self) -> AnnealParams:
         return AnnealParams(iterations=self.iterations)
+
+
+class OptimizeRequest(ProblemRequest):
+    algorithm: Algorithm = Algorithm.GREEDY_NN
+    warm_start: list[WarmRouteIn] | None = Field(
+        None, description="Önceki uygulanan koşu; yalnızca ROUTEWISE. Bilinmeyen kargolar yok sayılır.")
+    start_node_id: int | None = Field(
+        None, description="Yolda yeniden rotalama: araçlar bu düğümden çıkar (kuryenin son kapattığı "
+                          "durak), depoya döner. arrivalS ve maxRouteDurationS buradan çıkışa göredir. "
+                          "Verilmezse depo.")
+
+    @property
+    def start_node(self) -> int | None:
+        return self.start_node_id
 
     def warm_routes(self) -> list[list[int]] | None:
         """Araç sırasıyla hizalı, problem indeksli önceki rotalar."""

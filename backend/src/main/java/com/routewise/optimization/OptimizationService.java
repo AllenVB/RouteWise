@@ -219,7 +219,7 @@ public class OptimizationService {
      * queue, and routing to its old approval is exactly the error the
      * verification flow exists to prevent.
      */
-    Candidates candidates(DeliveryPlan plan) {
+    public Candidates candidates(DeliveryPlan plan) {
         List<Shipment> all = shipments.findPlannableOn(plan.getPlanDate());
         Map<Long, Address> byId = addresses.findAllById(
                         all.stream().map(Shipment::getAddressId).distinct().toList()).stream()
@@ -247,7 +247,7 @@ public class OptimizationService {
         return new Candidates(routable, excluded, nodeOf);
     }
 
-    record Candidates(List<Shipment> routable, List<ExcludedShipment> excluded, Map<Long, Long> nodeOf) {}
+    public record Candidates(List<Shipment> routable, List<ExcludedShipment> excluded, Map<Long, Long> nodeOf) {}
 
     private OptimizeResponse persist(Long planId, Algorithm algorithm, OptimizeResult r, Candidates c,
                                      Instant departure) {

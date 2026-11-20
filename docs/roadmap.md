@@ -568,9 +568,28 @@ Projenin en görünür çıktısı: algoritma karşılaştırması, tasarruf ana
    | DFS | %890,6 | %6.502,6 | 4.752 | 8,3 ms |
 
 **Seviye 2 — tur sırası**
-5. `nearest_neighbor.py`, `exhaustive.py` (n ≤ 10)
-6. `POST /compare/tour` — tüm algoritmaları aynı girdiyle koşturur
-7. Her algoritma N kez, medyan raporlanır
+5. ✅ `nearest_neighbor.py` (Faz 2'den), `exhaustive.py` (n ≤ 10) — tek araç, dal-sınır DFS: önek
+   maliyeti + kalan durakların en az cezası alt sınırdır, en iyi sezgisel başlangıç üst sınırı.
+   Kanıtlı optimum; 7 duraklı rastgele örneklerde kaba kuvvetle (tüm permütasyonlar) aynı sonuç
+6. ✅ `POST /plans/{id}/compare/tour` — tek araç, planın doğrulanmış kargoları ya da `shipmentIds` alt
+   kümesi; NAIVE, GREEDY_NN, SAVINGS, ROUTEWISE + n ≤ 10 ise DFS_EXHAUSTIVE aynı matris, maliyet ve
+   çalışma günüyle. Plan değişmez. Sonuç `comparisons`'a, algoritma başına satır
+   `tour_comparison_runs`'a (038) — anlamlılık testinin girdisi. Çok araçlı kesin arama kapsam dışı:
+   10 durakta bile atama × sıra on milyonlarca dal
+7. ✅ Her algoritma N kez, süre medyanı raporlanır; ROUTEWISE her tekrarda başka tohumla, amacı medyan
+   olan koşu raporlanır, en iyi/en kötü amaç da verilir
+
+   Gerçek grafta 10 rastgele senaryo (Bandırma merkezi, 10 durak, 8 saatlik gün, 3 tekrar):
+
+   | Algoritma | Optimumdan sapma medyan | En kötü | Optimumu bulduğu |
+   |---|---|---|---|
+   | NAIVE | %26,0 | %42,2 | 0/10 |
+   | GREEDY_NN | %2,6 | %8,9 | 0/10 |
+   | SAVINGS | %1,0 | %3,4 | 1/10 |
+   | ROUTEWISE | %0,0 | %0,0 | 10/10 |
+
+   DFS_EXHAUSTIVE: medyan 1,4 sn, en kötü 2,8 sn; 3,6 milyon sıradan medyan 689 bin arama düğümü açılır.
+   Bu bir ön bakıştır; iddia 30+ senaryo ve anlamlılık testiyle (Analiz) kurulacak
 
 **Analiz**
 8. `aggregate.py` — haftalık/aylık/yıllık pandas resample
@@ -582,7 +601,7 @@ Projenin en görünür çıktısı: algoritma karşılaştırması, tasarruf ana
 ### Biten iş tanımı
 - [x] BFS'in ağırlıkları yok saydığı **sayısal olarak gösteriliyor** (Dijkstra'dan sapma %) — medyan %8,9, en kötü %70,6
 - [x] A\*, Dijkstra ile aynı yolu daha az düğüm gezerek buluyor — 30/30 aynı yol, gezilen düğüm %30,5
-- [ ] DFS-exhaustive küçük örnekte gerçek optimumu veriyor
+- [x] DFS-exhaustive küçük örnekte gerçek optimumu veriyor — kaba kuvvetle karşılaştırma testi, çalışma günü kısıtı dahil
 - [ ] "RouteWise optimumun %X içinde" cümlesi veriyle destekleniyor
 - [ ] En az **30 senaryoda** anlamlılık testi koşuldu, p değeri raporlanıyor
 - [ ] Excel ve PDF raporları indirilebiliyor

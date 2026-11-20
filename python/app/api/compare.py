@@ -1,19 +1,32 @@
 """
 Karşılaştırma uçları — backend tarafından çağrılır, dışarıya açılmaz.
 
-Seviye 1: aynı kaynak-hedef çiftinde Dijkstra, A*, BFS ve DFS. Sonuç kalıcı
-değildir; backend kaydeder (`path_comparison_runs`).
+Seviye 1: aynı kaynak-hedef çiftinde Dijkstra, A*, BFS ve DFS.
+Seviye 2: tek aracın tur sırası — NAIVE, GREEDY_NN, SAVINGS, ROUTEWISE ve
+n ≤ 10 ise DFS_EXHAUSTIVE (kesin optimum). Sonuçlar kalıcı değildir; backend kaydeder.
 """
 
 from __future__ import annotations
 
 import logging
+import random
 
 from fastapi import APIRouter, HTTPException
 
 from ..pathfinding.base import Weight
 from ..pathfinding.compare import compare_paths
-from ..schemas.compare import PathAlgorithmOut, PathCompareRequest, PathCompareResponse
+from ..schemas.compare import (
+    PathAlgorithmOut,
+    PathCompareRequest,
+    PathCompareResponse,
+    TourAlgorithmOut,
+    TourCompareRequest,
+    TourCompareResponse,
+)
+from ..schemas.optimize import UnassignedOut
+from ..vrp.compare import compare_tours
+from ..vrp.model import InfeasibleError
+from .optimize import _solution
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/internal/compare", tags=["servisler arası"])
@@ -52,3 +65,42 @@ def compare_path(req: PathCompareRequest) -> PathCompareResponse:
              ", ".join(f"{x.algorithm} {x.nodes_visited} dugum {x.deviation_pct}%" for x in results))
     return PathCompareResponse(from_node_id=req.from_node_id, to_node_id=req.to_node_id,
                                weight=req.weight, repeats=req.repeats, results=results)
+
+
+@router.post("/tour", response_model=TourCompareResponse, response_model_by_alias=True)
+def compare_tour(req: TourCompareRequest) -> TourCompareResponse:
+    """Aynı durak kümesi, tek araç; sapma kesin optimuma (yoksa en iyi bulunana) göre."""
+    problem = req.to_problem()
+    seed = req.random_seed if req.random_seed is not None else random.SystemRandom().randrange(2**31 - 100)
+    try:
+        cmp = compare_tours(problem, req.repeats, seed, req.anneal_params())
+    except InfeasibleError as e:
+        raise HTTPException(status_code=409, detail={"code": "NO_FEASIBLE_SOLUTION", "message": str(e)}) from e
+
+    results = [
+        TourAlgorithmOut(
+            algorithm=r.algorithm,
+            feasible=r.solution is not None,
+            error=r.error,
+            solution=None if r.solution is None else _solution(problem, r.solution),
+            computation_time_ms=round(r.median_ms, 3),
+            gap_pct=None if r.gap_pct is None else round(r.gap_pct, 3),
+            random_seed=r.seed,
+            objective_min=None if r.objective_min is None else round(r.objective_min, 2),
+            objective_max=None if r.objective_max is None else round(r.objective_max, 2),
+            explored=r.explored,
+        )
+        for r in cmp.runs
+    ]
+    log.info("seviye 2: %d durak, %dx, referans %s (%s): %s", problem.size, req.repeats, cmp.reference,
+             "optimum" if cmp.reference_is_optimal else "en iyi",
+             ", ".join(f"{x.algorithm} %{x.gap_pct}" for x in results))
+    return TourCompareResponse(
+        repeats=req.repeats,
+        seeds=cmp.seeds,
+        reference_algorithm=cmp.reference,
+        reference_is_optimal=cmp.reference_is_optimal,
+        exhaustive_skipped=cmp.exhaustive_skipped,
+        results=results,
+        unassigned=[UnassignedOut(stop_id=problem.stop(i).id, reason=why) for i, why in sorted(cmp.unassigned.items())],
+    )

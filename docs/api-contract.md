@@ -129,9 +129,9 @@ yeniden doğrulanır**. İstemciye güvenilmez.
 | GET | `/runs/{id}` | F6 | Koşu metrikleri + rotalar |
 | POST | `/plans/{id}/dispatch` | F6 | Uygulanan koşuyu kuryelere sevk et |
 | GET | `/routes/{id}` | F7 | Rota detayı: duraklar, ETA, yük, maliyet |
-| POST | `/plans/{id}/compare/tour` | F8 | Seviye 2 — tüm tur algoritmaları |
+| POST | `/plans/{id}/compare/tour` | F8 | Seviye 2 — `{vehicleId?, shipmentIds?, repeats? (1–10, varsayılan 3), randomSeed?}`. Tek araç; NAIVE, GREEDY_NN, SAVINGS, ROUTEWISE ve en fazla 10 durakta DFS_EXHAUSTIVE. Algoritma başına çözüm, süre medyanı, `gapPct` (referansa göre), ROUTEWISE için tohum ve en iyi/en kötü amaç. `referenceIsOptimal` false ise referans bulunan en iyi çözümdür. Plan değişmez; en fazla 100 kargo. Tek araca/güne sığmıyorsa 409 `NO_FEASIBLE_SOLUTION` |
 | POST | `/compare/path` | F8 | Seviye 1 — her uç `from: {lat, lon}` (en yakın yol düğümüne bağlanır, hizmet alanı dışıysa 422 `OUTSIDE_SERVICE_AREA`) ya da `fromNodeId`; `weight` `DISTANCE`/`DURATION`, `repeats` 1–20 (varsayılan 5). Dijkstra, A*, BFS, DFS: uzunluk, süre, kenar ve gezilen düğüm sayısı, süre medyanı, Dijkstra'dan sapma %, yol ve koordinatlar |
-| GET | `/comparisons/{id}` | F8 | Kaydedilmiş karşılaştırma, hesaplandığı gibi (şimdilik Seviye 1) |
+| GET | `/comparisons/{id}` | F8 | Kaydedilmiş karşılaştırma, hesaplandığı gibi; `level` `PATH` ya da `TOUR` yanıtın biçimini belirler |
 | GET | `/analytics/savings?period=&from=&to=` | F9 | `period=WEEK\|MONTH\|YEAR` |
 | GET | `/analytics/export?format=&period=` | F9 | `format=XLSX\|PDF` → dosya |
 | GET | `/vehicles` | F6 | Filo (salt okunur, seed) |

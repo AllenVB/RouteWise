@@ -113,6 +113,29 @@ public final class OptimizerDtos {
 
     public record GeometryRequest(List<Long> nodeIds) {}
 
+    /** Level 2: one vehicle, every tour algorithm on the same stops. */
+    public record TourCompareRequest(long depotNodeId, List<StopIn> stops, List<VehicleIn> vehicles,
+                                     MatrixIn matrix, CostParamsIn costParams, Long randomSeed,
+                                     Double maxRouteDurationS, int repeats) {}
+
+    /**
+     * @param referenceIsOptimal true: gaps are over the proven optimum (DFS_EXHAUSTIVE);
+     *                           false: more than 10 stops, gaps are over the best found
+     */
+    public record TourCompareResult(int repeats, List<Long> seeds, String referenceAlgorithm,
+                                    boolean referenceIsOptimal, String exhaustiveSkipped,
+                                    List<TourAlgorithmOut> results, List<UnassignedOut> unassigned) {}
+
+    /**
+     * @param solution          null when this algorithm could not build a feasible tour ({@code error})
+     * @param computationTimeMs median of the repeats
+     * @param randomSeed        ROUTEWISE only: seed of the reported (median) run
+     * @param explored          DFS_EXHAUSTIVE only: search nodes opened
+     */
+    public record TourAlgorithmOut(String algorithm, boolean feasible, String error, SolutionOut solution,
+                                   double computationTimeMs, Double gapPct, Long randomSeed,
+                                   Double objectiveMin, Double objectiveMax, Long explored) {}
+
     /** @param weight {@code distance} or {@code duration} */
     public record PathCompareRequest(long fromNodeId, long toNodeId, String weight, int repeats) {}
 

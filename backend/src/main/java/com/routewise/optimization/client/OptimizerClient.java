@@ -8,6 +8,8 @@ import com.routewise.optimization.client.OptimizerDtos.OptimizeRequest;
 import com.routewise.optimization.client.OptimizerDtos.OptimizeResult;
 import com.routewise.optimization.client.OptimizerDtos.PathCompareRequest;
 import com.routewise.optimization.client.OptimizerDtos.PathCompareResult;
+import com.routewise.optimization.client.OptimizerDtos.TourCompareRequest;
+import com.routewise.optimization.client.OptimizerDtos.TourCompareResult;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -37,6 +39,15 @@ public class OptimizerClient {
                 .body(request)
                 .retrieve()
                 .body(PathCompareResult.class));
+    }
+
+    /** Level 2: NAIVE, GREEDY_NN, SAVINGS, ROUTEWISE and, up to 10 stops, DFS_EXHAUSTIVE. */
+    public TourCompareResult compareTour(TourCompareRequest request) {
+        return OptimizerCalls.call("tur karsilastirma", () -> optimizerClient.post()
+                .uri("/internal/compare/tour")
+                .body(request)
+                .retrieve()
+                .body(TourCompareResult.class));
     }
 
     /** Road-following coordinates for a visiting order, depot at both ends. */
