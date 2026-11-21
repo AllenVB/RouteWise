@@ -136,6 +136,31 @@ public final class OptimizerDtos {
                                    double computationTimeMs, Double gapPct, Long randomSeed,
                                    Double objectiveMin, Double objectiveMax, Long explored) {}
 
+    // --- /internal/experiments, /internal/analysis ---
+
+    /** One synthetic scenario from {@code seed}: stops drawn around the depot on the real road graph. */
+    public record TourScenarioRequest(long depotNodeId, long seed, int stopCount, double radiusM, VehicleIn vehicle,
+                                      CostParamsIn costParams, Double maxRouteDurationS, int repeats) {}
+
+    public record TourScenarioResult(long seed, List<StopIn> stops, TourCompareResult comparison) {}
+
+    public record PairIn(String candidate, String reference, List<Double> candidateValues,
+                         List<Double> referenceValues) {}
+
+    public record PairedRequest(List<PairIn> pairs, double alpha) {}
+
+    /**
+     * One-sided (H1: candidate cheaper than reference), paired over scenarios.
+     *
+     * @param meanDiff candidate minus reference; negative means the candidate is cheaper
+     */
+    public record PairedOut(String candidate, String reference, int n, int candidateBetter, int ties,
+                            int candidateWorse, double meanDiff, double medianDiff, double meanDiffPct,
+                            Double wilcoxonStatistic, double wilcoxonP, Double tStatistic, double tP,
+                            boolean significant, String note) {}
+
+    public record PairedResult(double alpha, List<PairedOut> results) {}
+
     /** @param weight {@code distance} or {@code duration} */
     public record PathCompareRequest(long fromNodeId, long toNodeId, String weight, int repeats) {}
 

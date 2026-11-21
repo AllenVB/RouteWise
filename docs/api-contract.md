@@ -59,6 +59,7 @@ söyler, özür dilemez.
 | 409 | `SHIPMENT_IN_RUN_HISTORY` | Kargo kayıtlı bir koşuda geçiyor; ölçüm geçmişi korunur, silinemez |
 | 409 | `STOP_ALREADY_CLOSED` | Durak zaten teslim edildi ya da ulaşılamadı olarak kapatıldı |
 | 409 | `SHIPMENT_NOT_POSTPONABLE` | Teslim edilmiş kargo ertelenmek istendi ya da kurye durağı az önce kapattı |
+| 409 | `EXPERIMENT_RUNNING` | Bir deney zaten çalışıyor |
 | 409 | `SUGGESTION_CLOSED` | Erteleme önerisi zaten sonuçlandırılmış (ertelendi, bugün kalsın denildi ya da geçersiz) |
 | 422 | `OUTSIDE_SERVICE_AREA` | Nokta Bandırma sınırı dışında |
 | 422 | `TOO_FAR_FROM_ROAD` | Nokta en yakın yola eşikten uzak |
@@ -131,6 +132,9 @@ yeniden doğrulanır**. İstemciye güvenilmez.
 | GET | `/routes/{id}` | F7 | Rota detayı: duraklar, ETA, yük, maliyet |
 | POST | `/plans/{id}/compare/tour` | F8 | Seviye 2 — `{vehicleId?, shipmentIds?, repeats? (1–10, varsayılan 3), randomSeed?}`. Tek araç; NAIVE, GREEDY_NN, SAVINGS, ROUTEWISE ve en fazla 10 durakta DFS_EXHAUSTIVE. Algoritma başına çözüm, süre medyanı, `gapPct` (referansa göre), ROUTEWISE için tohum ve en iyi/en kötü amaç. `referenceIsOptimal` false ise referans bulunan en iyi çözümdür. Plan değişmez; en fazla 100 kargo. Tek araca/güne sığmıyorsa 409 `NO_FEASIBLE_SOLUTION` |
 | POST | `/compare/path` | F8 | Seviye 1 — her uç `from: {lat, lon}` (en yakın yol düğümüne bağlanır, hizmet alanı dışıysa 422 `OUTSIDE_SERVICE_AREA`) ya da `fromNodeId`; `weight` `DISTANCE`/`DURATION`, `repeats` 1–20 (varsayılan 5). Dijkstra, A*, BFS, DFS: uzunluk, süre, kenar ve gezilen düğüm sayısı, süre medyanı, Dijkstra'dan sapma %, yol ve koordinatlar |
+| POST | `/compare/experiments` | F8 | `{scenarios? (5–100, 30), stopCount? (3–10, 10), radiusM? (500–15000, 3000), repeats? (1–5, 3), seed?, vehicleId?}` → 202. Tohumdan N sentetik senaryo (gerçek yol grafı), her birinde Seviye 2; sonunda RouteWise ile NAIVE/GREEDY_NN/SAVINGS arasında tek yönlü Wilcoxon ve eşleştirilmiş t. Arka planda; aynı anda tek deney (409 `EXPERIMENT_RUNNING`) |
+| GET | `/compare/experiments` | F8 | Son 20 deney, özetleriyle |
+| GET | `/compare/experiments/{id}` | F8 | Durum (`QUEUED`/`RUNNING`/`DONE`/`FAILED`), `completed`/`failed`, `summary` (algoritma başına sapma istatistiği, testler, `claim` cümlesi), `scenarios` (`comparisonId`, `seed`) |
 | GET | `/comparisons/{id}` | F8 | Kaydedilmiş karşılaştırma, hesaplandığı gibi; `level` `PATH` ya da `TOUR` yanıtın biçimini belirler |
 | GET | `/analytics/savings?period=&from=&to=` | F9 | `period=WEEK\|MONTH\|YEAR` |
 | GET | `/analytics/export?format=&period=` | F9 | `format=XLSX\|PDF` → dosya |

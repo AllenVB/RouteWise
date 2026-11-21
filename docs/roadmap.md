@@ -593,17 +593,42 @@ Projenin en görünür çıktısı: algoritma karşılaştırması, tasarruf ana
 
 **Analiz**
 8. `aggregate.py` — haftalık/aylık/yıllık pandas resample
-9. `significance.py` — Wilcoxon / paired t-test
+9. ✅ `significance.py` — Wilcoxon işaretli sıralar (ana test, zsplit, tek yönlü H1: RouteWise daha ucuz)
+   + eşleştirilmiş t-testi (destek). Senaryo üretici `analysis/scenarios.py`: tohumdan, gerçek
+   Bandırma grafında depo çevresinde (varsayılan 3 km) ulaşılabilir düğümler; yük/servis/öncelik de
+   tohumdan. `POST /compare/experiments` N senaryoyu arka planda tek tek koşar (her biri bir
+   `comparisons` satırı, 039), ilerleme izlenir, sonunda özet ve iddia cümlesi yazılır. Aynı anda tek
+   deney; sunucu yeniden başlarsa yarım deney FAILED olur (aynı tohumla yeniden başlatılır)
+
+   Gerçek ortamda deney (30 senaryo, 10 durak, 3 km, 8 saatlik gün, 3 tekrar, tohum 2026; 271 sn):
+
+   | Algoritma | Optimumdan sapma medyan / ort. / en kötü | Optimumu bulduğu | Süre medyan |
+   |---|---|---|---|
+   | NAIVE | %17,3 / %17,2 / %33,2 | 0/30 | 0,01 ms |
+   | GREEDY_NN | %3,9 / %4,4 / %13,6 | 0/30 | 0,05 ms |
+   | SAVINGS | %0,7 / %0,9 / %3,0 | 4/30 | 0,11 ms |
+   | ROUTEWISE | %0 / %0 / %0 | 30/30 | 239 ms |
+   | DFS_EXHAUSTIVE | — (referans) | 30/30 | 2,5 sn |
+
+   RouteWise her karşılaştırmada anlamlı ölçüde daha ucuz (tek yönlü, n = 30): NAIVE'e göre
+   Wilcoxon p = 9,3·10⁻¹⁰ (ort. %14,5 ucuz), GREEDY_NN'e göre p = 9,3·10⁻¹⁰ (%4,2), SAVINGS'e göre
+   p = 1,4·10⁻⁶ (%0,9; 4 senaryoda eşit)
 10. `figures.py` — matplotlib figürleri (prototip: `docs/diagrams/cost_comparison.py`)
 11. `export.py` — Excel (5 sayfa) + PDF rapor
 12. Frontend: F8, F9 — karşılaştırma tabloları, Recharts grafikleri, indirme
+    - ✅ F8 `/firma/karsilastirma` — Seviye 1: haritada A ve B seç, ağırlık ve tekrar; dört algoritmanın
+      tablosu, seçilenlerin yolu haritada, gezilen düğüm ve sapma grafikleri. Seviye 2: plan günü, araç,
+      kargo alt kümesi, tekrar; referansın kanıtlı optimum mu en iyi bulunan mı olduğu açıkça yazar,
+      sapma ve hesap süresi grafikleri. Recharts 3.10.1 (sabit sürüm), yalnızca bu ekranın tembel
+      parçasında (~114 kB gzip)
+    - F9 tasarruf raporları ve indirme (Analiz adımlarıyla)
 
 ### Biten iş tanımı
 - [x] BFS'in ağırlıkları yok saydığı **sayısal olarak gösteriliyor** (Dijkstra'dan sapma %) — medyan %8,9, en kötü %70,6
 - [x] A\*, Dijkstra ile aynı yolu daha az düğüm gezerek buluyor — 30/30 aynı yol, gezilen düğüm %30,5
 - [x] DFS-exhaustive küçük örnekte gerçek optimumu veriyor — kaba kuvvetle karşılaştırma testi, çalışma günü kısıtı dahil
-- [ ] "RouteWise optimumun %X içinde" cümlesi veriyle destekleniyor
-- [ ] En az **30 senaryoda** anlamlılık testi koşuldu, p değeri raporlanıyor
+- [x] "RouteWise optimumun %X içinde" cümlesi veriyle destekleniyor — 30/30 senaryoda optimumda (%0); deney özetinin `claim` alanı
+- [x] En az **30 senaryoda** anlamlılık testi koşuldu, p değeri raporlanıyor — Wilcoxon + eşleştirilmiş t, üç karşılaştırmada p < 0,0001
 - [ ] Excel ve PDF raporları indirilebiliyor
 - [ ] Haftalık/aylık/yıllık tasarruf grafikleri çalışıyor
 

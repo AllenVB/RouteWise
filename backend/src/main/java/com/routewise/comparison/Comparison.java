@@ -49,6 +49,12 @@ public class Comparison {
     @Column(name = "created_by")
     private Long createdBy;
 
+    @Column(name = "experiment_id")
+    private Long experimentId;
+
+    @Column(name = "scenario_seed")
+    private Long scenarioSeed;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -63,6 +69,15 @@ public class Comparison {
         this.createdAt = createdAt;
     }
 
+    /** A synthetic scenario of an experiment: no plan, reproducible from its seed. */
+    static Comparison scenario(Long experimentId, long seed, String params, String result, Long createdBy,
+                               Instant createdAt) {
+        Comparison c = new Comparison(Level.TOUR, null, params, result, createdBy, createdAt);
+        c.experimentId = experimentId;
+        c.scenarioSeed = seed;
+        return c;
+    }
+
     public Long getId() { return id; }
     public Level getLevel() { return level; }
     public Long getPlanId() { return planId; }
@@ -70,4 +85,6 @@ public class Comparison {
     public String getResult() { return result; }
     public Long getCreatedBy() { return createdBy; }
     public Instant getCreatedAt() { return createdAt; }
+    public Long getExperimentId() { return experimentId; }
+    public Long getScenarioSeed() { return scenarioSeed; }
 }

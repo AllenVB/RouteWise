@@ -7,7 +7,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -122,7 +124,10 @@ public class TourComparisonService {
         Candidates c = optimization.candidates(plan);
         List<Shipment> chosen = choose(c, shipmentIds);
         if (chosen.isEmpty()) {
-            throw new ApiException(ErrorCode.NO_FEASIBLE_SOLUTION, "Karşılaştırılacak, adresi doğrulanmış kargo yok.");
+            throw new ApiException(ErrorCode.NO_FEASIBLE_SOLUTION, c.excluded().isEmpty()
+                    ? "Bu gün için planlanabilir kargo yok."
+                    : "Karşılaştırılacak kargo yok; " + c.excluded().size() + " kargo rotaya alınamıyor ("
+                            + reasons(c.excluded()) + ").");
         }
         if (chosen.size() > MAX_STOPS) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Tur karşılaştırması en fazla " + MAX_STOPS
@@ -152,29 +157,45 @@ public class TourComparisonService {
                 excluded);
         int stopCount = chosen.size() - result.unassigned().size();
         Instant now = clock.instant();
-        Comparison saved = tx.execute(status -> {
-            Comparison cmp = comparisons.save(new Comparison(Comparison.Level.TOUR, planId, write(params),
-                    write(result), userId, now));
-            for (TourAlgorithmOut r : result.results()) {
-                var s = r.solution();
-                runs.save(new TourComparisonRun(cmp.getId(), r.algorithm(), stopCount, r.feasible(),
-                        s == null ? null : scale(s.objective(), 2),
-                        s == null || s.totalCostTry() == null ? null : scale(s.totalCostTry(), 2),
-                        s == null ? null : scale(s.totalDistanceM(), 2),
-                        s == null ? null : scale(s.totalDurationS(), 1),
-                        scale(r.computationTimeMs(), 3),
-                        r.gapPct() == null ? null : scale(r.gapPct(), 3),
-                        result.referenceIsOptimal(), r.randomSeed(),
-                        r.objectiveMin() == null ? null : scale(r.objectiveMin(), 2),
-                        r.objectiveMax() == null ? null : scale(r.objectiveMax(), 2),
-                        r.explored(), now));
-            }
-            return cmp;
-        });
+        Comparison saved = tx.execute(status -> record(
+                new Comparison(Comparison.Level.TOUR, planId, write(params), write(result), userId, now),
+                result, stopCount, now));
         log.info("seviye 2 karsilastirma {}: plan {}, arac {}, {} durak, {}x, referans {}{}", saved.getId(), planId,
                 vehicle.getId(), stopCount, n, result.referenceAlgorithm(),
                 result.referenceIsOptimal() ? " (optimum)" : "");
         return toView(saved, params, result);
+    }
+
+    /**
+     * Saves a level-2 comparison and one row per algorithm; the caller holds the transaction.
+     * Shared with experiments, whose scenarios are comparisons without a plan.
+     */
+    Comparison record(Comparison comparison, TourCompareResult result, int stopCount, Instant now) {
+        Comparison cmp = comparisons.save(comparison);
+        for (TourAlgorithmOut r : result.results()) {
+            var s = r.solution();
+            runs.save(new TourComparisonRun(cmp.getId(), r.algorithm(), stopCount, r.feasible(),
+                    s == null ? null : scale(s.objective(), 2),
+                    s == null || s.totalCostTry() == null ? null : scale(s.totalCostTry(), 2),
+                    s == null ? null : scale(s.totalDistanceM(), 2),
+                    s == null ? null : scale(s.totalDurationS(), 1),
+                    scale(r.computationTimeMs(), 3),
+                    r.gapPct() == null ? null : scale(r.gapPct(), 3),
+                    result.referenceIsOptimal(), r.randomSeed(),
+                    r.objectiveMin() == null ? null : scale(r.objectiveMin(), 2),
+                    r.objectiveMax() == null ? null : scale(r.objectiveMax(), 2),
+                    r.explored(), now));
+        }
+        return cmp;
+    }
+
+    /** JSON of a scenario's input, in the same shape as a plan comparison's so {@link #view} reads both. */
+    String scenarioParams(Long vehicleId, List<Long> stopIds, int repeats, long seed) {
+        return write(new Params(vehicleId, stopIds, repeats, seed, List.of()));
+    }
+
+    String json(Object value) {
+        return write(value);
     }
 
     TourComparison view(Comparison c) {
@@ -209,11 +230,25 @@ public class TourComparisonService {
         Set<Long> routable = new HashSet<>(c.routable().stream().map(Shipment::getId).toList());
         List<Long> unknown = ids.stream().filter(id -> !routable.contains(id)).toList();
         if (!unknown.isEmpty()) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED,
-                    "Bu kargolar planda rotaya alınabilir değil (yok, başka günde ya da adresi doğrulanmamış): "
-                            + unknown);
+            Map<Long, String> why = c.excluded().stream()
+                    .collect(Collectors.toMap(ExcludedShipment::shipmentId, e -> REASON.getOrDefault(e.reason(), e.reason())));
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Bu kargolar rotaya alınamıyor: " + unknown.stream()
+                    .map(id -> id + " (" + why.getOrDefault(id, "bu gün planlanabilir değil") + ")")
+                    .collect(Collectors.joining(", ")) + ".");
         }
         return c.routable().stream().filter(s -> wanted.contains(s.getId())).toList();
+    }
+
+    private static final Map<String, String> REASON = Map.of(
+            "ADDRESS_NOT_VERIFIED", "adresi doğrulanmamış",
+            "NO_ROAD_NODE", "adresi yol ağına bağlı değil");
+
+    private static String reasons(List<ExcludedShipment> excluded) {
+        return excluded.stream()
+                .collect(Collectors.groupingBy(e -> REASON.getOrDefault(e.reason(), e.reason()),
+                        java.util.TreeMap::new, Collectors.counting()))
+                .entrySet().stream().map(e -> e.getKey() + ": " + e.getValue())
+                .collect(Collectors.joining(", "));
     }
 
     private String write(Object value) {

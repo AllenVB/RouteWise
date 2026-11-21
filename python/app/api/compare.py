@@ -76,7 +76,11 @@ def compare_tour(req: TourCompareRequest) -> TourCompareResponse:
         cmp = compare_tours(problem, req.repeats, seed, req.anneal_params())
     except InfeasibleError as e:
         raise HTTPException(status_code=409, detail={"code": "NO_FEASIBLE_SOLUTION", "message": str(e)}) from e
+    return tour_response(problem, cmp, req.repeats)
 
+
+def tour_response(problem, cmp, repeats: int) -> TourCompareResponse:
+    """Karşılaştırma sonucunu yanıta çevirir; deney ucu da kullanır."""
     results = [
         TourAlgorithmOut(
             algorithm=r.algorithm,
@@ -92,11 +96,11 @@ def compare_tour(req: TourCompareRequest) -> TourCompareResponse:
         )
         for r in cmp.runs
     ]
-    log.info("seviye 2: %d durak, %dx, referans %s (%s): %s", problem.size, req.repeats, cmp.reference,
+    log.info("seviye 2: %d durak, %dx, referans %s (%s): %s", problem.size, repeats, cmp.reference,
              "optimum" if cmp.reference_is_optimal else "en iyi",
              ", ".join(f"{x.algorithm} %{x.gap_pct}" for x in results))
     return TourCompareResponse(
-        repeats=req.repeats,
+        repeats=repeats,
         seeds=cmp.seeds,
         reference_algorithm=cmp.reference,
         reference_is_optimal=cmp.reference_is_optimal,

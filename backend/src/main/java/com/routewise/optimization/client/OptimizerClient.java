@@ -10,6 +10,10 @@ import com.routewise.optimization.client.OptimizerDtos.PathCompareRequest;
 import com.routewise.optimization.client.OptimizerDtos.PathCompareResult;
 import com.routewise.optimization.client.OptimizerDtos.TourCompareRequest;
 import com.routewise.optimization.client.OptimizerDtos.TourCompareResult;
+import com.routewise.optimization.client.OptimizerDtos.PairedRequest;
+import com.routewise.optimization.client.OptimizerDtos.PairedResult;
+import com.routewise.optimization.client.OptimizerDtos.TourScenarioRequest;
+import com.routewise.optimization.client.OptimizerDtos.TourScenarioResult;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -48,6 +52,24 @@ public class OptimizerClient {
                 .body(request)
                 .retrieve()
                 .body(TourCompareResult.class));
+    }
+
+    /** Builds one synthetic scenario from its seed and runs every tour algorithm on it. */
+    public TourScenarioResult tourScenario(TourScenarioRequest request) {
+        return OptimizerCalls.call("deney senaryosu", () -> optimizerClient.post()
+                .uri("/internal/experiments/tour-scenario")
+                .body(request)
+                .retrieve()
+                .body(TourScenarioResult.class));
+    }
+
+    /** Wilcoxon signed-rank and paired t-test, one-sided, per candidate/reference pair. */
+    public PairedResult pairedTests(PairedRequest request) {
+        return OptimizerCalls.call("anlamlilik testi", () -> optimizerClient.post()
+                .uri("/internal/analysis/paired")
+                .body(request)
+                .retrieve()
+                .body(PairedResult.class));
     }
 
     /** Road-following coordinates for a visiting order, depot at both ends. */

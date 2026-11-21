@@ -219,7 +219,8 @@ class TourComparisonFlowTest extends ApiTest {
     @DisplayName("hatalı girdi: rotaya alınamayan kargo, tekrar eden kargo, tekrar sınırı, bilinmeyen araç, plan")
     void shouldRejectInvalidInput() throws Exception {
         compare("{\"shipmentIds\":[" + s1 + "," + pending + "]}").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(String.valueOf(pending))));
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
+                        pending + " (adresi doğrulanmamış)")));
         compare("{\"shipmentIds\":[" + s1 + "," + s1 + "]}").andExpect(status().isBadRequest());
         compare("{\"repeats\":11}").andExpect(status().isBadRequest());
         compare("{\"repeats\":0}").andExpect(status().isBadRequest());
@@ -229,6 +230,18 @@ class TourComparisonFlowTest extends ApiTest {
 
         verify(optimizer, never()).compareTour(any());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM comparisons", Integer.class)).isZero();
+    }
+
+    @Test
+    @DisplayName("rotaya alınabilir kargo yoksa sebepleri söyler")
+    void shouldExplainWhyNothingIsComparable() throws Exception {
+        jdbc.update("UPDATE addresses SET snapped_node_id = NULL WHERE verification_status = 'DOGRULANDI'");
+
+        compare(null).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        "Karşılaştırılacak kargo yok; 4 kargo rotaya alınamıyor (adresi doğrulanmamış: 1, "
+                                + "adresi yol ağına bağlı değil: 3)."));
+        verify(optimizer, never()).compareTour(any());
     }
 
     @Test
