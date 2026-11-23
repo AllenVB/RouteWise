@@ -113,6 +113,12 @@ public class ExperimentService {
         return view(e, refs);
     }
 
+    /** The most recently finished experiment, for the report; without its scenario list. */
+    @Transactional(readOnly = true)
+    public java.util.Optional<ExperimentView> latestDone() {
+        return experiments.findFirstByStatusOrderByFinishedAtDescIdDesc(Experiment.Status.DONE).map(e -> view(e, null));
+    }
+
     @Transactional(readOnly = true)
     public List<ExperimentView> list() {
         return experiments.findTop20ByOrderByIdDesc().stream().map(e -> view(e, null)).toList();

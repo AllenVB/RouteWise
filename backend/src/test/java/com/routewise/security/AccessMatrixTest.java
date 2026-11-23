@@ -112,6 +112,8 @@ class AccessMatrixTest extends ApiTest {
             ep("POST", "/compare/experiments", Access.COMPANY),
             ep("GET", "/compare/experiments", Access.COMPANY),
             ep("GET", "/compare/experiments/{id}", Access.COMPANY),
+            ep("GET", "/analytics/savings", Access.COMPANY),
+            ep("GET", "/analytics/export", Access.COMPANY),
             ep("GET", "/comparisons/{id}", Access.COMPANY),
             ep("POST", "/reroute/suggestions/{id}/postpone", Access.COMPANY),
             ep("POST", "/reroute/suggestions/{id}/keep", Access.COMPANY),

@@ -12,4 +12,6 @@ public interface ExperimentRepository extends JpaRepository<Experiment, Long> {
     boolean existsByStatusIn(Collection<Experiment.Status> statuses);
 
     List<Experiment> findByStatusIn(Collection<Experiment.Status> statuses);
+
+    java.util.Optional<Experiment> findFirstByStatusOrderByFinishedAtDescIdDesc(Experiment.Status status);
 }

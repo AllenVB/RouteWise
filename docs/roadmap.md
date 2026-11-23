@@ -592,7 +592,10 @@ Projenin en görünür çıktısı: algoritma karşılaştırması, tasarruf ana
    Bu bir ön bakıştır; iddia 30+ senaryo ve anlamlılık testiyle (Analiz) kurulacak
 
 **Analiz**
-8. `aggregate.py` — haftalık/aylık/yıllık pandas resample
+8. ✅ `aggregate.py` — haftalık (pazartesi başlar) / aylık / yıllık pandas dönemleri. Yalnızca sevk
+   edilmiş planlar (sürülen rota), her biri kendi optimizasyonunun naive baseline'ıyla; dönem yüzdesi
+   ağırlıklı (Σ baseline − Σ uygulanan) / Σ baseline. Plan yapılmamış dönem satır üretmez.
+   `GET /analytics/savings?period=&from=&to=`
 9. ✅ `significance.py` — Wilcoxon işaretli sıralar (ana test, zsplit, tek yönlü H1: RouteWise daha ucuz)
    + eşleştirilmiş t-testi (destek). Senaryo üretici `analysis/scenarios.py`: tohumdan, gerçek
    Bandırma grafında depo çevresinde (varsayılan 3 km) ulaşılabilir düğümler; yük/servis/öncelik de
@@ -613,8 +616,11 @@ Projenin en görünür çıktısı: algoritma karşılaştırması, tasarruf ana
    RouteWise her karşılaştırmada anlamlı ölçüde daha ucuz (tek yönlü, n = 30): NAIVE'e göre
    Wilcoxon p = 9,3·10⁻¹⁰ (ort. %14,5 ucuz), GREEDY_NN'e göre p = 9,3·10⁻¹⁰ (%4,2), SAVINGS'e göre
    p = 1,4·10⁻⁶ (%0,9; 4 senaryoda eşit)
-10. `figures.py` — matplotlib figürleri (prototip: `docs/diagrams/cost_comparison.py`)
-11. `export.py` — Excel (5 sayfa) + PDF rapor
+10. ✅ `figures.py` — dönemsel maliyet/tasarruf, Seviye 1 düğüm ve sapma (sapma ekseni symlog: DFS'in
+    binlerce yüzdesi BFS'i gizlemesin), Seviye 2 senaryo başına sapma kutu grafiği. Prototipin paleti
+11. ✅ `export.py` — Excel 5 sayfa (Özet, Dönemsel tasarruf, Günlük planlar, Seviye 1, Seviye 2 deney) +
+    3 sayfalık A4 PDF; sayılar Türkçe biçimde (1.398,18 TL, -%14,47). `GET /analytics/export?format=`
+    dosyayı ekli indirir; Seviye 1 aralıktaki karşılaştırmalardan, Seviye 2 son tamamlanan deneyden
 12. Frontend: F8, F9 — karşılaştırma tabloları, Recharts grafikleri, indirme
     - ✅ F8 `/firma/karsilastirma` — Seviye 1: haritada A ve B seç, ağırlık ve tekrar; dört algoritmanın
       tablosu, seçilenlerin yolu haritada, gezilen düğüm ve sapma grafikleri. Seviye 2: plan günü, araç,
@@ -629,7 +635,7 @@ Projenin en görünür çıktısı: algoritma karşılaştırması, tasarruf ana
 - [x] DFS-exhaustive küçük örnekte gerçek optimumu veriyor — kaba kuvvetle karşılaştırma testi, çalışma günü kısıtı dahil
 - [x] "RouteWise optimumun %X içinde" cümlesi veriyle destekleniyor — 30/30 senaryoda optimumda (%0); deney özetinin `claim` alanı
 - [x] En az **30 senaryoda** anlamlılık testi koşuldu, p değeri raporlanıyor — Wilcoxon + eşleştirilmiş t, üç karşılaştırmada p < 0,0001
-- [ ] Excel ve PDF raporları indirilebiliyor
+- [ ] Excel ve PDF raporları indirilebiliyor — uç hazır ve gerçek ortamda indirildi; F9 indirme düğmesi kaldı
 - [ ] Haftalık/aylık/yıllık tasarruf grafikleri çalışıyor
 
 ### Risk

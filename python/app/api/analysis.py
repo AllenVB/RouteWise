@@ -12,12 +12,18 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 
 from ..analysis.scenarios import tour_scenario
 from ..analysis.significance import paired_test
 from ..matrix.builder import build_matrix
+from ..analysis.aggregate import Period, PlanRow, aggregate, total
+from ..analysis.export import ExperimentReport, ReportData, to_pdf, to_xlsx
 from ..schemas.analysis import (
+    BucketOut,
+    ExportRequest,
+    SavingsRequest,
+    SavingsResponse,
     PairedOut,
     PairedRequest,
     PairedResponse,
@@ -80,3 +86,41 @@ def analysis_paired(req: PairedRequest) -> PairedResponse:
         t = paired_test(p.candidate_values, p.reference_values, req.alpha)
         results.append(PairedOut(candidate=p.candidate, reference=p.reference, **t.__dict__))
     return PairedResponse(alpha=req.alpha, results=results)
+
+
+def _plan_rows(rows) -> list[PlanRow]:
+    return [PlanRow(**r.model_dump()) for r in rows]
+
+
+@router.post("/analysis/savings", response_model=SavingsResponse, response_model_by_alias=True)
+def analysis_savings(req: SavingsRequest) -> SavingsResponse:
+    """Sevk edilmiş planların tasarrufu, dönem dönem; yüzde ağırlıklıdır (toplamlardan)."""
+    rows = _plan_rows(req.rows)
+    period = Period(req.period)
+    t = total(rows)
+    return SavingsResponse(
+        period=req.period,
+        buckets=[BucketOut(**b.__dict__) for b in aggregate(rows, period)],
+        total=None if t is None else BucketOut(**t.__dict__),
+    )
+
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+@router.post("/reports/export")
+def reports_export(req: ExportRequest) -> Response:
+    """Excel (5 sayfa) ya da PDF; gövde dosyanın kendisidir."""
+    e = req.experiment
+    data = ReportData(
+        period=Period(req.period), date_from=req.date_from, date_to=req.date_to, generated_at=req.generated_at,
+        rows=_plan_rows(req.rows),
+        path_stats=[s.model_dump() for s in req.path_stats],
+        experiment=None if e is None else ExperimentReport(
+            id=e.id, base_seed=e.base_seed, scenarios=e.scenarios, stop_count=e.stop_count,
+            algorithms=[a.model_dump() for a in e.algorithms], tests=[t.model_dump() for t in e.tests],
+            claim=e.claim, gaps=e.gaps),
+    )
+    if req.format == "XLSX":
+        return Response(content=to_xlsx(data), media_type=XLSX)
+    return Response(content=to_pdf(data), media_type="application/pdf")

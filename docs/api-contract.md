@@ -136,8 +136,8 @@ yeniden doğrulanır**. İstemciye güvenilmez.
 | GET | `/compare/experiments` | F8 | Son 20 deney, özetleriyle |
 | GET | `/compare/experiments/{id}` | F8 | Durum (`QUEUED`/`RUNNING`/`DONE`/`FAILED`), `completed`/`failed`, `summary` (algoritma başına sapma istatistiği, testler, `claim` cümlesi), `scenarios` (`comparisonId`, `seed`) |
 | GET | `/comparisons/{id}` | F8 | Kaydedilmiş karşılaştırma, hesaplandığı gibi; `level` `PATH` ya da `TOUR` yanıtın biçimini belirler |
-| GET | `/analytics/savings?period=&from=&to=` | F9 | `period=WEEK\|MONTH\|YEAR` |
-| GET | `/analytics/export?format=&period=` | F9 | `format=XLSX\|PDF` → dosya |
+| GET | `/analytics/savings?period=&from=&to=` | F9 | `period=WEEK\|MONTH\|YEAR` (varsayılan MONTH); `from`/`to` verilmezse bugüne kadar 12 hafta / 12 ay / 5 yıl, en fazla 10 yıl. Yalnızca sevk edilmiş planlar, her biri kendi naive baseline'ıyla; `buckets` (dönem başlangıcı/bitişi, plan, teslimat, maliyetler, `savingsTry`, ağırlıklı `savingsPct`, mesafe) ve `total` |
+| GET | `/analytics/export?format=&period=&from=&to=` | F9 | `format=XLSX\|PDF` → dosya (`Content-Disposition: attachment`). Excel 5 sayfa; PDF 3 sayfa (tasarruf, Seviye 1, Seviye 2 deneyi) |
 | GET | `/vehicles` | F6 | Filo (salt okunur, seed) |
 
 ### 5.2 Kurye

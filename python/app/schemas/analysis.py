@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime
+from typing import Literal
+
 from pydantic import Field, model_validator
 
 from ..vrp.exhaustive import MAX_STOPS
@@ -70,3 +73,94 @@ class PairedOut(CamelModel):
 class PairedResponse(CamelModel):
     alpha: float
     results: list[PairedOut]
+
+
+# --- Tasarruf ve rapor -------------------------------------------------------------
+
+
+class PlanRowIn(CamelModel):
+    plan_date: date
+    optimized_cost_try: float = Field(..., ge=0)
+    baseline_cost_try: float = Field(..., ge=0)
+    optimized_distance_m: float = Field(..., ge=0)
+    baseline_distance_m: float = Field(..., ge=0)
+    vehicle_count: int = Field(0, ge=0)
+    shipment_count: int = Field(0, ge=0)
+
+
+class SavingsRequest(CamelModel):
+    period: Literal["WEEK", "MONTH", "YEAR"]
+    rows: list[PlanRowIn] = Field(..., max_length=20_000)
+
+
+class BucketOut(CamelModel):
+    start: date
+    end: date
+    plans: int
+    shipments: int
+    optimized_cost_try: float
+    baseline_cost_try: float
+    savings_try: float
+    savings_pct: float | None
+    optimized_distance_m: float
+    baseline_distance_m: float
+    distance_savings_pct: float | None
+
+
+class SavingsResponse(CamelModel):
+    period: Literal["WEEK", "MONTH", "YEAR"]
+    buckets: list[BucketOut]
+    total: BucketOut | None
+
+
+class PathStatIn(CamelModel):
+    algorithm: str
+    runs: int
+    median_deviation_pct: float
+    max_deviation_pct: float
+    median_nodes_visited: float
+    median_time_ms: float
+
+
+class ExperimentAlgorithmIn(CamelModel):
+    algorithm: str
+    scenarios: int
+    median_gap_pct: float
+    mean_gap_pct: float
+    max_gap_pct: float
+    optimal_count: int
+    median_time_ms: float
+
+
+class ExperimentTestIn(CamelModel):
+    candidate: str
+    reference: str
+    n: int
+    candidate_better: int
+    ties: int
+    mean_diff_pct: float
+    wilcoxon_p: float
+    t_p: float
+    significant: bool
+
+
+class ExperimentIn(CamelModel):
+    id: int
+    base_seed: int
+    scenarios: int
+    stop_count: int
+    algorithms: list[ExperimentAlgorithmIn]
+    tests: list[ExperimentTestIn]
+    claim: str
+    gaps: dict[str, list[float]] = Field(default_factory=dict, description="Algoritma -> senaryo başına sapma (%).")
+
+
+class ExportRequest(CamelModel):
+    format: Literal["XLSX", "PDF"]
+    period: Literal["WEEK", "MONTH", "YEAR"]
+    date_from: date
+    date_to: date
+    generated_at: datetime
+    rows: list[PlanRowIn] = Field(..., max_length=20_000)
+    path_stats: list[PathStatIn] = Field(default_factory=list)
+    experiment: ExperimentIn | None = None

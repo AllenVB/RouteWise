@@ -161,6 +161,42 @@ public final class OptimizerDtos {
 
     public record PairedResult(double alpha, List<PairedOut> results) {}
 
+    // --- /internal/analysis/savings, /internal/reports/export ---
+
+    /** One dispatched plan: the applied run against the naive baseline of the same shipments. */
+    public record PlanRowIn(java.time.LocalDate planDate, double optimizedCostTry, double baselineCostTry,
+                            double optimizedDistanceM, double baselineDistanceM, int vehicleCount,
+                            int shipmentCount) {}
+
+    /** @param period {@code WEEK}, {@code MONTH} or {@code YEAR} */
+    public record SavingsRequest(String period, List<PlanRowIn> rows) {}
+
+    /** @param savingsPct weighted: (Σ baseline − Σ optimized) / Σ baseline; null when the baseline costs nothing */
+    public record BucketOut(java.time.LocalDate start, java.time.LocalDate end, int plans, int shipments,
+                            double optimizedCostTry, double baselineCostTry, double savingsTry, Double savingsPct,
+                            double optimizedDistanceM, double baselineDistanceM, Double distanceSavingsPct) {}
+
+    public record SavingsResult(String period, List<BucketOut> buckets, BucketOut total) {}
+
+    public record PathStatIn(String algorithm, int runs, double medianDeviationPct, double maxDeviationPct,
+                             double medianNodesVisited, double medianTimeMs) {}
+
+    public record ExperimentAlgorithmIn(String algorithm, int scenarios, double medianGapPct, double meanGapPct,
+                                        double maxGapPct, int optimalCount, double medianTimeMs) {}
+
+    public record ExperimentTestIn(String candidate, String reference, int n, int candidateBetter, int ties,
+                                   double meanDiffPct, double wilcoxonP, double tP, boolean significant) {}
+
+    /** @param gaps algorithm -> gap over the optimum (%) per scenario, for the distribution figure */
+    public record ExperimentIn(long id, long baseSeed, int scenarios, int stopCount,
+                               List<ExperimentAlgorithmIn> algorithms, List<ExperimentTestIn> tests, String claim,
+                               java.util.Map<String, List<Double>> gaps) {}
+
+    /** @param format {@code XLSX} or {@code PDF}; the response body is the file */
+    public record ExportRequest(String format, String period, java.time.LocalDate dateFrom,
+                                java.time.LocalDate dateTo, java.time.LocalDateTime generatedAt,
+                                List<PlanRowIn> rows, List<PathStatIn> pathStats, ExperimentIn experiment) {}
+
     /** @param weight {@code distance} or {@code duration} */
     public record PathCompareRequest(long fromNodeId, long toNodeId, String weight, int repeats) {}
 

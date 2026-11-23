@@ -10,7 +10,10 @@ import com.routewise.optimization.client.OptimizerDtos.PathCompareRequest;
 import com.routewise.optimization.client.OptimizerDtos.PathCompareResult;
 import com.routewise.optimization.client.OptimizerDtos.TourCompareRequest;
 import com.routewise.optimization.client.OptimizerDtos.TourCompareResult;
+import com.routewise.optimization.client.OptimizerDtos.ExportRequest;
 import com.routewise.optimization.client.OptimizerDtos.PairedRequest;
+import com.routewise.optimization.client.OptimizerDtos.SavingsRequest;
+import com.routewise.optimization.client.OptimizerDtos.SavingsResult;
 import com.routewise.optimization.client.OptimizerDtos.PairedResult;
 import com.routewise.optimization.client.OptimizerDtos.TourScenarioRequest;
 import com.routewise.optimization.client.OptimizerDtos.TourScenarioResult;
@@ -70,6 +73,24 @@ public class OptimizerClient {
                 .body(request)
                 .retrieve()
                 .body(PairedResult.class));
+    }
+
+    /** Weekly / monthly / yearly savings of dispatched plans. */
+    public SavingsResult savings(SavingsRequest request) {
+        return OptimizerCalls.call("tasarruf", () -> optimizerClient.post()
+                .uri("/internal/analysis/savings")
+                .body(request)
+                .retrieve()
+                .body(SavingsResult.class));
+    }
+
+    /** The report file itself: Excel (5 sheets) or PDF. */
+    public byte[] exportReport(ExportRequest request) {
+        return OptimizerCalls.call("rapor", () -> optimizerClient.post()
+                .uri("/internal/reports/export")
+                .body(request)
+                .retrieve()
+                .body(byte[].class));
     }
 
     /** Road-following coordinates for a visiting order, depot at both ends. */
