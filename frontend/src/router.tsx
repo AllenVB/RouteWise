@@ -15,6 +15,9 @@ import { ShipmentListPage } from './features/shipments/ShipmentListPage';
 const verification = () =>
   import('./features/verification/VerificationQueuePage').then((m) => ({ Component: m.VerificationQueuePage }));
 const planning = () => import('./features/planning/PlanningPage').then((m) => ({ Component: m.PlanningPage }));
+// Karşılaştırma ekranı harita ve Recharts taşır; yalnızca açıldığında indirilir.
+const comparison = () =>
+  import('./features/comparison/ComparisonPage').then((m) => ({ Component: m.ComparisonPage }));
 const courierRoute = () => import('./features/courier/CourierRoutePage').then((m) => ({ Component: m.CourierRoutePage }));
 const myAddresses = () => import('./features/recipient/MyAddressesPage').then((m) => ({ Component: m.MyAddressesPage }));
 
@@ -25,6 +28,7 @@ const companyNav: NavItem[] = [
   { to: '/firma/kargolar', label: 'Kargolar' },
   { to: '/firma/dogrulama', label: 'Adres doğrulama' },
   { to: '/firma/planlama', label: 'Rota planlama' },
+  { to: '/firma/karsilastirma', label: 'Karşılaştırma' },
 ];
 const courierNav: NavItem[] = [{ to: '/kurye', label: 'Bugünkü rotam' }];
 
@@ -39,6 +43,7 @@ export const router = createBrowserRouter([
       { path: 'kargolar/yeni', element: <NewShipmentPage /> },
       { path: 'dogrulama', lazy: verification, hydrateFallbackElement: loading },
       { path: 'planlama', lazy: planning, hydrateFallbackElement: loading },
+      { path: 'karsilastirma', lazy: comparison, hydrateFallbackElement: loading },
     ],
   },
   {
