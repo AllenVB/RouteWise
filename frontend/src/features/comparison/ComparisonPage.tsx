@@ -9,25 +9,12 @@ import {
   useVehicles,
   type PathAlgorithm,
   type PathComparison,
-  type TourAlgorithm,
   type TourComparison,
 } from './api';
 import { BarMetricChart } from './BarMetricChart';
+import { ExperimentSection } from './ExperimentSection';
+import { pathLabel, tourLabel } from './labels';
 
-export const pathLabel: Record<PathAlgorithm, string> = {
-  DIJKSTRA: 'Dijkstra',
-  ASTAR: 'A*',
-  BFS: 'BFS',
-  DFS: 'DFS',
-};
-
-export const tourLabel: Record<TourAlgorithm, string> = {
-  NAIVE: 'Geliş sırası',
-  GREEDY_NN: 'En yakın komşu',
-  SAVINGS: 'Clarke-Wright',
-  ROUTEWISE: 'RouteWise',
-  DFS_EXHAUSTIVE: 'Kesin arama (DFS)',
-};
 
 const PATH_COLORS: Record<PathAlgorithm, string> = {
   DIJKSTRA: '#1f5fa8',
@@ -56,6 +43,7 @@ export function ComparisonPage() {
       <div className="stack">
         <PathSection />
         <TourSection />
+        <ExperimentSection />
       </div>
     </>
   );

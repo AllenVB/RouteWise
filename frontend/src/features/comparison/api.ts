@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { api } from '../../lib/apiClient';
 import { excludedShipmentSchema } from '../../types/api';
@@ -122,5 +122,83 @@ export function useVehicles() {
     queryKey: ['vehicles'],
     queryFn: () => api('/vehicles', { schema: z.array(vehicleSchema) }),
     staleTime: 5 * 60_000,
+  });
+}
+
+// --- Deney: N sentetik senaryo + anlamlılık testi ---------------------------------
+
+export const experimentSchema = z.object({
+  id: z.number(),
+  status: z.enum(['QUEUED', 'RUNNING', 'DONE', 'FAILED']),
+  scenarioCount: z.number(),
+  stopCount: z.number(),
+  radiusM: z.number(),
+  repeats: z.number(),
+  baseSeed: z.number(),
+  vehicleId: z.number().nullable(),
+  completed: z.number(),
+  failed: z.number(),
+  lastError: z.string().nullable(),
+  createdAt: z.string(),
+  startedAt: z.string().nullable(),
+  finishedAt: z.string().nullable(),
+  summary: z.object({
+    usableScenarios: z.number(),
+    alpha: z.number(),
+    algorithms: z.array(z.object({
+      algorithm: tourAlgorithmSchema,
+      scenarios: z.number(),
+      medianGapPct: z.number(),
+      meanGapPct: z.number(),
+      maxGapPct: z.number(),
+      optimalCount: z.number(),
+      medianTimeMs: z.number(),
+    })),
+    tests: z.array(z.object({
+      candidate: tourAlgorithmSchema,
+      reference: tourAlgorithmSchema,
+      n: z.number(),
+      candidateBetter: z.number(),
+      ties: z.number(),
+      candidateWorse: z.number(),
+      meanDiffPct: z.number(),
+      wilcoxonP: z.number(),
+      tP: z.number(),
+      significant: z.boolean(),
+      note: z.string().nullable(),
+    })),
+    claim: z.string(),
+  }).nullable(),
+  scenarios: z.array(z.object({ comparisonId: z.number(), seed: z.number() })).nullable(),
+});
+export type Experiment = z.infer<typeof experimentSchema>;
+
+const isActive = (e: Experiment | undefined) => e?.status === 'QUEUED' || e?.status === 'RUNNING';
+
+/** Çalışan deney varken ilerleme sık sorulur; bitince sorgu durur. */
+export const EXPERIMENT_POLL_MS = 3_000;
+
+export function useExperiments() {
+  return useQuery({
+    queryKey: ['experiments'],
+    queryFn: () => api('/compare/experiments', { schema: z.array(experimentSchema) }),
+    refetchInterval: (q) => (q.state.data?.some((e) => isActive(e)) ? EXPERIMENT_POLL_MS : false),
+  });
+}
+
+export interface ExperimentBody {
+  scenarios: number;
+  stopCount: number;
+  radiusM: number;
+  repeats: number;
+  seed?: number;
+}
+
+export function useStartExperiment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ExperimentBody) =>
+      api('/compare/experiments', { method: 'POST', body, schema: experimentSchema }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['experiments'] }),
   });
 }

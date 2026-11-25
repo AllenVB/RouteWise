@@ -51,6 +51,7 @@ describe('ComparisonPage (F8)', () => {
         { id: 2, plate: '10 ABC 002', capacityKg: 500 }, { id: 3, plate: '10 ABC 003', capacityKg: 800 },
       ])),
       http.get('/api/v1/shipments', () => HttpResponse.json(page([shipment(5), shipment(6), shipment(7, false)]))),
+      http.get('/api/v1/compare/experiments', () => HttpResponse.json([])),
     );
   });
 
