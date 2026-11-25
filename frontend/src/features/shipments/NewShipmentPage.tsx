@@ -17,11 +17,11 @@ import { useCreateShipment, useRecipientAddresses, useRecipientSearch } from './
 
 // Sınırlar backend'deki ShipmentDtos.CreateRequest ile aynı.
 export const shipmentFormSchema = z.object({
-  recipientId: z.number({ required_error: 'Alıcı seçilmeli.', invalid_type_error: 'Alıcı seçilmeli.' }),
-  addressId: z.number({ required_error: 'Teslimat adresi seçilmeli.', invalid_type_error: 'Teslimat adresi seçilmeli.' }),
-  weightKg: z.number({ invalid_type_error: 'Ağırlık gerekli.' }).min(0.01, 'Ağırlık sıfırdan büyük olmalı.'),
-  priority: z.number({ invalid_type_error: 'Öncelik gerekli.' }).int().min(0, 'Öncelik 0 ile 10 arasında olmalı.').max(10, 'Öncelik 0 ile 10 arasında olmalı.'),
-  serviceTimeMin: z.number({ invalid_type_error: 'Teslim süresi gerekli.' }).int().min(0, 'Teslim süresi negatif olamaz.'),
+  recipientId: z.number({ error: 'Alıcı seçilmeli.' }),
+  addressId: z.number({ error: 'Teslimat adresi seçilmeli.' }),
+  weightKg: z.number({ error: 'Ağırlık gerekli.' }).min(0.01, 'Ağırlık sıfırdan büyük olmalı.'),
+  priority: z.number({ error: 'Öncelik gerekli.' }).int('Öncelik tam sayı olmalı.').min(0, 'Öncelik 0 ile 10 arasında olmalı.').max(10, 'Öncelik 0 ile 10 arasında olmalı.'),
+  serviceTimeMin: z.number({ error: 'Teslim süresi gerekli.' }).int('Teslim süresi tam sayı olmalı.').min(0, 'Teslim süresi negatif olamaz.'),
 });
 export type ShipmentForm = z.infer<typeof shipmentFormSchema>;
 

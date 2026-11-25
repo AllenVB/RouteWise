@@ -23,7 +23,7 @@ export const notificationSchema = z.object({
   id: z.number(),
   type: z.enum(['ETA', 'ERTELEME', 'DOGRULAMA', 'ROTA_DEGISTI']),
   shipmentId: z.number().nullable(),
-  payload: z.record(z.unknown()).nullable(),
+  payload: z.record(z.string(), z.unknown()).nullable(),
   createdAt: z.string(),
   read: z.boolean(),
 });

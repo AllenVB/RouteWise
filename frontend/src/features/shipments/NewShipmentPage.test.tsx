@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { renderAt, signedInAs } from '../../test/render';
 import { apiError, server } from '../../test/server';
-import { NewShipmentPage } from './NewShipmentPage';
+import { NewShipmentPage, shipmentFormSchema } from './NewShipmentPage';
 
 const recipients = {
   content: [{ id: 12, fullName: 'Elif Demir', email: 'elif@ornek.com', phone: null, defaultAddressId: 31 }],
@@ -104,5 +104,23 @@ describe('NewShipmentPage', () => {
     await user.click(screen.getByRole('button', { name: 'Kargoyu oluştur' }));
 
     expect(await screen.findByText('Ağırlık sıfırdan büyük olmalı.')).toBeInTheDocument();
+  });
+});
+
+describe('shipmentFormSchema', () => {
+  const valid = { recipientId: 12, addressId: 31, weightKg: 4.2, priority: 2, serviceTimeMin: 5 };
+  const messages = (input: unknown) => {
+    const r = shipmentFormSchema.safeParse(input);
+    return r.success ? [] : r.error.issues.map((i) => i.message);
+  };
+
+  it('should report a fractional priority or service time as not an integer, not as missing', () => {
+    expect(messages({ ...valid, priority: 2.5, serviceTimeMin: 1.5 }))
+      .toEqual(['Öncelik tam sayı olmalı.', 'Teslim süresi tam sayı olmalı.']);
+  });
+
+  it('should report an empty numeric input (NaN) as missing', () => {
+    expect(messages({ ...valid, priority: Number.NaN, serviceTimeMin: Number.NaN }))
+      .toEqual(['Öncelik gerekli.', 'Teslim süresi gerekli.']);
   });
 });

@@ -20,7 +20,7 @@ export class ApiError extends Error {
 interface RequestOptions<T> {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
-  schema?: z.ZodType<T, z.ZodTypeDef, unknown>;
+  schema?: z.ZodType<T, unknown>;
 }
 
 export async function api<T = void>(path: string, opts: RequestOptions<T> = {}): Promise<T> {
