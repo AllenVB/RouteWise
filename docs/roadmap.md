@@ -627,7 +627,10 @@ Projenin en görünür çıktısı: algoritma karşılaştırması, tasarruf ana
       kargo alt kümesi, tekrar; referansın kanıtlı optimum mu en iyi bulunan mı olduğu açıkça yazar,
       sapma ve hesap süresi grafikleri. Recharts 3.10.1 (sabit sürüm), yalnızca bu ekranın tembel
       parçasında (~114 kB gzip)
-    - F9 tasarruf raporları ve indirme (Analiz adımlarıyla)
+    - ✅ Deney paneli (F8): parametreler, ilerleme çubuğu, iddia cümlesi, sapma ve test tabloları
+    - ✅ F9 `/firma/raporlar` — dönem (haftalık/aylık/yıllık) ve tarih aralığı, özet (TL ve ağırlıklı oran,
+      mesafe, plan, teslimat), naive ve uygulanan maliyet grafiği, dönem tablosu, Excel/PDF indirme
+      (oturum ve token yenilemesiyle, dosya adı sunucudan)
 
 ### Biten iş tanımı
 - [x] BFS'in ağırlıkları yok saydığı **sayısal olarak gösteriliyor** (Dijkstra'dan sapma %) — medyan %8,9, en kötü %70,6
@@ -635,8 +638,8 @@ Projenin en görünür çıktısı: algoritma karşılaştırması, tasarruf ana
 - [x] DFS-exhaustive küçük örnekte gerçek optimumu veriyor — kaba kuvvetle karşılaştırma testi, çalışma günü kısıtı dahil
 - [x] "RouteWise optimumun %X içinde" cümlesi veriyle destekleniyor — 30/30 senaryoda optimumda (%0); deney özetinin `claim` alanı
 - [x] En az **30 senaryoda** anlamlılık testi koşuldu, p değeri raporlanıyor — Wilcoxon + eşleştirilmiş t, üç karşılaştırmada p < 0,0001
-- [ ] Excel ve PDF raporları indirilebiliyor — uç hazır ve gerçek ortamda indirildi; F9 indirme düğmesi kaldı
-- [ ] Haftalık/aylık/yıllık tasarruf grafikleri çalışıyor
+- [x] Excel ve PDF raporları indirilebiliyor — F9'dan; gerçek ortamda indirilip açıldı
+- [x] Haftalık/aylık/yıllık tasarruf grafikleri çalışıyor — F9 ve PDF raporu
 
 ### Risk
 - **Yeterli senaryo üretilmezse** anlamlılık testi anlamsız kalır. Senaryo üretici

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { apiError, server } from '../test/server';
 import { signedInAs } from '../test/render';
-import { api, ApiError } from './apiClient';
+import { api, ApiError, apiFile } from './apiClient';
 import { authStore } from './authStore';
 
 const ok = z.object({ ok: z.boolean() });
@@ -101,6 +101,31 @@ describe('api', () => {
 
       await expect(api('/auth/login', { method: 'POST', body: {} })).rejects.toMatchObject({ status: 401 });
       expect(refreshed).toBe(false);
+    });
+  });
+
+  describe('apiFile', () => {
+    it('should download with the session and take the name from Content-Disposition', async () => {
+      signedInAs('COMPANY');
+      server.use(http.get('/api/v1/analytics/export', ({ request }) => {
+        if (request.headers.get('authorization') !== 'Bearer erisim') return new HttpResponse(null, { status: 401 });
+        return new HttpResponse(new Uint8Array([80, 75, 3, 4]), {
+          headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="routewise-rapor.pdf"' },
+        });
+      }));
+
+      const { blob, filename } = await apiFile('/analytics/export', 'rapor.pdf');
+
+      expect(filename).toBe('routewise-rapor.pdf');
+      expect(new Uint8Array(await blob.arrayBuffer())).toEqual(new Uint8Array([80, 75, 3, 4]));
+    });
+
+    it('should surface the server error as ApiError instead of saving it as a file', async () => {
+      signedInAs('COMPANY');
+      server.use(http.get('/api/v1/analytics/export', () =>
+        HttpResponse.json(apiError('OPTIMIZER_UNAVAILABLE', 'Rota hesaplama servisine ulaşılamadı.'), { status: 502 })));
+
+      await expect(apiFile('/analytics/export', 'x.pdf')).rejects.toMatchObject({ code: 'OPTIMIZER_UNAVAILABLE' });
     });
   });
 });

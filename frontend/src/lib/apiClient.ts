@@ -33,8 +33,35 @@ export async function api<T = void>(path: string, opts: RequestOptions<T> = {}):
   return opts.schema.parse(await res.json());
 }
 
-function send(path: string, { method = 'GET', body }: RequestOptions<unknown>): Promise<Response> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
+/**
+ * Dosya indirir (ör. Excel/PDF rapor): aynı oturum ve token yenileme akışı, gövde
+ * JSON değil dosyanın kendisi. Dosya adı sunucunun `Content-Disposition` başlığından.
+ */
+export async function apiFile(path: string, fallbackName: string): Promise<{ blob: Blob; filename: string }> {
+  let res = await send(path, { accept: '*/*' });
+  if (res.status === 401 && authStore.get() && (await refreshOnce())) {
+    res = await send(path, { accept: '*/*' });
+  }
+  if (!res.ok) throw await toError(res);
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? fallbackName;
+  return { blob: await res.blob(), filename };
+}
+
+/** Tarayıcıya dosyayı kaydettirir; geçici bağlantı hemen bırakılır. */
+export function saveFile(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function send(path: string, { method = 'GET', body, accept = 'application/json' }: RequestOptions<unknown> & { accept?: string }): Promise<Response> {
+  const headers: Record<string, string> = { Accept: accept };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   const token = authStore.get()?.accessToken;
   if (token) headers.Authorization = `Bearer ${token}`;

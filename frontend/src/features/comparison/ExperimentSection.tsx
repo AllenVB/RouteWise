@@ -137,7 +137,7 @@ function ExperimentResult({ e }: { e: Experiment }) {
                     <td>{pct(a.meanGapPct)}</td>
                     <td>{pct(a.maxGapPct)}</td>
                     <td>{a.optimalCount}/{a.scenarios}</td>
-                    <td>{formatNumber(Math.round(a.medianTimeMs * 10) / 10)} ms</td>
+                    <td>{a.medianTimeMs < 0.1 ? '< 0,1' : formatNumber(Math.round(a.medianTimeMs * 10) / 10)} ms</td>
                   </tr>
                 ))}
               </tbody>
