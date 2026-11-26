@@ -50,10 +50,17 @@ söyler, özür dilemez.
 | 403 | `FORBIDDEN` | Rol bu kaynağa erişemez |
 | 404 | `NOT_FOUND` | Kayıt yok |
 | 409 | `ADDRESS_NOT_VERIFIED` | Doğrulanmamış adresli kargo plana alınmak istendi |
-| 409 | `ADDRESS_LOCKED` | Teslimat `YOLDA` iken adres değiştirilmek istendi |
+| 409 | `ADDRESS_LOCKED` | Teslimat `YOLDA` iken adres değiştirilmek istendi (firma kargo düzenlemesi ya da alıcının kendi adresi) |
 | 409 | `CHANGE_LIMIT_REACHED` | Günlük adres değişikliği limiti aşıldı |
 | 409 | `PLAN_ALREADY_DISPATCHED` | Sevk edilmiş plan yeniden optimize edilmek istendi |
 | 409 | `NO_FEASIBLE_SOLUTION` | Kapasite/süre kısıtlarıyla olurlu çözüm yok |
+| 409 | `PLAN_NOT_OPTIMIZED` | Sevk için uygulanan koşu yok ya da koşudan sonra kargolar değişti |
+| 409 | `NOT_ENOUGH_COURIERS` | Rota sayısı kadar müsait kurye yok |
+| 409 | `SHIPMENT_IN_RUN_HISTORY` | Kargo kayıtlı bir koşuda geçiyor; ölçüm geçmişi korunur, silinemez |
+| 409 | `STOP_ALREADY_CLOSED` | Durak zaten teslim edildi ya da ulaşılamadı olarak kapatıldı |
+| 409 | `SHIPMENT_NOT_POSTPONABLE` | Teslim edilmiş kargo ertelenmek istendi ya da kurye durağı az önce kapattı |
+| 409 | `EXPERIMENT_RUNNING` | Bir deney zaten çalışıyor |
+| 409 | `SUGGESTION_CLOSED` | Erteleme önerisi zaten sonuçlandırılmış (ertelendi, bugün kalsın denildi ya da geçersiz) |
 | 422 | `OUTSIDE_SERVICE_AREA` | Nokta Bandırma sınırı dışında |
 | 422 | `TOO_FAR_FROM_ROAD` | Nokta en yakın yola eşikten uzak |
 | 502 | `OPTIMIZER_UNAVAILABLE` | Python servisine ulaşılamıyor |
@@ -123,11 +130,14 @@ yeniden doğrulanır**. İstemciye güvenilmez.
 | GET | `/runs/{id}` | F6 | Koşu metrikleri + rotalar |
 | POST | `/plans/{id}/dispatch` | F6 | Uygulanan koşuyu kuryelere sevk et |
 | GET | `/routes/{id}` | F7 | Rota detayı: duraklar, ETA, yük, maliyet |
-| POST | `/plans/{id}/compare/tour` | F8 | Seviye 2 — tüm tur algoritmaları |
-| POST | `/compare/path` | F8 | Seviye 1 — `{fromNodeId, toNodeId}` |
-| GET | `/comparisons/{id}` | F8 | Karşılaştırma sonucu |
-| GET | `/analytics/savings?period=&from=&to=` | F9 | `period=WEEK\|MONTH\|YEAR` |
-| GET | `/analytics/export?format=&period=` | F9 | `format=XLSX\|PDF` → dosya |
+| POST | `/plans/{id}/compare/tour` | F8 | Seviye 2 — `{vehicleId?, shipmentIds?, repeats? (1–10, varsayılan 3), randomSeed?}`. Tek araç; NAIVE, GREEDY_NN, SAVINGS, ROUTEWISE ve en fazla 10 durakta DFS_EXHAUSTIVE. Algoritma başına çözüm, süre medyanı, `gapPct` (referansa göre), ROUTEWISE için tohum ve en iyi/en kötü amaç. `referenceIsOptimal` false ise referans bulunan en iyi çözümdür. Plan değişmez; en fazla 100 kargo. Tek araca/güne sığmıyorsa 409 `NO_FEASIBLE_SOLUTION` |
+| POST | `/compare/path` | F8 | Seviye 1 — her uç `from: {lat, lon}` (en yakın yol düğümüne bağlanır, hizmet alanı dışıysa 422 `OUTSIDE_SERVICE_AREA`) ya da `fromNodeId`; `weight` `DISTANCE`/`DURATION`, `repeats` 1–20 (varsayılan 5). Dijkstra, A*, BFS, DFS: uzunluk, süre, kenar ve gezilen düğüm sayısı, süre medyanı, Dijkstra'dan sapma %, yol ve koordinatlar |
+| POST | `/compare/experiments` | F8 | `{scenarios? (5–100, 30), stopCount? (3–10, 10), radiusM? (500–15000, 3000), repeats? (1–5, 3), seed?, vehicleId?}` → 202. Tohumdan N sentetik senaryo (gerçek yol grafı), her birinde Seviye 2; sonunda RouteWise ile NAIVE/GREEDY_NN/SAVINGS arasında tek yönlü Wilcoxon ve eşleştirilmiş t. Arka planda; aynı anda tek deney (409 `EXPERIMENT_RUNNING`) |
+| GET | `/compare/experiments` | F8 | Son 20 deney, özetleriyle |
+| GET | `/compare/experiments/{id}` | F8 | Durum (`QUEUED`/`RUNNING`/`DONE`/`FAILED`), `completed`/`failed`, `summary` (algoritma başına sapma istatistiği, testler, `claim` cümlesi), `scenarios` (`comparisonId`, `seed`) |
+| GET | `/comparisons/{id}` | F8 | Kaydedilmiş karşılaştırma, hesaplandığı gibi; `level` `PATH` ya da `TOUR` yanıtın biçimini belirler |
+| GET | `/analytics/savings?period=&from=&to=` | F9 | `period=WEEK\|MONTH\|YEAR` (varsayılan MONTH); `from`/`to` verilmezse bugüne kadar 12 hafta / 12 ay / 5 yıl, en fazla 10 yıl. Yalnızca sevk edilmiş planlar, her biri kendi naive baseline'ıyla; `buckets` (dönem başlangıcı/bitişi, plan, teslimat, maliyetler, `savingsTry`, ağırlıklı `savingsPct`, mesafe) ve `total` |
+| GET | `/analytics/export?format=&period=&from=&to=` | F9 | `format=XLSX\|PDF` → dosya (`Content-Disposition: attachment`). Excel 5 sayfa; PDF 3 sayfa (tasarruf, Seviye 1, Seviye 2 deneyi) |
 | GET | `/vehicles` | F6 | Filo (salt okunur, seed) |
 
 ### 5.2 Kurye
@@ -138,10 +148,20 @@ yeniden doğrulanır**. İstemciye güvenilmez.
 | GET | `/courier/stops/{id}` | K3 | Durak detayı |
 | POST | `/courier/stops/{id}/deliver` | K3 | Teslim edildi |
 | POST | `/courier/stops/{id}/fail` | K3 | `{reason}` — ulaşılamadı |
-| GET | `/courier/route/changes?since=` | K5 | Rota değişiklikleri: çıkan, eklenen, sırası değişen duraklar |
+| GET | `/courier/route/changes?date=&since=&courierId=` | K5 | Günün yeniden rotalamaları, eskiden yeniye: `removed` (sebebiyle: `ALICI_ERTELEDI`, `FIRMA_ERTELEDI`, `ADRES_REDDEDILDI`, `EXCEEDS_WORKDAY`…), `moved` (adresi onaylı taşınan), `reordered` (`fromSeq` → `toSeq`; yalnızca kuryenin gördüğü numara değiştiyse), `orderKept` (günlük limit doldu, sıra korundu). `recomputing`: bir değişiklik geldi, yeni sıra hesaplanıyor (ilerleme göstergesi). `since` yalnızca ondan sonrakileri döner. Firma `courierId` ile okur |
 
 `deliver` çağrısı sistemin kuryenin konumunu bilmesini sağlar: dinamik yeniden
 rotalama **son tamamlanan duraktan** başlar, canlı GPS kullanılmaz.
+
+**Erteleme önerileri (firma, maliyet artışı eşiği).** Onaylanan adres değişikliği yoldaki
+rotayı yeniden hesaplatır; taşınan durak kalan turu `routewise.reroute.suggest-postpone-above`
+oranından (varsayılan %15) fazla pahalılaştırırsa öneri açılır.
+
+| Metot | Yol | Ekran | İş |
+|---|---|---|---|
+| GET | `/reroute/suggestions` | F5 | Bugünün açık önerileri: `orderNumber`, `addressText`, `vehiclePlate`, `costWithoutTry` / `costWithTry` (kalan tur durak yokken / varken), `extraCostTry`, `extraRatio`. Kurye durağı kapattıysa listelenmez |
+| POST | `/reroute/suggestions/{id}/postpone` | F5 | Yarına ertele: durak çıkar, alıcıya `ERTELEME` (`reason: FIRMA_ERTELEDI`), rota arka planda yeniden hesaplanır. 409 `SUGGESTION_CLOSED` / `STOP_ALREADY_CLOSED` |
+| POST | `/reroute/suggestions/{id}/keep` | F5 | Bugün kalsın: öneri kapanır, rota değişmez. 409 `SUGGESTION_CLOSED` |
 
 ### 5.3 Alıcı
 
@@ -149,7 +169,7 @@ rotalama **son tamamlanan duraktan** başlar, canlı GPS kullanılmaz.
 |---|---|---|---|
 | GET | `/me/shipments` | A2 | Alıcının kargoları |
 | GET | `/me/shipments/{id}` | A3 | Kargo detayı + ETA + durum geçmişi |
-| POST | `/me/shipments/{id}/postpone` | A3 | `{date}` — başka gün gelsin |
+| POST | `/me/shipments/{id}/postpone` | A3 | `{date}` — başka gün gelsin (yarın … +14 gün). Kurye yoldaysa durak rotadan çıkar, rota son kapanan duraktan yeniden hesaplanır |
 | GET | `/me/addresses` | A4 | Alıcının adresleri |
 | POST | `/me/addresses` | A4 | Yeni adres |
 | PUT | `/me/addresses/{id}` | A4 | Adresi güncelle → durum `DOGRULAMA_BEKLIYOR`'a düşer |
@@ -196,7 +216,7 @@ Her ekranın ihtiyacı karşılanıyor mu, karşılıksız uç var mı?
 | F2 Gösterge paneli | `GET /dashboard` |
 | F3 Kargo listesi | `GET /shipments`, `PATCH /shipments/{id}`, `DELETE /shipments/{id}` |
 | F4 Yeni kargo | `GET /recipients`, `GET /recipients/{id}/addresses`, `POST /shipments` |
-| F5 Adres doğrulama | `GET /addresses?status=`, `GET /addresses/{id}`, `POST .../verify`, `POST .../reject` |
+| F5 Adres doğrulama | `GET /addresses?status=`, `GET /addresses/{id}`, `POST .../verify`, `POST .../reject`, `GET /reroute/suggestions`, `POST .../postpone`, `POST .../keep` |
 | F6 Rota planlama | `GET /plans`, `POST /plans`, `POST /plans/{id}/optimize`, `GET /runs/{id}`, `GET /vehicles`, `POST /plans/{id}/dispatch` |
 | F7 Rota detayı | `GET /routes/{id}` |
 | F8 Karşılaştırma | `POST /plans/{id}/compare/tour`, `POST /compare/path`, `GET /comparisons/{id}` |
@@ -281,6 +301,44 @@ POST /api/v1/plans/88/optimize
 `randomSeed` yanıtta **her zaman** döner: tohum olmadan sonuç tekrar üretilemez ve
 tez ölçümü savunulamaz.
 
+**Faz 4 eki (01.11.2026):**
+
+- rota süresi (yol + teslim + depoya dönüş) deponun çalışma gününü (`max_route_duration_min`) aşamaz
+- `excluded[].reason` için yeni değer: `EXCEEDS_WORKDAY` — depoya gidip dönmek bile güne sığmıyor
+- `baseline` **null olabilir**: geliş sırasıyla olurlu çözüm kurulamazsa (sıkı çalışma günü)
+  optimize koşu yine döner; `baselineError` sebebi, `savingsPct` / `distanceSavingsPct` null
+- `GET /runs/{id}` ve `GET /routes/{id}` duraklarında `eta` dolu: plan günü + depo açılış saati
+  (Europe/Istanbul) + yol ve önceki teslim süreleri
+
+**Faz 3 sürümü (30.10.2026)** — Faz 2 notlarının yerini alır:
+
+- gövde isteğe bağlı: `{ "algorithm": "ROUTEWISE" | "SAVINGS" | "GREEDY_NN" | "NAIVE",
+  "vehicleId": 3, "randomSeed": 42, "warmStartFromRunId": 311 }`; varsayılan ROUTEWISE ve
+  tüm aktif filo. `vehicleId` yalnızca o araçla planlar (tek araç senaryosu).
+  `randomSeed` / `warmStartFromRunId` yalnızca ROUTEWISE ile; başkasıyla 400
+- maliyet plan gününde geçerli `cost_parameters` satırıyla hesaplanır
+- `totalCostTry` gerçek paradır: yakıt + sürücü + araç sabit gideri. `priorityPenalty`
+  amaçtaki gecikme cezasıdır, para değildir ve maliyete eklenmez
+- `savingsPct` TL maliyet üzerinden naive baseline'a göre; `distanceSavingsPct` korunur
+- `randomSeed` ROUTEWISE koşusunda her zaman döner (verilmediyse üretilen); diğerlerinde null
+- `GET /runs/{id}` rotalarında `totalFuelL`, `totalCostTry` vardır
+
+**Faz 2 sürümü (30.10.2026)** — tarihçe için:
+
+- gövde isteğe bağlıdır: `{ "algorithm": "GREEDY_NN" | "NAIVE", "vehicleId": 2 }` —
+  varsayılan `GREEDY_NN` ve en büyük kapasiteli aktif araç; diğer algoritmalar 400
+- `totalCostTry`, `totalFuelL`, `randomSeed` **null** döner
+- tasarruf **mesafe** üzerinden `distanceSavingsPct` adıyla döner. Maliyet bazlı
+  `savingsPct` Faz 3'te eklenir; aynı adı şimdi mesafe için kullanmak anlamını sonradan
+  sessizce değiştirirdi
+- `excluded[]` — rotaya alınmayan kargolar: `{shipmentId, orderNumber, reason}`,
+  `reason` = `ADDRESS_NOT_VERIFIED` (adres onaysız ya da onaydan sonra taşınmış),
+  `NO_ROAD_NODE` (onaylı ama yol grafına hiç bağlanmamış — doğrulama akışı dışında
+  yazılmış kayıt) veya `UNREACHABLE` (depoyla gidiş-dönüş yolu yok)
+- `GET /runs/{id}` araç başına sıralı duraklar + GeoJSON `LineString` geometri döner;
+  rota servisi erişilemezse duraklar yine gelir, `geometryAvailable: false` olur
+- `POST /plans` aynı gün için idempotenttir: yeni plan 201, mevcut plan 200
+
 ## 9. Faz 1c kapsamı
 
 Bu belge **sözleşmedir**; uçların gövdeleri Faz 2'den itibaren yazılır.
@@ -291,7 +349,12 @@ Bu belge **sözleşmedir**; uçların gövdeleri Faz 2'den itibaren yazılır.
 | ✅ | Ortak hata biçimi ve kod kataloğu |
 | ✅ | Swagger/OpenAPI arayüzü açıldı |
 | ✅ | Postman collection üretildi |
-| Faz 2 | `/auth/**`, `/shipments/**`, `/addresses/**` |
-| Faz 3 | `/plans/**`, `/runs/**`, `/routes/**` |
-| Faz 4 | `/courier/**`, `/me/**` |
+| ✅ Faz 2 | `/auth/**`, `/shipments/**`, `/addresses/**`, `/recipients/**`, `/vehicles` |
+| ✅ Faz 2 (öne alındı) | `/plans` (aç/getir), `/plans/{id}/optimize` tek araç, `/plans/{id}/runs`, `/runs/{id}` |
+| ✅ Faz 2 (öne alındı) | `/me/addresses` GET/POST/PUT — adres oluşturan başka uç yok, Faz 2 DoD'si bunu gerektiriyor |
+| ✅ Faz 3 | çok araç + maliyet, `/plans/{id}/dispatch` (otomatik kurye ataması), `GET /routes/{id}` |
+| ✅ Faz 4 | `/courier/route?date=&courierId=` (firma courierId ile okur), `/courier/stops/{id}`, `.../deliver`, `.../fail` `{reason}` |
+| ✅ Faz 4 | `/me/shipments`, `/me/shipments/{id}`, `/me/notifications`, `/me/notifications/read` `{ids}` / `{all:true}` |
+| ✅ Faz 5 (1. adım) | `/me/shipments/{id}/postpone` `{date}` — erteleme + yolda yeniden rotalama |
+| ✅ Faz 5 | `/courier/route/changes?date=&since=&courierId=`, `/me/shipments/{id}/postpone` `{date}`, `/reroute/suggestions` (+ `/{id}/postpone`, `/{id}/keep`) |
 | Faz 6 | `/compare/**`, `/analytics/**` |

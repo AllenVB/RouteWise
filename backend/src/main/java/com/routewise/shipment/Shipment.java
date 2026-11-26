@@ -95,6 +95,36 @@ public class Shipment {
         this.updatedAt = Instant.now();
     }
 
+    /** Sevk: kargo bir kuryenin rotasına girdi. */
+    public void markPlanned() {
+        this.status = ShipmentStatus.PLANLANDI;
+        this.postponedTo = null;
+        this.updatedAt = Instant.now();
+    }
+
+    /** Kurye rotaya çıktı: kargo yolda; bilgileri ve adresi artık kilitli. */
+    public void markOnRoute() {
+        this.status = ShipmentStatus.YOLDA;
+        this.updatedAt = Instant.now();
+    }
+
+    public void markDelivered() {
+        this.status = ShipmentStatus.TESLIM_EDILDI;
+        this.updatedAt = Instant.now();
+    }
+
+    /** Ulaşılamadı: kargo havuza döner, sonraki planlarda yeniden rotalanır. */
+    public void returnToPool() {
+        this.status = ShipmentStatus.BEKLEMEDE;
+        this.updatedAt = Instant.now();
+    }
+
+    /** Same rule as {@code ShipmentRepository.findPlannableOn}: waiting, or postponed to that day or earlier. */
+    public boolean isPlannableOn(LocalDate date) {
+        return status == ShipmentStatus.BEKLEMEDE
+                || (status == ShipmentStatus.ERTELENDI && postponedTo != null && !postponedTo.isAfter(date));
+    }
+
     public void postponeTo(LocalDate date) {
         this.status = ShipmentStatus.ERTELENDI;
         this.postponedTo = date;

@@ -1,0 +1,173 @@
+package com.routewise.plan;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import com.routewise.address.Address;
+import com.routewise.address.AddressRepository;
+import com.routewise.common.error.ApiException;
+import com.routewise.common.error.ErrorCode;
+import com.routewise.courier.Courier;
+import com.routewise.courier.CourierRepository;
+import com.routewise.notification.Notification;
+import com.routewise.notification.NotificationService;
+import com.routewise.recipient.Recipient;
+import com.routewise.recipient.RecipientRepository;
+import com.routewise.optimization.OptimizationRun;
+import com.routewise.optimization.OptimizationRunRepository;
+import com.routewise.optimization.PlannedRoute;
+import com.routewise.optimization.PlannedRouteRepository;
+import com.routewise.optimization.RouteStop;
+import com.routewise.optimization.RouteStopRepository;
+import com.routewise.shipment.Shipment;
+import com.routewise.shipment.ShipmentRepository;
+import com.routewise.user.UserRepository;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Hands the applied run to couriers: each route gets a courier, its shipments
+ * become PLANLANDI and the plan is locked against re-optimization.
+ *
+ * <p>Assignment is automatic in this phase — available couriers in id order,
+ * one per route. Too few couriers is an explicit 409, never a route left
+ * without a driver.
+ *
+ * <p>All or nothing in one transaction under the plan's row lock: a concurrent
+ * optimization either finishes before (and its run is the one dispatched) or
+ * finds the plan dispatched and stops.
+ */
+@Service
+public class DispatchService {
+
+    private static final Logger log = LoggerFactory.getLogger(DispatchService.class);
+
+    private final DeliveryPlanRepository plans;
+    private final OptimizationRunRepository runs;
+    private final PlannedRouteRepository routes;
+    private final RouteStopRepository stops;
+    private final ShipmentRepository shipments;
+    private final CourierRepository couriers;
+    private final UserRepository users;
+    private final RecipientRepository recipients;
+    private final NotificationService notifications;
+    private final AddressRepository addresses;
+
+    public DispatchService(DeliveryPlanRepository plans, OptimizationRunRepository runs,
+                           PlannedRouteRepository routes, RouteStopRepository stops,
+                           ShipmentRepository shipments, CourierRepository couriers,
+                           UserRepository users, RecipientRepository recipients,
+                           NotificationService notifications, AddressRepository addresses) {
+        this.plans = plans;
+        this.runs = runs;
+        this.routes = routes;
+        this.stops = stops;
+        this.shipments = shipments;
+        this.couriers = couriers;
+        this.users = users;
+        this.recipients = recipients;
+        this.notifications = notifications;
+        this.addresses = addresses;
+    }
+
+    public record DispatchedRoute(Long routeId, Long vehicleId, Long courierId, String courierName, int stopCount) {}
+
+    public record DispatchResult(Long planId, PlanStatus status, Long runId, List<DispatchedRoute> routes) {}
+
+    @Transactional
+    public DispatchResult dispatch(Long planId) {
+        DeliveryPlan plan = plans.lockById(planId).orElseThrow(() -> ApiException.notFound("Plan"));
+        if (!plan.getStatus().isOptimizable()) {
+            throw new ApiException(ErrorCode.PLAN_ALREADY_DISPATCHED, "Bu plan zaten sevk edildi.");
+        }
+        OptimizationRun run = runs.findByPlanIdAndAppliedTrue(planId)
+                .orElseThrow(() -> new ApiException(ErrorCode.PLAN_NOT_OPTIMIZED,
+                        "Sevk için önce planı optimize et."));
+
+        List<PlannedRoute> runRoutes = routes.findByRunIdOrderByIdAsc(run.getId());
+        if (runRoutes.isEmpty()) {
+            throw new ApiException(ErrorCode.PLAN_NOT_OPTIMIZED, "Uygulanan koşuda rota yok.");
+        }
+        List<Courier> available = couriers.findByStatusOrderByIdAsc(Courier.AVAILABLE);
+        if (available.size() < runRoutes.size()) {
+            throw new ApiException(ErrorCode.NOT_ENOUGH_COURIERS,
+                    runRoutes.size() + " rota için " + available.size() + " müsait kurye var. "
+                            + "Kurye ekle ya da daha az araçla optimize et.");
+        }
+
+        Map<Long, List<RouteStop>> byRoute = stops
+                .findByRouteIdInOrderByRouteIdAscSequenceNoAsc(runRoutes.stream().map(PlannedRoute::getId).toList())
+                .stream().collect(Collectors.groupingBy(RouteStop::getRouteId));
+        List<Long> shipmentIds = byRoute.values().stream().flatMap(List::stream).map(RouteStop::getShipmentId).toList();
+        Map<Long, Shipment> byId = shipments.findAllById(shipmentIds).stream()
+                .collect(Collectors.toMap(Shipment::getId, Function.identity()));
+
+        // Optimizasyondan sonra yola çıkmış ya da teslim edilmiş bir kargo rotada
+        // kalamaz; sessizce atlamak yerine yeniden optimizasyon istenir.
+        // Koşudan sonra başka bir güne ertelenen kargo da bu günün rotasına giremez.
+        // Adresi koşudan sonra taşınan ya da onayını kaybeden kargo da: kurye eski
+        // noktaya gönderilirdi.
+        Map<Long, Long> nodeOfStop = byRoute.values().stream().flatMap(List::stream)
+                .filter(s -> s.getNodeId() != null)
+                .collect(Collectors.toMap(RouteStop::getShipmentId, RouteStop::getNodeId, (a, b) -> a));
+        Map<Long, Address> addressById = addresses.findAllById(
+                        byId.values().stream().map(Shipment::getAddressId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Address::getId, Function.identity()));
+        List<String> stale = byId.values().stream()
+                .filter(s -> !s.isPlannableOn(plan.getPlanDate())
+                        || addressMoved(addressById.get(s.getAddressId()), nodeOfStop.get(s.getId())))
+                .map(Shipment::getOrderNumber).sorted().toList();
+        if (!stale.isEmpty() || byId.size() != shipmentIds.size()) {
+            throw new ApiException(ErrorCode.PLAN_NOT_OPTIMIZED,
+                    "Koşudan sonra kargolar değişti" + (stale.isEmpty() ? "" : " (" + String.join(", ", stale) + ")")
+                            + ". Planı yeniden optimize et.");
+        }
+
+        List<DispatchedRoute> result = new ArrayList<>();
+        for (int i = 0; i < runRoutes.size(); i++) {
+            PlannedRoute route = runRoutes.get(i);
+            Courier courier = available.get(i);
+            route.assignCourier(courier.getId());
+            List<RouteStop> rs = byRoute.getOrDefault(route.getId(), List.of());
+            rs.forEach(s -> byId.get(s.getShipmentId()).markPlanned());
+            String name = users.findById(courier.getUserId()).map(u -> u.getFullName()).orElse(null);
+            result.add(new DispatchedRoute(route.getId(), route.getVehicleId(), courier.getId(), name, rs.size()));
+        }
+        plan.markDispatched();
+        notifyRecipients(plan, byRoute, byId);
+
+        log.info("plan {} sevk edildi: kosu {}, {} rota, {} kargo", planId, run.getId(), result.size(), shipmentIds.size());
+        return new DispatchResult(planId, plan.getStatus(), run.getId(), result);
+    }
+
+    private static boolean addressMoved(Address a, Long nodeAtRun) {
+        return a == null || !a.getVerificationStatus().isUsableForRouting()
+                || (nodeAtRun != null && !nodeAtRun.equals(a.getSnappedNodeId()));
+    }
+
+    /** Her alıcıya kargosunun tahmini teslim saati — aynı transaction'da, sevk geri alınırsa o da yok. */
+    private void notifyRecipients(DeliveryPlan plan, Map<Long, List<RouteStop>> byRoute, Map<Long, Shipment> byId) {
+        Map<Long, Long> userOf = recipients.findAllById(
+                        byId.values().stream().map(Shipment::getRecipientId).distinct().toList()).stream()
+                .collect(Collectors.toMap(Recipient::getId, Recipient::getUserId));
+        byRoute.values().stream().flatMap(List::stream).forEach(stop -> {
+            Shipment s = byId.get(stop.getShipmentId());
+            Long userId = userOf.get(s.getRecipientId());
+            if (userId == null) {
+                return;     // alıcı profili silinmiş; bildirecek kimse yok
+            }
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("orderNumber", s.getOrderNumber());
+            payload.put("planDate", plan.getPlanDate().toString());
+            payload.put("eta", stop.getEta() == null ? null : stop.getEta().toString());
+            notifications.notify(userId, s.getId(), Notification.Type.ETA, payload);
+        });
+    }
+}

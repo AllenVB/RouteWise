@@ -8,9 +8,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -46,6 +49,25 @@ public class GlobalExceptionHandler {
                 .body(ApiError.of(ErrorCode.VALIDATION_FAILED,
                         "Gönderilen bilgilerde hata var. İşaretli alanları düzeltip tekrar dene.",
                         fields, traceId));
+    }
+
+    /**
+     * Malformed request the controller never saw: a query parameter of the wrong type
+     * ({@code ?period=FOO}), a missing required one, or a body that is not valid JSON.
+     * These are the client's mistakes — 400, not the catch-all's 500.
+     */
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class,
+            HttpMessageNotReadableException.class})
+    public ResponseEntity<ApiError> handleBadRequest(Exception e, HttpServletRequest req) {
+        String traceId = newTraceId();
+        String message = switch (e) {
+            case MethodArgumentTypeMismatchException m -> "'" + m.getName() + "' parametresi geçersiz: " + m.getValue();
+            case MissingServletRequestParameterException m -> "'" + m.getParameterName() + "' parametresi gerekli.";
+            default -> "İstek gövdesi okunamadı; geçerli JSON gönderin.";
+        };
+        log.warn("[{}] {} {} -> hatalı istek: {}", traceId, req.getMethod(), req.getRequestURI(), message);
+        return ResponseEntity.status(ErrorCode.VALIDATION_FAILED.status())
+                .body(ApiError.of(ErrorCode.VALIDATION_FAILED, message, traceId));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

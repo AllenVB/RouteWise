@@ -310,24 +310,44 @@ firma doğruluyor; tek araç için rota hesaplanıp haritada çiziliyor.
 
 **Backend**
 1. ✅ Auth + JWT + üç rol — giriş, yenileme (dönüşümlü), çıkış (gerçekten geçersizler), /auth/me
-2. Kargo CRUD + sipariş numarası üretimi (`BND-YYYY-NNNNN`)
-3. Adres kaydı + **beş katmanlı doğrulama**:
+2. ✅ Kargo CRUD + sipariş numarası üretimi (`BND-YYYY-NNNNN`)
+3. ✅ Adres kaydı + **beş katmanlı doğrulama**:
    - geofence (`ST_Contains` Bandırma poligonu)
    - yola snap (`ways_vertices_pgr`'da en yakın düğüm + eşik kontrolü)
    - ters geocoding ile adres metni onayı
    - aykırı değer uyarısı
    - firma onay/ret akışı + durum makinesi
-4. `DistanceMatrixProvider` + kendi Dijkstra'mız + `distance_matrix_cache`
+4. ✅ `DistanceMatrixProvider` + kendi Dijkstra'mız + `distance_matrix_cache`
+5. ✅ Adres günlük değişiklik sayacı gün dönümünde sıfırlanıyor — `change_count_date` (030);
+   gün Europe/Istanbul'a göre döner (`routewise.time-zone`)
+6. ✅ Depo düğümü: ilk kullanımda adreslerle **aynı** snap sorgusuyla grafa bağlanıyor
+7. ✅ `GET /recipients?q=`, `GET /recipients/{id}/addresses` — `usableForRouting` sunucuda
+8. ✅ `OptimizerClient` + `POST /plans`, `POST /plans/{id}/optimize` (tek araç),
+   `GET /plans/{id}/runs`, `GET /runs/{id}` (GeoJSON geometri), `GET /vehicles`;
+   duraklar koşu anındaki graf düğümüyle saklanıyor (031)
+8a. ✅ `/me/addresses` GET/POST/PUT öne alındı — adres oluşturan başka uç yoktu
+8b. ✅ Testcontainers altyapısı (projenin kendi PostGIS+pgRouting imajı) — ilk repository testleri
 
 **Python**
-5. ✅ Graf yükleyici + `dijkstra.py` — **pgRouting ile doğrulandı, 125 çiftte tam mutabakat**
-6. Basit TSP: tek araç, durak sıralama (nearest neighbor ile başla)
-7. `POST /optimize` ilk sürüm
-8. Matris üretimi: `single_source` ile N kez tek-kaynak koşusu (Python üretir, backend cache'ler)
+9. ✅ Graf yükleyici + `dijkstra.py` — **pgRouting ile doğrulandı, 125 çiftte tam mutabakat**
+10. ✅ Basit TSP: tek araç, nearest neighbor + naive baseline (aynı durak kümesinde)
+11. ✅ `POST /internal/optimize` ilk sürüm — olurluluk testleri algoritmadan önce yazıldı
+12. ✅ Matris üretimi: `single_source` ile N kez tek-kaynak koşusu (Python üretir, backend cache'ler)
+13. ✅ `POST /internal/route-geometry` — haritada gerçek yolu çizmek için bacak koordinatları
 
 **Frontend**
-8. F1, F3, F4, F5 ekranları + harita ile konum seçimi
-9. Rota haritada çizimi
+14. ✅ Temel: yönlendirme, TanStack Query, auth store + paylaşılan token yenileme, MapLibre
+    (harita ekranları tembel yüklenir; ana paket ~470 KB)
+15. ✅ F1, F3, F4, F5 + A4 (alıcı haritadan konum seçer, kaydetmeden doğrulanır)
+16. ✅ F6 (Faz 2 sürümü): plan aç, optimize et, naive'e göre mesafe tasarrufu, dışlanan
+    kargolar sebebiyle, rota gerçek yol geometrisiyle haritada
+17. ✅ Testler: Python 102 · backend 114 (Testcontainers dahil) · frontend 22 (vitest + MSW)
+
+**Faz 2 DoD durumu (30.10.2026, gerçek yığında uçtan uca):**
+Bandırma dışı nokta reddediliyor ✅ · doğrulanmamış/taşınmış adresli kargo rotaya
+girmiyor ✅ · adres taşınınca DOGRULAMA_BEKLIYOR ✅ · Dijkstra = pgr_dijkstra ✅ ·
+matris cache ikinci koşuda isabet ✅ · 9–10 duraklı liste haritada sıralı rota ✅ ·
+**açık:** snap eşiğinin 20–30 gerçek Bandırma adresiyle elle sınanması
 
 ### Biten iş tanımı
 - [ ] Haritadan Bandırma dışına tıklanınca **reddediliyor**
@@ -352,16 +372,52 @@ firma doğruluyor; tek araç için rota hesaplanıp haritada çiziliyor.
 Çok araç, kapasite sert kısıtı, tam maliyet modeli, RouteWise algoritması çalışıyor.
 
 ### Görevler
-1. `vrp/model.py` — Solution, Route, Stop veri yapıları
-2. `objective.py` — amaç fonksiyonu (mesafe + yakıt + sürücü + öncelik cezası + araç sabit)
-3. `feasibility.py` — kapasite ve (sonraki fazda) süre kontrolleri
-4. `construction/savings.py` — Clarke-Wright, kapasite farkında
-5. `localsearch/` — 2-opt, relocate, exchange, Or-opt
-6. `metaheuristic/simulated_annealing.py` — tohumlanmış, sıcak başlangıçlı
-7. `routewise.py` — aşamaları birleştir
-8. `construction/naive.py` — baseline, her koşuda birlikte hesaplanır
-9. Backend: `optimization_runs` + `routes` + `route_stops` kalıcılaştırma
-10. Frontend: F6, F7 — planlama ekranı, maliyet kırılımı
+1. ✅ `vrp/model.py` — Solution, Route, Stop, Vehicle (yakıt, sabit gider), CostParams
+2. ✅ `objective.py` — yakıt + sürücü + araç sabit = **TL maliyet**; + öncelik cezası = **amaç**.
+   Ceza tanımı: `katsayı × Σ öncelik × varış_saati` (zaman penceresi olmadığı için "ihlal" yok)
+3. ✅ `feasibility.py` — kapasite, sürülebilirlik, kapsama, filo; tek kontrol noktası `RouteSet.delta`
+4. ✅ `construction/savings.py` — Clarke-Wright; asimetrik matris + farklı kapasiteli filo
+5. ✅ `localsearch/` — 2-opt, relocate, exchange, Or-opt (round-robin ilk iyileştirme)
+6. ✅ `metaheuristic/simulated_annealing.py` — tohumlanmış, iterasyon bütçeli, sıcaklık veriden
+7. ✅ `routewise.py` — savings → LS → SA → LS; sıcak başlangıç yalnızca etkilenen rotalarda
+8. ✅ `construction/naive.py` — ilk sığan araç, geliş sırası; her koşuda aynı kümede
+9. ✅ Backend: plan gününün maliyet parametreleri + tüm aktif filo + tohum + sıcak başlangıç
+   (`warmStartFromRunId`) → `/internal/optimize`; koşu ve rota bazında `total_cost_try`,
+   `total_fuel_l`, `random_seed` kalıcılaştırma; TL bazlı `savingsPct` (032)
+10. ✅ Frontend: F6 araç başına renkli rota + "mevcut rotadan devam et", F7 rota maliyet kırılımı
+11. ✅ Granüler komşuluk — relocate/exchange/Or-opt yalnızca en yakın K=12 durağın yanına
+    dener. Gerçek grafta 3'er örnek: n=100 10,8–15,7 sn → 3,4–4,5 sn (~3,4×), amaçta ortalama
+    +%0,35 (en kötü +%1,36, bir örnekte −%0,76). K=8 ek hız getirmedi, K=20 yavaş ve daha iyi değil.
+12. ✅ Sevk: `POST /plans/{id}/dispatch` — uygulanan koşunun rotalarına müsait kuryeler id sırasıyla
+    atanır, kargolar PLANLANDI, plan kilitlenir; kurye yetmezse ya da koşudan sonra kargo
+    değiştiyse açık 409. `GET /routes/{id}` (F7)
+13. ✅ Hata: koşuda geçmiş kargoyu silmek `route_stops` yabancı anahtarına çarpıp 500 veriyordu →
+    409 `SHIPMENT_IN_RUN_HISTORY` (koşular ölçüm verisidir, değiştirilmez)
+
+**Python DoD durumu (31.10.2026):** olurluluk özellik testleri (her operatörün her adayı,
+kontrol bozulunca 55 test düşüyor) ✅ · aynı tohum aynı rota ✅ · sıcak başlangıç önceki
+ardışık çiftlerin ≥%80'ini koruyor ✅ · naive her koşuda ✅ · n=7 iki araçta tam aramaya
+sapma ≤%2 ✅ · gerçek grafta ceza=0 iken RouteWise ≤ SAVINGS ≤ NN ≤ NAIVE ✅
+
+**Karar (30.10.2026) — öncelik cezası 25 → 2,5 TL/(öncelik·saat)** (032): 25 ile ceza TL
+maliyetin 2–3 katına çıkıyor, RouteWise öncelikli kargoyu erkene çekmek için ek araç açıyordu.
+
+**Düzeltme (30.10.2026):** Python'un otomatik camelCase alias'ı `fuelLPer100Km` üretiyor,
+backend `fuelLPer100km` gönderiyordu; alan sessizce atıldı ve **yakıt maliyeti hiç hesaba
+girmedi**. Alias açıkça verildi ve istek modelleri artık bilinmeyen alanı 422 ile reddediyor.
+Yukarıdaki 25'e karşı ölçüm yakıtsızdı; karar düzeltilmiş modelle yeniden ölçüldü.
+
+Gerçek grafta, seed filo (3 araç), ceza 2,5, yakıt dahil — TL maliyet (öncelik cezası hariç):
+
+| n | NAIVE | GREEDY_NN | SAVINGS | ROUTEWISE | RouteWise süre |
+|---|---|---|---|---|---|
+| 20 | 1.345 | 1.041 | 1.248 | **1.015** | 0,3 sn |
+| 50 | 2.572 | 1.634 | 1.500 | **1.495** | 1,2 sn |
+| 100 | 4.811 | **2.478** | 2.658 | 2.561 | 15,7 sn |
+
+n=100'de RouteWise parada NN'in 82 TL gerisinde ama gecikme cezası 147'ye karşı 549:
+ceza büyük planlarda hâlâ tercihleri yönlendiriyor. Tezde "para–öncelik dengesi" olarak
+raporlanmalı ya da katsayı yeniden ayarlanmalı. (Süre granüler komşulukla düşürüldü — madde 11.)
 
 ### Biten iş tanımı
 - [ ] **Hiçbir yerel arama hamlesi kapasite ihlali üretmiyor** (olurluluk testleri yeşil)
@@ -386,20 +442,39 @@ firma doğruluyor; tek araç için rota hesaplanıp haritada çiziliyor.
 Gün sınırı sert kısıt olarak devrede; alıcı ETA bildirimi alıyor; üç rol tam çalışıyor.
 
 ### Görevler
-1. `feasibility.py`'ye maksimum rota süresi kısıtını ekle
-2. Süre hesabı: segment uzunluğu / `maxspeed` + servis süresi
-3. ETA hesabı ve `route_stops.eta` doldurma
-4. Bildirim altyapısı: uygulama içi + Spring Mail
-5. Rol bazlı yetkilendirme tüm endpoint'lerde
-6. Kurye ekranları K1–K4
-7. Alıcı ekranları A1–A5
+1. ✅ Maksimum rota süresi katı kısıt: `max_duration_s` (depo `max_route_duration_min`), tek kontrol
+   noktası `RouteSet.delta`; testler önce yazıldı (süre kontrolü yokken 24 test düşüyordu)
+2. ✅ Süre hesabı: yol süresi (graf, `maxspeed`) + teslim süreleri + depoya dönüş
+3. ✅ ETA: Python durak başına `arrivalS`, backend `plan günü + depo açılışı (İstanbul) + arrivalS`
+   → `route_stops.eta`; F6'da "Varış" sütunu
+   - Tek başına güne sığmayan durak hata değil: `EXCEEDS_WORKDAY` ile dışarıda kalır
+   - **Bulgu:** sıkı günde naive (geliş sırası) zikzak çizdirip kurulamıyor; her koşuda
+     hesaplandığı için asıl optimizasyonu düşürüyordu. Artık baseline kurulamazsa optimize
+     çözüm yine döner, `baseline: null` + `baselineError` raporlanır
+4. ✅ Bildirim altyapısı: uygulama içi bildirim işle aynı transaction'da (iş geri alınırsa bildirim de
+   yok); e-posta commit sonrası `MailPort` üzerinden. **E-posta şimdilik yalnızca loglanıyor** —
+   `spring-boot-starter-mail` + yerel SMTP (ör. Mailpit) kararı bekliyor. EMAIL satırı yalnızca
+   gerçekten gönderilince yazılır. Tetikleyiciler: sevkte ETA, adres onay/ret (sebebiyle)
+5. ✅ Rol bazlı yetkilendirme tüm endpoint'lerde — `AccessMatrixTest` her ucu her role karşı gerçek
+   filtre zinciri ve gerçek JWT ile dener (yetkisiz 403, oturumsuz 401, yetkili geçer); uygulamaya
+   matrise yazılmamış bir uç eklenirse test düşer. Durak kapatma kuralı filtreye de eklendi
+   (yalnızca controller'dayken gövde doğrulaması önce çalışıp firmaya 400 dönüyordu)
+6. ✅ Kurye ekranları K1–K4 + `/courier/**`: günün sevk edilmiş rotası (yoksa 404 → "bugün rotan yok"),
+   durak detayı (alıcı adı, telefon, ETA), teslim / ulaşılamadı (sebep zorunlu, 033).
+   İlk kapanan durak rotayı YOLDA'ya, açık kargoları YOLDA'ya (adres kilidi) alır; son durak
+   rotayı, son rota planı tamamlar; ulaşılamayan kargo havuza döner. Başkasının durağı 404,
+   firma okur ama kapatamaz (403), çift dokunuş 409 `STOP_ALREADY_CLOSED`
+7. ✅ Alıcı ekranları A1–A5: kargolarım (tek cümlelik beklenti: tahmini saat / teslim / ulaşılamadı),
+   kargo detayı (kurye notu), bildirimler (okunmamış sayısı menüde, metin payload'dan ekranda kurulur).
+   Başkasının kargosu 404. Erteleme (`/me/shipments/{id}/postpone`) Faz 5'te
 
 ### Biten iş tanımı
 - [ ] Gün sınırını aşan çözüm **üretilmiyor**
 - [ ] ETA'lar makul (elle birkaç durak için doğrula)
 - [ ] Alıcı e-posta ve uygulama içi bildirim alıyor
-- [ ] **Rol sızıntısı testleri yeşil** — alıcı başkasının teslimatını göremiyor
-- [ ] Kurye yalnızca kendi rotasını görüyor
+- [x] **Rol sızıntısı testleri yeşil** — alıcı başkasının teslimatını göremiyor (`OwnershipLeakTest`:
+  kargo, adres, bildirim; 404 ve gövdede iz yok)
+- [x] Kurye yalnızca kendi rotasını görüyor (başkasının durağı 404, `courierId` kuryede yok sayılır)
 
 ---
 
@@ -409,24 +484,60 @@ Gün sınırı sert kısıt olarak devrede; alıcı ETA bildirimi alıyor; üç 
 Dağıtım sırasında erteleme ve adres değişikliği rotayı canlı olarak güncelliyor.
 
 ### Görevler
-1. "Başka gün gelsin" → `ERTELENDİ` + kümeden çıkarma + yeniden optimizasyon
-2. Dağıtım sırasında adres değişikliği → doğrulamaya düşme → onay sonrası yeniden rotalama
-3. **Son tamamlanan duraktan** yeniden optimizasyon (canlı GPS yok)
+1. ✅ "Başka gün gelsin" → `ERTELENDİ` + kümeden çıkarma + yeniden optimizasyon —
+   `POST /me/shipments/{id}/postpone` (yarın … +14 gün). Erteleme önce ve tek başına commit
+   edilir: optimizer kapalıysa bile geçerlidir, durak kuryenin listesinden düşer, yalnızca kalan
+   ETA'lar eski kalır. Durak satırı silinmez, `ERTELENDI` olur (034); sevkten sonra başka güne
+   ertelenen kargo taslak koşudan sevk edilemez
+2. ✅ Dağıtım sırasında adres değişikliği → doğrulamaya düşme → onay sonrası yeniden rotalama —
+   kurye çıkmadan (kargo `PLANLANDI`) alıcı taşıyabilir; durak eski düğümde bekler. Firma onaylarsa
+   durak yeni düğüme taşınır ve rota yeniden hesaplanır (aynı düğüme düşerse hesaplanmaz);
+   reddederse durak çıkar, kargo adres düzelene kadar havuza döner. Adres modülü rotaları bilmez:
+   `AddressService.Verified/Rejected` olayı, `AddressRerouteHandler` dinler. Sevk de artık koşudan
+   sonra taşınan ya da onayını kaybeden adresli kargoyu reddediyor
+3. ✅ **Son tamamlanan duraktan** yeniden optimizasyon (canlı GPS yok) — yalnızca o kuryenin
+   rotası (kargo fiziksel olarak o araçta). Python'a `startNodeId`: problem matrisinde 0 indeksinin
+   satırı kuryenin konumundan, sütunu depodan okunur, algoritmaların hiçbiri değişmedi. Kalan süre
+   = mesai sonu − max(şimdi, planlı çıkış); mevcut sıra hem naive baseline hem sıcak başlangıç,
+   tohum rota kimliği. Her yeniden rotalama `reroute_events`'e yazılır (eski sıra maliyeti / yeni
+   maliyet — Faz 6 analizi için). Oku → hesapla (transaction dışında) → rota kilidi altında yaz;
+   arada açık duraklar değiştiyse sonuç atılır, yeniden hesaplanır
 4. Beş güvenlik önlemi:
-   - olurluluk kırılırsa otomatik erteleme
-   - `YOLDA` durumunda adres kilidi
-   - maliyet artışı eşiği → erteleme önerisi
-   - günlük değişiklik limiti
-   - kuryeye açık bildirim
-5. Debounce (~500 ms) + asenkron koşu + ilerleme göstergesi
+   - ✅ olurluluk kırılırsa otomatik erteleme — birlikte sığmıyorlarsa önceliği en düşük (eşitse
+     en sonda) olan çıkar; tek başına sığmayan da çıkar; ertesi güne, alıcıya sebebiyle bildirim
+   - ✅ `YOLDA` durumunda adres kilidi — alıcının kendi adres ekranında eksikti (yalnızca firmanın
+     kargo düzenlemesinde vardı); artık yoldaki kargonun adresi taşınamaz, 409 `ADDRESS_LOCKED`
+   - ✅ maliyet artışı eşiği → erteleme önerisi — onaylanan adres değişikliğiyle taşınan durak için
+     kalan tur bir kez de o durak olmadan hesaplanır; fark kalan turun %15'ini aşarsa
+     (`routewise.reroute.suggest-postpone-above`) firmaya F5'te öneri düşer (036). Firma "Yarına
+     ertele" der (alıcıya bildirilir, kuryede `FIRMA_ERTELEDI`) ya da "Bugün kalsın". Karar insanda;
+     sistem kendiliğinden ertelemez. Ölçülemezse yeniden rotalama yine geçerli, yalnızca öneri yok
+   - ✅ günlük değişiklik limiti — rota başına günde 10 yeniden sıralama
+     (`routewise.reroute.max-per-route-per-day`); sonrasında çıkan durak çıkar ama kalan sıra
+     değişmez, kuryeye `orderKept` ile bildirilir. Alıcının günlük adres değiştirme hakkı (2) ayrıca var
+   - ✅ kuryeye açık bildirim (`ROTA_DEGISTI`: kalan durak, otomatik ertelenenler); ETA'sı 15 dk'dan
+     fazla kayan alıcıya yeni saat bildirimi
+5. ✅ Debounce (~500 ms) + asenkron koşu — `RerouteScheduler`: istek commit sonrası kuyruğa girer,
+   aynı rotaya pencere içinde gelen istekler tek koşuda birleşir (son tetikleyici kaydedilir); hata
+   loglanır, değişikliğin kendisi kayıtlı kalır. Testlerde pencere 0 (eşzamanlı, test transaction'ı
+   commit edilmediği için). İlerleme göstergesi: `RerouteScheduler.isBusy` — değişiklik commit
+   edildiği andan koşu bitene kadar rota "hesaplanıyor"; kurye ekranı bu sürede 2 sn'de bir, sonra
+   30 sn'de bir sorar ve hesaplama bitince rotayı tazeler
+6. ✅ Ekranlar — alıcı A3'te "Başka gün gelsin" (yarın … +14 gün, yoldaysa "kurye bugün uğramaz"
+   uyarısı); kurye K2'de "Rota değişti" bandı ve K5 `/kurye/degisiklikler`: çıkan durak sebebiyle,
+   adresi değişen durak, numarası değişen durak eski ve yeni yeriyle. Her değişiklik
+   `reroute_events.changes`'e yazılır (035); pencerede birleşen tüm değişiklikler listelenir, bir
+   çıkış yalnızca bir kez gösterilir. Limit dolduğunda da kayıt düşer (`order_kept`), limite sayılmaz
 
 ### Biten iş tanımı
-- [ ] Erteleme sonrası rota yeniden hesaplanıyor, teslim edilenler sabit kalıyor
-- [ ] Adres değişikliği gün sınırını aşırırsa teslimat **otomatik erteleniyor**
-- [ ] `YOLDA` teslimatın adresi değiştirilemiyor
-- [ ] Günlük değişiklik limiti devrede
-- [ ] Kurye ekranında eski durak kalkıyor, bildirim düşüyor
-- [ ] Arka arkaya 10 değişiklikte 10 değil 1 optimizasyon koşuyor
+- [x] Erteleme sonrası rota yeniden hesaplanıyor, teslim edilenler sabit kalıyor (`RerouteFlowTest`)
+- [x] Adres değişikliği gün sınırını aşırırsa teslimat **otomatik erteleniyor** — onaydan sonraki
+  yeniden rotalama aynı yoldan geçer (sığmayan ertesi güne)
+- [x] `YOLDA` teslimatın adresi değiştirilemiyor
+- [x] Günlük değişiklik limiti devrede
+- [x] Kurye ekranında eski durak kalkıyor, bildirim düşüyor — durak "Ertelendi · rotadan çıktı" olarak
+  kalır, haritadan ve ilerlemeden düşer; "Rota değişti" bandı ve K5 ekranı ne değiştiğini söyler
+- [x] Arka arkaya 10 değişiklikte 10 değil 1 optimizasyon koşuyor (`RerouteSchedulerTest`)
 
 ---
 
@@ -438,31 +549,97 @@ Projenin en görünür çıktısı: algoritma karşılaştırması, tasarruf ana
 ### Görevler
 
 **Seviye 1 — yol bulma**
-1. `astar.py`, `bfs.py`, `dfs.py` implementasyonları
-2. Ortak metrik toplama: yol uzunluğu, süre (ms), gezilen düğüm
-3. `path_comparison_runs` kayıtları
-4. `POST /compare/path`
+1. ✅ `astar.py`, `bfs.py`, `dfs.py` implementasyonları — A* sezgiseli kuş uçuşu (süre ağırlığında
+   / graftaki en yüksek hız, ×0,99 güvenlik payı); DFS açık yığınla (özyineleme sınırı yok)
+2. ✅ Ortak metrik toplama: yol uzunluğu ve süresi (aynı kenarlar üzerinden), gezilen düğüm, kenar
+   sayısı, hesaplama süresi (N koşunun medyanı), Dijkstra'dan sapma % — `pathfinding/compare.py`
+3. ✅ `path_comparison_runs` kayıtları — karşılaştırma başına `comparisons` satırı (girdi + tam sonuç,
+   F8 yeniden çizebilsin), algoritma başına metrik satırı (037)
+4. ✅ `POST /compare/path` — uçlar haritadan nokta (yola bağlanır) ya da düğüm kimliği;
+   `GET /comparisons/{id}`
+
+   Gerçek Bandırma grafında 30 rastgele çift (mesafe ağırlığı, seed 42):
+
+   | Algoritma | Sapma medyan | Sapma en kötü | Gezilen düğüm medyan | Süre medyan |
+   |---|---|---|---|---|
+   | Dijkstra | %0 | %0 | 6.276 | 19,1 ms |
+   | A\* | %0 (30/30 aynı yol) | %0 | 1.395 (Dijkstra'nın %30,5'i) | 8,0 ms |
+   | BFS | %8,9 | %70,6 | 5.558 | 7,6 ms |
+   | DFS | %890,6 | %6.502,6 | 4.752 | 8,3 ms |
 
 **Seviye 2 — tur sırası**
-5. `nearest_neighbor.py`, `exhaustive.py` (n ≤ 10)
-6. `POST /compare/tour` — tüm algoritmaları aynı girdiyle koşturur
-7. Her algoritma N kez, medyan raporlanır
+5. ✅ `nearest_neighbor.py` (Faz 2'den), `exhaustive.py` (n ≤ 10) — tek araç, dal-sınır DFS: önek
+   maliyeti + kalan durakların en az cezası alt sınırdır, en iyi sezgisel başlangıç üst sınırı.
+   Kanıtlı optimum; 7 duraklı rastgele örneklerde kaba kuvvetle (tüm permütasyonlar) aynı sonuç
+6. ✅ `POST /plans/{id}/compare/tour` — tek araç, planın doğrulanmış kargoları ya da `shipmentIds` alt
+   kümesi; NAIVE, GREEDY_NN, SAVINGS, ROUTEWISE + n ≤ 10 ise DFS_EXHAUSTIVE aynı matris, maliyet ve
+   çalışma günüyle. Plan değişmez. Sonuç `comparisons`'a, algoritma başına satır
+   `tour_comparison_runs`'a (038) — anlamlılık testinin girdisi. Çok araçlı kesin arama kapsam dışı:
+   10 durakta bile atama × sıra on milyonlarca dal
+7. ✅ Her algoritma N kez, süre medyanı raporlanır; ROUTEWISE her tekrarda başka tohumla, amacı medyan
+   olan koşu raporlanır, en iyi/en kötü amaç da verilir
+
+   Gerçek grafta 10 rastgele senaryo (Bandırma merkezi, 10 durak, 8 saatlik gün, 3 tekrar):
+
+   | Algoritma | Optimumdan sapma medyan | En kötü | Optimumu bulduğu |
+   |---|---|---|---|
+   | NAIVE | %26,0 | %42,2 | 0/10 |
+   | GREEDY_NN | %2,6 | %8,9 | 0/10 |
+   | SAVINGS | %1,0 | %3,4 | 1/10 |
+   | ROUTEWISE | %0,0 | %0,0 | 10/10 |
+
+   DFS_EXHAUSTIVE: medyan 1,4 sn, en kötü 2,8 sn; 3,6 milyon sıradan medyan 689 bin arama düğümü açılır.
+   Bu bir ön bakıştır; iddia 30+ senaryo ve anlamlılık testiyle (Analiz) kurulacak
 
 **Analiz**
-8. `aggregate.py` — haftalık/aylık/yıllık pandas resample
-9. `significance.py` — Wilcoxon / paired t-test
-10. `figures.py` — matplotlib figürleri (prototip: `docs/diagrams/cost_comparison.py`)
-11. `export.py` — Excel (5 sayfa) + PDF rapor
+8. ✅ `aggregate.py` — haftalık (pazartesi başlar) / aylık / yıllık pandas dönemleri. Yalnızca sevk
+   edilmiş planlar (sürülen rota), her biri kendi optimizasyonunun naive baseline'ıyla; dönem yüzdesi
+   ağırlıklı (Σ baseline − Σ uygulanan) / Σ baseline. Plan yapılmamış dönem satır üretmez.
+   `GET /analytics/savings?period=&from=&to=`
+9. ✅ `significance.py` — Wilcoxon işaretli sıralar (ana test, zsplit, tek yönlü H1: RouteWise daha ucuz)
+   + eşleştirilmiş t-testi (destek). Senaryo üretici `analysis/scenarios.py`: tohumdan, gerçek
+   Bandırma grafında depo çevresinde (varsayılan 3 km) ulaşılabilir düğümler; yük/servis/öncelik de
+   tohumdan. `POST /compare/experiments` N senaryoyu arka planda tek tek koşar (her biri bir
+   `comparisons` satırı, 039), ilerleme izlenir, sonunda özet ve iddia cümlesi yazılır. Aynı anda tek
+   deney; sunucu yeniden başlarsa yarım deney FAILED olur (aynı tohumla yeniden başlatılır)
+
+   Gerçek ortamda deney (30 senaryo, 10 durak, 3 km, 8 saatlik gün, 3 tekrar, tohum 2026; 271 sn):
+
+   | Algoritma | Optimumdan sapma medyan / ort. / en kötü | Optimumu bulduğu | Süre medyan |
+   |---|---|---|---|
+   | NAIVE | %17,3 / %17,2 / %33,2 | 0/30 | 0,01 ms |
+   | GREEDY_NN | %3,9 / %4,4 / %13,6 | 0/30 | 0,05 ms |
+   | SAVINGS | %0,7 / %0,9 / %3,0 | 4/30 | 0,11 ms |
+   | ROUTEWISE | %0 / %0 / %0 | 30/30 | 239 ms |
+   | DFS_EXHAUSTIVE | — (referans) | 30/30 | 2,5 sn |
+
+   RouteWise her karşılaştırmada anlamlı ölçüde daha ucuz (tek yönlü, n = 30): NAIVE'e göre
+   Wilcoxon p = 9,3·10⁻¹⁰ (ort. %14,5 ucuz), GREEDY_NN'e göre p = 9,3·10⁻¹⁰ (%4,2), SAVINGS'e göre
+   p = 1,4·10⁻⁶ (%0,9; 4 senaryoda eşit)
+10. ✅ `figures.py` — dönemsel maliyet/tasarruf, Seviye 1 düğüm ve sapma (sapma ekseni symlog: DFS'in
+    binlerce yüzdesi BFS'i gizlemesin), Seviye 2 senaryo başına sapma kutu grafiği. Prototipin paleti
+11. ✅ `export.py` — Excel 5 sayfa (Özet, Dönemsel tasarruf, Günlük planlar, Seviye 1, Seviye 2 deney) +
+    3 sayfalık A4 PDF; sayılar Türkçe biçimde (1.398,18 TL, -%14,47). `GET /analytics/export?format=`
+    dosyayı ekli indirir; Seviye 1 aralıktaki karşılaştırmalardan, Seviye 2 son tamamlanan deneyden
 12. Frontend: F8, F9 — karşılaştırma tabloları, Recharts grafikleri, indirme
+    - ✅ F8 `/firma/karsilastirma` — Seviye 1: haritada A ve B seç, ağırlık ve tekrar; dört algoritmanın
+      tablosu, seçilenlerin yolu haritada, gezilen düğüm ve sapma grafikleri. Seviye 2: plan günü, araç,
+      kargo alt kümesi, tekrar; referansın kanıtlı optimum mu en iyi bulunan mı olduğu açıkça yazar,
+      sapma ve hesap süresi grafikleri. Recharts 3.10.1 (sabit sürüm), yalnızca bu ekranın tembel
+      parçasında (~114 kB gzip)
+    - ✅ Deney paneli (F8): parametreler, ilerleme çubuğu, iddia cümlesi, sapma ve test tabloları
+    - ✅ F9 `/firma/raporlar` — dönem (haftalık/aylık/yıllık) ve tarih aralığı, özet (TL ve ağırlıklı oran,
+      mesafe, plan, teslimat), naive ve uygulanan maliyet grafiği, dönem tablosu, Excel/PDF indirme
+      (oturum ve token yenilemesiyle, dosya adı sunucudan)
 
 ### Biten iş tanımı
-- [ ] BFS'in ağırlıkları yok saydığı **sayısal olarak gösteriliyor** (Dijkstra'dan sapma %)
-- [ ] A\*, Dijkstra ile aynı yolu daha az düğüm gezerek buluyor
-- [ ] DFS-exhaustive küçük örnekte gerçek optimumu veriyor
-- [ ] "RouteWise optimumun %X içinde" cümlesi veriyle destekleniyor
-- [ ] En az **30 senaryoda** anlamlılık testi koşuldu, p değeri raporlanıyor
-- [ ] Excel ve PDF raporları indirilebiliyor
-- [ ] Haftalık/aylık/yıllık tasarruf grafikleri çalışıyor
+- [x] BFS'in ağırlıkları yok saydığı **sayısal olarak gösteriliyor** (Dijkstra'dan sapma %) — medyan %8,9, en kötü %70,6
+- [x] A\*, Dijkstra ile aynı yolu daha az düğüm gezerek buluyor — 30/30 aynı yol, gezilen düğüm %30,5
+- [x] DFS-exhaustive küçük örnekte gerçek optimumu veriyor — kaba kuvvetle karşılaştırma testi, çalışma günü kısıtı dahil
+- [x] "RouteWise optimumun %X içinde" cümlesi veriyle destekleniyor — 30/30 senaryoda optimumda (%0); deney özetinin `claim` alanı
+- [x] En az **30 senaryoda** anlamlılık testi koşuldu, p değeri raporlanıyor — Wilcoxon + eşleştirilmiş t, üç karşılaştırmada p < 0,0001
+- [x] Excel ve PDF raporları indirilebiliyor — F9'dan; gerçek ortamda indirilip açıldı
+- [x] Haftalık/aylık/yıllık tasarruf grafikleri çalışıyor — F9 ve PDF raporu
 
 ### Risk
 - **Yeterli senaryo üretilmezse** anlamlılık testi anlamsız kalır. Senaryo üretici

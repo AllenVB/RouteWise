@@ -17,3 +17,25 @@ databaseChangeLog:
       file: db/changelog/changes/900-seed.sql
   - include:
       file: db/changelog/changes/010-auth.sql
+  - include:
+      file: db/changelog/changes/020-service-area.sql
+  - include:
+      file: db/changelog/changes/030-address-change-date.sql
+  - include:
+      file: db/changelog/changes/031-route-stop-node.sql
+  - include:
+      file: db/changelog/changes/032-phase3-costs.sql
+  - include:
+      file: db/changelog/changes/033-stop-outcome.sql
+  - include:
+      file: db/changelog/changes/034-reroute.sql
+  - include:
+      file: db/changelog/changes/035-reroute-changes.sql
+  - include:
+      file: db/changelog/changes/036-postpone-suggestions.sql
+  - include:
+      file: db/changelog/changes/037-comparisons.sql
+  - include:
+      file: db/changelog/changes/038-tour-comparison-runs.sql
+  - include:
+      file: db/changelog/changes/039-experiments.sql

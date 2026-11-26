@@ -20,14 +20,40 @@ spring:
         jdbc:
           time_zone: UTC
 
+  # api-contract.md §3: size en fazla 100. Spring'in varsayılan sınırı 2000'dir.
+  data:
+    web:
+      pageable:
+        max-page-size: 100
+
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
     enabled: true
 
 routewise:
+  # İş günü depo saatine göre döner (günlük limitler, sipariş no yılı).
+  time-zone: Europe/Istanbul
+
   # Python servisinin adresi — compose ağında servis adıyla erişilir.
   optimizer:
     base-url: ${OPTIMIZER_URL:http://localhost:8000}
+
+  address:
+    # Bu eşiğin ötesindeki nokta reddedilir: araç oraya ulaşamaz.
+    max-snap-distance-m: 50
+    # Diğer teslimatlardan bu kadar uzak nokta uyarı üretir, engellemez.
+    outlier-distance-m: 5000
+    # Alıcının günlük adres değiştirme hakkı — rota titreşimini önler.
+    max-changes-per-day: 2
+
+  reroute:
+    # Bir rotaya bu aralıktan sık gelen değişiklikler tek optimizasyonda birleşir.
+    debounce: 500ms
+    # Bir rota günde en fazla bu kadar yeniden sıralanır; sonrası durak çıkar ama sıra değişmez.
+    max-per-route-per-day: 10
+    # Onaylanan adres değişikliği kalan turu bu orandan fazla pahalılaştırırsa firmaya
+    # "yarına ertele" önerilir (0.15 = %15).
+    suggest-postpone-above: 0.15
 
   jwt:
     # En az 32 bayt. Ortam değişkeniyle verilir; varsayılan YALNIZCA yerel

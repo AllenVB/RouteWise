@@ -1,0 +1,59 @@
+package com.routewise.recipient;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import com.routewise.auth.AuthenticatedUser;
+import com.routewise.recipient.MyShipmentService.MyShipment;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/me/shipments")
+@Tag(name = "Alıcı — kargolarım", description = "Alıcının kendi kargoları (A2, A3)")
+public class MyShipmentController {
+
+    private final MyShipmentService service;
+    private final PostponeService postpone;
+
+    public MyShipmentController(MyShipmentService service, PostponeService postpone) {
+        this.service = service;
+        this.postpone = postpone;
+    }
+
+    public record PostponeRequest(@NotNull LocalDate date) {}
+
+    @GetMapping
+    @Operation(summary = "Kargolarım", description = "Yeniden eskiye; sevk edildiyse tahmini teslim saatiyle.")
+    public List<MyShipment> list(@AuthenticationPrincipal AuthenticatedUser caller) {
+        return service.list(caller.id());
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Kargo detayı", description = "Başkasının kargosu 404 — var olduğu sızdırılmaz.")
+    public MyShipment get(@PathVariable Long id, @AuthenticationPrincipal AuthenticatedUser caller) {
+        return service.get(caller.id(), id);
+    }
+
+    @PostMapping("/{id}/postpone")
+    @Operation(summary = "Başka gün gelsin",
+            description = "Kargoyu yarından en fazla 14 gün sonrasına erteler. Kurye yoldaysa durak rotadan "
+                    + "çıkar ve rota son kapanan duraktan yeniden hesaplanır. Teslim edilmişse 409 "
+                    + "SHIPMENT_NOT_POSTPONABLE; başkasının kargosu 404.")
+    public MyShipment postpone(@PathVariable Long id, @Valid @RequestBody PostponeRequest body,
+                               @AuthenticationPrincipal AuthenticatedUser caller) {
+        return postpone.postpone(caller.id(), id, body.date());
+    }
+}

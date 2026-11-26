@@ -1,0 +1,240 @@
+package com.routewise.plan;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import com.routewise.address.Address;
+import com.routewise.address.AddressRepository;
+import com.routewise.common.error.ApiException;
+import com.routewise.common.error.ErrorCode;
+import com.routewise.common.geo.Points;
+import com.routewise.courier.Courier;
+import com.routewise.courier.CourierRepository;
+import com.routewise.optimization.Algorithm;
+import com.routewise.optimization.OptimizationRun;
+import com.routewise.optimization.OptimizationRunRepository;
+import com.routewise.optimization.PlannedRoute;
+import com.routewise.optimization.PlannedRouteRepository;
+import com.routewise.optimization.RouteStop;
+import com.routewise.optimization.RouteStopRepository;
+import com.routewise.shipment.Shipment;
+import com.routewise.shipment.ShipmentRepository;
+import com.routewise.shipment.ShipmentStatus;
+import com.routewise.notification.Notification;
+import com.routewise.notification.NotificationService;
+import com.routewise.recipient.Recipient;
+import com.routewise.recipient.RecipientRepository;
+import com.routewise.user.UserRepository;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.mockito.ArgumentCaptor;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+
+class DispatchServiceTest {
+
+    private final DeliveryPlanRepository plans = mock(DeliveryPlanRepository.class);
+    private final OptimizationRunRepository runs = mock(OptimizationRunRepository.class);
+    private final PlannedRouteRepository routes = mock(PlannedRouteRepository.class);
+    private final RouteStopRepository stops = mock(RouteStopRepository.class);
+    private final ShipmentRepository shipments = mock(ShipmentRepository.class);
+    private final CourierRepository couriers = mock(CourierRepository.class);
+    private final UserRepository users = mock(UserRepository.class);
+    private final RecipientRepository recipients = mock(RecipientRepository.class);
+    private final NotificationService notifications = mock(NotificationService.class);
+    private final AddressRepository addresses = mock(AddressRepository.class);
+    private final DispatchService service = new DispatchService(plans, runs, routes, stops, shipments, couriers,
+            users, recipients, notifications, addresses);
+    private Address a1;
+    private Address a2;
+
+    private DeliveryPlan plan;
+    private PlannedRoute r1;
+    private PlannedRoute r2;
+    private Shipment s1;
+    private Shipment s2;
+
+    private static <T> T withId(T entity, long id) {
+        ReflectionTestUtils.setField(entity, "id", id);
+        return entity;
+    }
+
+    private static Courier courier(long id) {
+        Courier c = mock(Courier.class);
+        when(c.getId()).thenReturn(id);
+        when(c.getUserId()).thenReturn(100 + id);
+        return c;
+    }
+
+    @BeforeEach
+    void setUp() {
+        plan = withId(new DeliveryPlan(1L, LocalDate.of(2026, 10, 31), 1L), 3L);
+        when(plans.lockById(3L)).thenReturn(Optional.of(plan));
+        OptimizationRun run = withId(new OptimizationRun(3L, Algorithm.ROUTEWISE, true, false,
+                BigDecimal.TEN, 1, (short) 2, 1), 41L);
+        when(runs.findByPlanIdAndAppliedTrue(3L)).thenReturn(Optional.of(run));
+        r1 = withId(new PlannedRoute(41L, 1L, BigDecimal.TEN, 1, BigDecimal.ONE), 7L);
+        r2 = withId(new PlannedRoute(41L, 3L, BigDecimal.TEN, 1, BigDecimal.ONE), 8L);
+        when(routes.findByRunIdOrderByIdAsc(41L)).thenReturn(List.of(r1, r2));
+        when(stops.findByRouteIdInOrderByRouteIdAscSequenceNoAsc(List.of(7L, 8L))).thenReturn(List.of(
+                new RouteStop(7L, 51L, 1, 1L, BigDecimal.ONE, 1),
+                new RouteStop(8L, 52L, 1, 2L, BigDecimal.ONE, 1)));
+        s1 = withId(new Shipment("BND-2026-00051", 12L, 31L, BigDecimal.ONE, (short) 0, 5), 51L);
+        s2 = withId(new Shipment("BND-2026-00052", 12L, 32L, BigDecimal.ONE, (short) 0, 5), 52L);
+        when(shipments.findAllById(anyList())).thenReturn(List.of(s1, s2));
+        // Koşudaki düğümler 1 ve 2; adresler onaylı ve hâlâ o düğümlerde.
+        a1 = withId(new Address(12L, "A 1", null, null, Points.of(40.35, 27.97), 1L, BigDecimal.ONE), 31L);
+        a2 = withId(new Address(12L, "A 2", null, null, Points.of(40.35, 27.97), 2L, BigDecimal.ONE), 32L);
+        a1.verify(9L);
+        a2.verify(9L);
+        when(addresses.findAllById(anyList())).thenReturn(List.of(a1, a2));
+        // Kurye mock'ları önce kurulur: thenReturn() içinde başka mock stub'lamak Mockito'yu bozar.
+        List<Courier> two = List.of(courier(1), courier(2));
+        when(couriers.findByStatusOrderByIdAsc(Courier.AVAILABLE)).thenReturn(two);
+    }
+
+    @Test
+    @DisplayName("Her rotaya bir kurye, kargolar PLANLANDI, plan SEVK_EDILDI")
+    void dispatchesEveryRoute() {
+        var result = service.dispatch(3L);
+
+        assertThat(result.status()).isEqualTo(PlanStatus.SEVK_EDILDI);
+        assertThat(plan.getStatus()).isEqualTo(PlanStatus.SEVK_EDILDI);
+        assertThat(r1.getCourierId()).isEqualTo(1L);
+        assertThat(r2.getCourierId()).isEqualTo(2L);
+        assertThat(s1.getStatus()).isEqualTo(ShipmentStatus.PLANLANDI);
+        assertThat(s2.getStatus()).isEqualTo(ShipmentStatus.PLANLANDI);
+        assertThat(result.routes()).extracting(DispatchService.DispatchedRoute::stopCount).containsExactly(1, 1);
+    }
+
+    @Test
+    @DisplayName("Sevkte her kargonun alıcısına tahmini saatle ETA bildirimi gider")
+    @SuppressWarnings("unchecked")
+    void notifiesEachRecipientWithEta() {
+        Recipient r = mock(Recipient.class);
+        when(r.getId()).thenReturn(12L);
+        when(r.getUserId()).thenReturn(3L);
+        when(recipients.findAllById(anyList())).thenReturn(List.of(r));
+
+        service.dispatch(3L);
+
+        var payload = ArgumentCaptor.forClass(Map.class);
+        verify(notifications, times(2))
+                .notify(eq(3L), any(),
+                        eq(Notification.Type.ETA), payload.capture());
+        assertThat(payload.getAllValues()).extracting(p -> p.get("orderNumber"))
+                .containsExactly("BND-2026-00051", "BND-2026-00052");
+    }
+
+    @Test
+    @DisplayName("Sevk reddedilirse bildirim de gitmez")
+    void noNotificationWhenDispatchFails() {
+        List<Courier> none = List.of();
+        when(couriers.findByStatusOrderByIdAsc(Courier.AVAILABLE)).thenReturn(none);
+
+        assertThatThrownBy(() -> service.dispatch(3L)).isInstanceOf(ApiException.class);
+        verifyNoInteractions(notifications);
+    }
+
+    @Test
+    @DisplayName("Rota sayısından az kurye varsa hiçbir şey değişmez — kuryesiz rota yok")
+    void notEnoughCouriers() {
+        List<Courier> one = List.of(courier(1));
+        when(couriers.findByStatusOrderByIdAsc(Courier.AVAILABLE)).thenReturn(one);
+
+        assertThatThrownBy(() -> service.dispatch(3L))
+                .extracting(e -> ((ApiException) e).code()).isEqualTo(ErrorCode.NOT_ENOUGH_COURIERS);
+        assertThat(plan.getStatus()).isEqualTo(PlanStatus.TASLAK);
+        assertThat(r1.getCourierId()).isNull();
+        assertThat(s1.getStatus()).isEqualTo(ShipmentStatus.BEKLEMEDE);
+    }
+
+    @Test
+    @DisplayName("Optimize edilmemiş plan PLAN_NOT_OPTIMIZED")
+    void notOptimized() {
+        when(runs.findByPlanIdAndAppliedTrue(3L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.dispatch(3L))
+                .extracting(e -> ((ApiException) e).code()).isEqualTo(ErrorCode.PLAN_NOT_OPTIMIZED);
+    }
+
+    @Test
+    @DisplayName("Tekrar sevk PLAN_ALREADY_DISPATCHED")
+    void alreadyDispatched() {
+        plan.markDispatched();
+
+        assertThatThrownBy(() -> service.dispatch(3L))
+                .extracting(e -> ((ApiException) e).code()).isEqualTo(ErrorCode.PLAN_ALREADY_DISPATCHED);
+    }
+
+    @Test
+    @DisplayName("Koşudan sonra yola çıkmış kargo varsa sevk durur, yeniden optimizasyon istenir")
+    void staleRun() {
+        ReflectionTestUtils.setField(s2, "status", ShipmentStatus.YOLDA);
+
+        assertThatThrownBy(() -> service.dispatch(3L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("BND-2026-00052")
+                .extracting(e -> ((ApiException) e).code()).isEqualTo(ErrorCode.PLAN_NOT_OPTIMIZED);
+        assertThat(s1.getStatus()).isEqualTo(ShipmentStatus.BEKLEMEDE);
+    }
+
+    @Test
+    @DisplayName("Koşudan sonra plan gününden sonraya ertelenen kargo varsa sevk durur")
+    void shouldRejectDispatchWhenShipmentPostponedPastPlanDay() {
+        s2.postponeTo(plan.getPlanDate().plusDays(1));
+
+        assertThatThrownBy(() -> service.dispatch(3L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("BND-2026-00052")
+                .extracting(e -> ((ApiException) e).code()).isEqualTo(ErrorCode.PLAN_NOT_OPTIMIZED);
+    }
+
+    @Test
+    @DisplayName("Plan gününe ya da öncesine ertelenmiş kargo sevk edilir")
+    void shouldDispatchShipmentPostponedToPlanDay() {
+        s2.postponeTo(plan.getPlanDate());
+
+        service.dispatch(3L);
+
+        assertThat(s2.getStatus()).isEqualTo(ShipmentStatus.PLANLANDI);
+        assertThat(s2.getPostponedTo()).isNull();
+    }
+
+    @Test
+    @DisplayName("Adresi koşudan sonra taşınan kargo varsa sevk durur — kurye eski noktaya gitmesin")
+    void shouldRejectDispatchWhenAddressMovedAfterRun() {
+        a2.relocate("A 2 yeni", null, null, Points.of(40.36, 27.98), 77L, BigDecimal.ONE, LocalDate.of(2026, 10, 31));
+        a2.verify(9L);
+
+        assertThatThrownBy(() -> service.dispatch(3L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("BND-2026-00052")
+                .extracting(e -> ((ApiException) e).code()).isEqualTo(ErrorCode.PLAN_NOT_OPTIMIZED);
+    }
+
+    @Test
+    @DisplayName("Adresi onay bekleyen kargo varsa sevk durur")
+    void shouldRejectDispatchWhenAddressAwaitsVerification() {
+        a1.relocate("A 1", null, null, Points.of(40.35, 27.97), 1L, BigDecimal.ONE, LocalDate.of(2026, 10, 31));
+
+        assertThatThrownBy(() -> service.dispatch(3L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("BND-2026-00051");
+    }
+}

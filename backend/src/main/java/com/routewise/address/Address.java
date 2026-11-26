@@ -2,6 +2,7 @@ package com.routewise.address;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -58,6 +59,10 @@ public class Address {
     @Column(name = "change_count_today", nullable = false)
     private short changeCountToday = 0;
 
+    /** Sayacın ait olduğu gün; başka bir günse sayaç sıfır sayılır. */
+    @Column(name = "change_count_date")
+    private LocalDate changeCountDate;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -65,6 +70,72 @@ public class Address {
     private Instant updatedAt;
 
     protected Address() {}
+
+    public Address(Long recipientId, String addressText, String district,
+                   String neighbourhood, Point location,
+                   Long snappedNodeId, BigDecimal snapDistanceM) {
+        this.recipientId = recipientId;
+        this.addressText = addressText;
+        this.district = district;
+        this.neighbourhood = neighbourhood;
+        this.location = location;
+        this.snappedNodeId = snappedNodeId;
+        this.snapDistanceM = snapDistanceM;
+        // Yeni adres doğrudan kuyruğa girer: firma onaylamadan rotaya giremez.
+        this.verificationStatus = VerificationStatus.DOGRULAMA_BEKLIYOR;
+    }
+
+    /** Firma onayı — beşinci katman. */
+    public void verify(Long verifierUserId) {
+        this.verificationStatus = VerificationStatus.DOGRULANDI;
+        this.verifiedBy = verifierUserId;
+        this.verifiedAt = Instant.now();
+        this.rejectionReason = null;
+        this.updatedAt = Instant.now();
+    }
+
+    public void reject(Long verifierUserId, String reason) {
+        this.verificationStatus = VerificationStatus.REDDEDILDI;
+        this.verifiedBy = verifierUserId;
+        this.verifiedAt = Instant.now();
+        this.rejectionReason = reason;
+        this.updatedAt = Instant.now();
+    }
+
+    /**
+     * Konum değişti — doğrulama sıfırlanır.
+     *
+     * <p>Bu projedeki en sessiz hata kaynağı burasıdır: doğrulanmış bir adres
+     * değiştirilip durumu korunsaydı, firma onayladığını sanırken rota başka
+     * bir noktaya çizilirdi. Değişiklik onayı geçersiz kılar.
+     */
+    public void relocate(String addressText, String district, String neighbourhood,
+                         Point location, Long snappedNodeId, BigDecimal snapDistanceM,
+                         LocalDate today) {
+        this.addressText = addressText;
+        this.district = district;
+        this.neighbourhood = neighbourhood;
+        this.location = location;
+        this.snappedNodeId = snappedNodeId;
+        this.snapDistanceM = snapDistanceM;
+        this.verificationStatus = VerificationStatus.DOGRULAMA_BEKLIYOR;
+        this.verifiedBy = null;
+        this.verifiedAt = null;
+        this.rejectionReason = null;
+        this.changeCountToday = (short) (changesOn(today) + 1);
+        this.changeCountDate = today;
+        this.updatedAt = Instant.now();
+    }
+
+    /**
+     * Verilen gün yapılmış değişiklik sayısı.
+     *
+     * <p>Ham sayaç dışarı açılmaz: tarihine bakmadan okunursa dünkü değişiklikler
+     * bugünün limitinden düşer ve adres kalıcı olarak kilitlenir.
+     */
+    public int changesOn(LocalDate day) {
+        return day.equals(changeCountDate) ? changeCountToday : 0;
+    }
 
     public Long getId() { return id; }
     public Long getRecipientId() { return recipientId; }
@@ -76,4 +147,7 @@ public class Address {
     public BigDecimal getSnapDistanceM() { return snapDistanceM; }
     public VerificationStatus getVerificationStatus() { return verificationStatus; }
     public String getRejectionReason() { return rejectionReason; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Long getVerifiedBy() { return verifiedBy; }
+    public Instant getVerifiedAt() { return verifiedAt; }
 }

@@ -510,6 +510,6 @@ geçersiz rota döndürür ve kimse fark etmez) ve **yetkilendirme** (rol sızı
 - [ ] Bandırma OSM idari sınır ilişki kimliği (kurulumda OSM'den teyit edilecek)
 - [ ] Ters geocoding kaynağı: Nominatim (self-hosted mu, public API mi?)
 - [ ] Yola snap eşiği (metre) ve aykırı değer uyarı eşiği
-- [ ] Adres değişikliği günlük limiti ve maliyet artışı eşiği
+- [x] Adres değişikliği günlük limiti ve maliyet artışı eşiği — alıcı başına günde 2 değişiklik; taşınan durak kalan turu %15'ten fazla pahalılaştırırsa firmaya erteleme önerilir (`routewise.reroute.*`)
 - [ ] Servis süresi: sabit mi, paket tipine göre mi?
 - [ ] Araç filosu seed içeriği (kaç araç, hangi kapasite/tüketim değerleri)

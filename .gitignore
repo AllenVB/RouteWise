@@ -42,3 +42,14 @@ coverage/
 
 # Figür önizleme çıktıları — kanonik biçim SVG'dir
 docs/diagrams/*.png
+
+# Gradle build onbellegi - repoya girmemeli
+.gradle/
+
+# TypeScript artımlı derleme önbelleği
+*.tsbuildinfo
+
+# Python bayt kodu ve test önbelleği
+__pycache__/
+*.py[cod]
+.pytest_cache/

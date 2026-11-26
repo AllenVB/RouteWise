@@ -1,0 +1,253 @@
+package com.routewise.optimization;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
+import com.routewise.cost.CostParameters;
+import com.routewise.cost.CostParametersRepository;
+import com.routewise.notification.Notification;
+import com.routewise.notification.NotificationRepository;
+import com.routewise.plan.DeliveryPlan;
+import com.routewise.plan.DeliveryPlanRepository;
+import com.routewise.shipment.Shipment;
+import com.routewise.shipment.ShipmentRepository;
+import com.routewise.support.PostgisRepositoryTest;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+/** Custom queries of the planning chain, against the real schema and its constraints. */
+class PlanningRepositoriesTest extends PostgisRepositoryTest {
+
+    private static final LocalDate DAY = LocalDate.of(2026, 10, 30);
+
+    @Autowired private ShipmentRepository shipments;
+    @Autowired private DeliveryPlanRepository plans;
+    @Autowired private OptimizationRunRepository runs;
+    @Autowired private PlannedRouteRepository routeRepo;
+    @Autowired private RouteStopRepository stopRepo;
+    @Autowired private NotificationRepository notifications;
+    @Autowired private CostParametersRepository costs;
+    @Autowired private JdbcTemplate jdbc;
+
+    private long addressId;
+    private long depotId;
+
+    @BeforeEach
+    void seed() {
+        jdbc.update("INSERT INTO users (email, password_hash, full_name, role) "
+                + "VALUES ('a@ornek.com', 'x', 'Alıcı', 'RECIPIENT')");
+        jdbc.update("INSERT INTO recipients (user_id) SELECT id FROM users WHERE email = 'a@ornek.com'");
+        Long recipientId = jdbc.queryForObject("SELECT id FROM recipients", Long.class);
+        addressId = jdbc.queryForObject("""
+                INSERT INTO addresses (recipient_id, address_text, location, verification_status,
+                                       verified_by, verified_at)
+                VALUES (?, 'Yeni Mah.', ST_SetSRID(ST_MakePoint(27.97, 40.35), 4326), 'DOGRULANDI',
+                        (SELECT id FROM users LIMIT 1), now())
+                RETURNING id
+                """, Long.class, recipientId);
+        depotId = jdbc.queryForObject("""
+                INSERT INTO depots (name, location, max_route_duration_min)
+                VALUES ('Test Depo', ST_SetSRID(ST_MakePoint(27.9767, 40.3521), 4326), 540)
+                RETURNING id
+                """, Long.class);
+    }
+
+    private Shipment shipment(String orderNumber) {
+        return shipments.saveAndFlush(new Shipment(orderNumber,
+                jdbc.queryForObject("SELECT id FROM recipients", Long.class),
+                addressId, new BigDecimal("1.00"), (short) 0, 5));
+    }
+
+    private void setStatus(Shipment s, String status, LocalDate postponedTo) {
+        jdbc.update("UPDATE shipments SET status = ?, postponed_to = ? WHERE id = ?",
+                status, postponedTo, s.getId());
+    }
+
+    @Test
+    @DisplayName("Planlanabilir: bekleyenler + o güne kadar ertelenenler, oluşturulma sırasıyla")
+    void plannableShipments() {
+        Shipment first = shipment("BND-2026-00001");
+        Shipment yolda = shipment("BND-2026-00002");
+        Shipment ertelenmisBugune = shipment("BND-2026-00003");
+        Shipment ertelenmisYarina = shipment("BND-2026-00004");
+        Shipment last = shipment("BND-2026-00005");
+        setStatus(yolda, "YOLDA", null);
+        setStatus(ertelenmisBugune, "ERTELENDI", DAY);
+        setStatus(ertelenmisYarina, "ERTELENDI", DAY.plusDays(1));
+
+        assertThat(shipments.findPlannableOn(DAY))
+                .extracting(Shipment::getOrderNumber)
+                .containsExactly("BND-2026-00001", "BND-2026-00003", "BND-2026-00005");
+        assertThat(first.getId()).isLessThan(last.getId());
+    }
+
+    @Test
+    @DisplayName("Uygulanan koşu geri çekilince aynı plana yeni uygulanan koşu yazılabilir")
+    void withdrawAllowsNewAppliedRun() {
+        DeliveryPlan plan = plans.saveAndFlush(new DeliveryPlan(depotId, DAY, null));
+        runs.saveAndFlush(run(plan, true));
+
+        assertThat(runs.withdrawApplied(plan.getId())).isEqualTo(1);
+        runs.saveAndFlush(run(plan, true));
+
+        assertThat(runs.findByPlanIdOrderByIdDesc(plan.getId()))
+                .extracting(OptimizationRun::isApplied).containsExactly(true, false);
+    }
+
+    @Test
+    @DisplayName("Geri çekmeden ikinci uygulanan koşu şema tarafından reddedilir")
+    void schemaRejectsTwoAppliedRuns() {
+        DeliveryPlan plan = plans.saveAndFlush(new DeliveryPlan(depotId, DAY, null));
+        runs.saveAndFlush(run(plan, true));
+
+        assertThatThrownBy(() -> runs.saveAndFlush(run(plan, true)))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("Plan kilidi gerçek PostgreSQL'de çalışır ve planı döndürür")
+    void lockById() {
+        DeliveryPlan plan = plans.saveAndFlush(new DeliveryPlan(depotId, DAY, null));
+
+        assertThat(plans.lockById(plan.getId())).isPresent();
+        assertThat(plans.findByDepotIdAndPlanDate(depotId, DAY)).isPresent();
+    }
+
+    @Test
+    @DisplayName("Maliyet parametresi: plan gününde geçerli olan, yani o güne kadar başlayan en son satır")
+    void costParametersInForceOnDate() {
+        costs.saveAndFlush(new CostParameters(new BigDecimal("40.00"), new BigDecimal("140.00"),
+                new BigDecimal("2.50"), LocalDate.of(2026, 1, 1)));
+        costs.saveAndFlush(new CostParameters(new BigDecimal("44.00"), new BigDecimal("150.00"),
+                new BigDecimal("2.50"), DAY));
+        costs.saveAndFlush(new CostParameters(new BigDecimal("50.00"), new BigDecimal("160.00"),
+                new BigDecimal("2.50"), DAY.plusDays(1)));
+
+        assertThat(costs.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDesc(DAY))
+                .get().extracting(CostParameters::getFuelPricePerL).isEqualTo(new BigDecimal("44.00"));
+        assertThat(costs.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDesc(DAY.minusDays(1)))
+                .get().extracting(CostParameters::getFuelPricePerL).isEqualTo(new BigDecimal("40.00"));
+        assertThat(costs.findFirstByEffectiveFromLessThanEqualOrderByEffectiveFromDesc(LocalDate.of(2025, 12, 31)))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("Koşu geçmişi sorgusu: route_stops'ta geçen kargo true, geçmeyen false")
+    void appearsInAnyRun() {
+        Shipment inRun = shipment("BND-2026-00010");
+        Shipment free = shipment("BND-2026-00011");
+        DeliveryPlan plan = plans.saveAndFlush(new DeliveryPlan(depotId, DAY, null));
+        OptimizationRun r = runs.saveAndFlush(run(plan, true));
+        jdbc.update("INSERT INTO vehicles (depot_id, plate, capacity_kg, fuel_l_per_100km) VALUES (?, '10 T 1', 100, 9)", depotId);
+        Long vehicleId = jdbc.queryForObject("SELECT id FROM vehicles", Long.class);
+        Long routeId = jdbc.queryForObject("INSERT INTO routes (run_id, vehicle_id) VALUES (?, ?) RETURNING id",
+                Long.class, r.getId(), vehicleId);
+        jdbc.update("INSERT INTO route_stops (route_id, shipment_id, sequence_no) VALUES (?, ?, 1)", routeId, inRun.getId());
+
+        assertThat(shipments.appearsInAnyRun(inRun.getId())).isTrue();
+        assertThat(shipments.appearsInAnyRun(free.getId())).isFalse();
+        assertThat(runs.findByPlanIdAndAppliedTrue(plan.getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("Kuryenin rotası: yalnızca sevk edilmiş planın uygulanan koşusu; taslak ve geri çekilmiş koşu değil")
+    void courierRouteOnlyFromDispatchedAppliedRun() {
+        jdbc.update("INSERT INTO users (email, password_hash, full_name, role) VALUES ('k@ornek.com', 'x', 'Kurye', 'COURIER')");
+        jdbc.update("INSERT INTO couriers (user_id) SELECT id FROM users WHERE email = 'k@ornek.com'");
+        Long courierId = jdbc.queryForObject("SELECT id FROM couriers", Long.class);
+        jdbc.update("INSERT INTO vehicles (depot_id, plate, capacity_kg, fuel_l_per_100km) VALUES (?, '10 K 1', 100, 9)", depotId);
+        Long vehicleId = jdbc.queryForObject("SELECT id FROM vehicles WHERE plate = '10 K 1'", Long.class);
+
+        DeliveryPlan plan = plans.saveAndFlush(new DeliveryPlan(depotId, DAY, null));
+        OptimizationRun old = runs.saveAndFlush(run(plan, false));
+        OptimizationRun applied = runs.saveAndFlush(run(plan, true));
+        String insertRoute = "INSERT INTO routes (run_id, vehicle_id, courier_id) VALUES (?, ?, ?) RETURNING id";
+        jdbc.queryForObject(insertRoute, Long.class, old.getId(), vehicleId, courierId);
+        Long appliedRoute = jdbc.queryForObject(insertRoute, Long.class, applied.getId(), vehicleId, courierId);
+
+        // Plan henüz taslak: kuryenin rotası yok
+        assertThat(routeRepo.findDispatchedFor(courierId, DAY)).isEmpty();
+
+        jdbc.update("UPDATE delivery_plans SET status = 'SEVK_EDILDI' WHERE id = ?", plan.getId());
+        assertThat(routeRepo.findDispatchedFor(courierId, DAY)).get()
+                .extracting(PlannedRoute::getId).isEqualTo(appliedRoute);
+        assertThat(routeRepo.findDispatchedFor(courierId, DAY.plusDays(1))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Şema: ulaşılamayan durak sebepsiz kaydedilemez")
+    void failedStopNeedsReason() {
+        Shipment s = shipment("BND-2026-00020");
+        DeliveryPlan plan = plans.saveAndFlush(new DeliveryPlan(depotId, DAY, null));
+        OptimizationRun r = runs.saveAndFlush(run(plan, true));
+        jdbc.update("INSERT INTO vehicles (depot_id, plate, capacity_kg, fuel_l_per_100km) VALUES (?, '10 K 2', 100, 9)", depotId);
+        Long vehicleId = jdbc.queryForObject("SELECT id FROM vehicles WHERE plate = '10 K 2'", Long.class);
+        Long routeId = jdbc.queryForObject("INSERT INTO routes (run_id, vehicle_id) VALUES (?, ?) RETURNING id",
+                Long.class, r.getId(), vehicleId);
+
+        assertThatThrownBy(() -> jdbc.update(
+                "INSERT INTO route_stops (route_id, shipment_id, sequence_no, status) VALUES (?, ?, 1, 'ULASILAMADI')",
+                routeId, s.getId()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("Alıcıya giden ETA yalnızca sevk edilmiş planın uygulanan koşusundan; yeniden eskiye")
+    void dispatchedStopsForShipments() {
+        Shipment s = shipment("BND-2026-00030");
+        jdbc.update("INSERT INTO vehicles (depot_id, plate, capacity_kg, fuel_l_per_100km) VALUES (?, '10 E 1', 100, 9)", depotId);
+        Long vehicleId = jdbc.queryForObject("SELECT id FROM vehicles WHERE plate = '10 E 1'", Long.class);
+        DeliveryPlan draft = plans.saveAndFlush(new DeliveryPlan(depotId, DAY, null));
+        DeliveryPlan dispatched = plans.saveAndFlush(new DeliveryPlan(depotId, DAY.plusDays(1), null));
+        jdbc.update("UPDATE delivery_plans SET status = 'SEVK_EDILDI' WHERE id = ?", dispatched.getId());
+        OptimizationRun draftRun = runs.saveAndFlush(run(draft, true));
+        OptimizationRun liveRun = runs.saveAndFlush(run(dispatched, true));
+        String route = "INSERT INTO routes (run_id, vehicle_id) VALUES (?, ?) RETURNING id";
+        String stop = "INSERT INTO route_stops (route_id, shipment_id, sequence_no, eta) VALUES (?, ?, 1, now()) RETURNING id";
+        jdbc.queryForObject(stop, Long.class, jdbc.queryForObject(route, Long.class, draftRun.getId(), vehicleId), s.getId());
+        Long live = jdbc.queryForObject(stop, Long.class, jdbc.queryForObject(route, Long.class, liveRun.getId(), vehicleId), s.getId());
+
+        assertThat(stopRepo.findDispatchedForShipments(List.of(s.getId())))
+                .extracting(RouteStop::getId).containsExactly(live);
+    }
+
+    @Test
+    @DisplayName("Bildirim: JSONB içerik gidip gelir; okundu işareti yalnızca sahibinin satırını değiştirir")
+    void notificationsPayloadAndOwnership() {
+        jdbc.update("INSERT INTO users (email, password_hash, full_name, role) VALUES ('b@ornek.com', 'x', 'B', 'RECIPIENT')");
+        Long a = jdbc.queryForObject("SELECT id FROM users WHERE email = 'a@ornek.com'", Long.class);
+        Long b = jdbc.queryForObject("SELECT id FROM users WHERE email = 'b@ornek.com'", Long.class);
+        var at = Instant.parse("2026-11-03T06:00:00Z");
+        var mineN = notifications.saveAndFlush(new Notification(a, null,
+                Notification.Type.ETA, Notification.Channel.IN_APP,
+                Map.of("orderNumber", "BND-2026-00001", "eta", "2026-11-03T05:25:00Z"), at));
+        var theirs = notifications.saveAndFlush(new Notification(b, null,
+                Notification.Type.ETA, Notification.Channel.IN_APP,
+                Map.of("orderNumber", "BND-2026-00002"), at));
+
+        int changed = notifications.markRead(a, List.of(mineN.getId(), theirs.getId()), at);
+
+        assertThat(changed).isEqualTo(1);
+        assertThat(notifications.countByUserIdAndChannelAndReadAtIsNull(b,
+                Notification.Channel.IN_APP)).isEqualTo(1);
+        // Hibernate önbelleğini değil gerçekten veritabanındaki JSONB'yi oku
+        assertThat(jdbc.queryForObject("SELECT payload->>'eta' FROM notifications WHERE id = ?",
+                String.class, mineN.getId())).isEqualTo("2026-11-03T05:25:00Z");
+    }
+
+    private static OptimizationRun run(DeliveryPlan plan, boolean applied) {
+        return new OptimizationRun(plan.getId(), Algorithm.GREEDY_NN, applied, false,
+                new BigDecimal("1000.00"), 600, (short) 1, 3);
+    }
+}
